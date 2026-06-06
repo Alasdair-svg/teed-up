@@ -1,0 +1,3 @@
+app_identifier('com.teedup.golf')
+apple_id('Alasdair@theartesiangroup.com')
+team_name('The Artesian Group')

@@ -1,0 +1,705 @@
+/// Booking text parser for the Teed Up golf booking app.
+///
+/// Extracts structured golf round data from raw OCR text using a
+/// priority-ordered set of regex patterns. Each extraction method tries
+/// multiple patterns — from most-specific to most-generic — and returns
+/// the first successful match.
+///
+/// Supports booking confirmations from worldwide platforms including
+/// Viya, GolfNow, TeeOff, BRS Golf, Club V1, ForeUp, and generic
+/// email / SMS confirmations.
+library;
+
+import '../models/golf_round.dart';
+import '../models/player.dart';
+
+/// Static utility class that parses raw OCR text into [GolfRound] fields.
+///
+/// Each method is independent and returns `null` (or an empty list / zero)
+/// when no match is found, allowing the UI to prompt for manual input on
+/// missing fields.
+///
+/// ```dart
+/// final round = BookingParser.parseBookingText(rawOcrText);
+/// ```
+class BookingParser {
+  // Private constructor — all methods are static.
+  BookingParser._();
+
+  // ---------------------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------------------
+
+  /// Standard group size in golf.
+  static const int _defaultGroupSize = 4;
+
+  /// Month name → number lookup (case-insensitive keys stored lowercase).
+  static const Map<String, int> _monthMap = {
+    'january': 1, 'jan': 1,
+    'february': 2, 'feb': 2,
+    'march': 3, 'mar': 3,
+    'april': 4, 'apr': 4,
+    'may': 5,
+    'june': 6, 'jun': 6,
+    'july': 7, 'jul': 7,
+    'august': 8, 'aug': 8,
+    'september': 9, 'sep': 9, 'sept': 9,
+    'october': 10, 'oct': 10,
+    'november': 11, 'nov': 11,
+    'december': 12, 'dec': 12,
+  };
+
+  /// Day-of-week names stripped from input before parsing.
+  static final RegExp _dayOfWeekPrefix = RegExp(
+    r'(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|'
+    r'mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)'
+    r'[,.]?\s*',
+    caseSensitive: false,
+  );
+
+  /// Ordinal suffixes stripped from day numbers (e.g. "15th" → "15").
+  static final RegExp _ordinalSuffix = RegExp(r'(\d+)(?:st|nd|rd|th)\b');
+
+  // ---------------------------------------------------------------------------
+  // Main entry point
+  // ---------------------------------------------------------------------------
+
+  /// Parses [rawText] into a [GolfRound] with best-effort field extraction.
+  ///
+  /// Fields that cannot be determined are set to safe defaults:
+  /// - [GolfRound.courseName] defaults to `'Unknown Course'`.
+  /// - [GolfRound.date] defaults to [DateTime.now].
+  /// - [GolfRound.teeTime] defaults to the round date at midnight.
+  /// - [GolfRound.id] is set to `'pending_<timestamp>'` (assigned after calendar sync).
+  static GolfRound parseBookingText(String rawText) {
+    final players = extractPlayers(rawText);
+    final date = extractDate(rawText) ?? DateTime.now();
+    final teeTimeStr = extractTeeTime(rawText);
+    final course = extractCourse(rawText);
+    final bookingRef = extractBookingRef(rawText);
+
+    // Parse tee time string into a DateTime anchored to the round date.
+    final teeTime = _parseTeeTimeString(teeTimeStr, date);
+
+    return GolfRound(
+      id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+      courseName: course ?? 'Unknown Course',
+      date: date,
+      teeTime: teeTime,
+      players: players
+          .map((name) => Player(
+                id: 'player_${name.hashCode}',
+                name: name,
+              ))
+          .toList(),
+      bookingRef: bookingRef,
+    );
+  }
+
+  /// Parses a tee time string (e.g. "6:10 AM", "14:30", "TBC") into
+  /// a [DateTime] anchored to [roundDate].
+  ///
+  /// Returns [roundDate] with hour/minute set if parsing succeeds,
+  /// or [roundDate] unchanged if the string is null or unrecognisable.
+  static DateTime _parseTeeTimeString(String? teeTimeStr, DateTime roundDate) {
+    if (teeTimeStr == null || teeTimeStr.toUpperCase() == 'TBC') {
+      return roundDate;
+    }
+
+    // Try to parse "HH:MM AM/PM" or "HH:MM" (24-hour).
+    final match = RegExp(
+      r'(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)?',
+    ).firstMatch(teeTimeStr);
+
+    if (match == null) return roundDate;
+
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final meridiem = match.group(3)?.toUpperCase();
+
+    if (meridiem == 'PM' && hour < 12) hour += 12;
+    if (meridiem == 'AM' && hour == 12) hour = 0;
+
+    return DateTime(roundDate.year, roundDate.month, roundDate.day, hour, minute);
+  }
+
+
+  // ---------------------------------------------------------------------------
+  // Date extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts a date from [text] trying 20+ international formats.
+  ///
+  /// Returns `null` when no recognisable date pattern is found.
+  ///
+  /// Supported formats (non-exhaustive):
+  /// - `DD/MM/YYYY`, `MM/DD/YYYY`, `YYYY-MM-DD`
+  /// - `DD-MM-YYYY`, `DD.MM.YYYY`
+  /// - `January 15, 2026`, `15 January 2026`, `Jan 15, 2026`
+  /// - `Saturday 15th June 2026`, `15th Jun 2026`
+  /// - `15-Jun-2026`, `Jun-15-2026`
+  /// - `Date: 15/06/2026` (labelled variants)
+  static DateTime? extractDate(String text) {
+    // Normalise: remove day-of-week prefixes, ordinal suffixes, extra spaces.
+    var cleaned = text.replaceAll(_dayOfWeekPrefix, '');
+    cleaned = cleaned.replaceAllMapped(
+      _ordinalSuffix,
+      (m) => m.group(1)!,
+    );
+
+    // --- Labelled date (highest priority) ---
+    // "Date: 15/06/2026" or "Date: June 15, 2026"
+    final labelledMatch = RegExp(
+      r'(?:date|booking\s*date|round\s*date|play\s*date)\s*[:]\s*(.+)',
+      caseSensitive: false,
+    ).firstMatch(cleaned);
+    if (labelledMatch != null) {
+      final sub = labelledMatch.group(1)!.trim();
+      final parsed = _tryAllDateFormats(sub);
+      if (parsed != null) return parsed;
+    }
+
+    // --- Try all formats on the full text ---
+    return _tryAllDateFormats(cleaned);
+  }
+
+  /// Tries every date regex pattern against [text] and returns the first hit.
+  static DateTime? _tryAllDateFormats(String text) {
+    // 1) ISO 8601: YYYY-MM-DD
+    final iso = RegExp(r'\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b');
+    final isoMatch = iso.firstMatch(text);
+    if (isoMatch != null) {
+      final dt = _buildDate(
+        int.parse(isoMatch.group(1)!),
+        int.parse(isoMatch.group(2)!),
+        int.parse(isoMatch.group(3)!),
+      );
+      if (dt != null) return dt;
+    }
+
+    // 2) DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY (most common outside US)
+    final dmy = RegExp(r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\b');
+    final dmyMatch = dmy.firstMatch(text);
+    if (dmyMatch != null) {
+      final a = int.parse(dmyMatch.group(1)!);
+      final b = int.parse(dmyMatch.group(2)!);
+      final year = int.parse(dmyMatch.group(3)!);
+      // Heuristic: if first number > 12 it's definitely the day (DD/MM/YYYY).
+      // If second number > 12 it's MM/DD/YYYY. Otherwise assume DD/MM/YYYY.
+      if (a > 12) {
+        return _buildDate(year, b, a); // DD/MM/YYYY
+      } else if (b > 12) {
+        return _buildDate(year, a, b); // MM/DD/YYYY
+      } else {
+        return _buildDate(year, b, a); // Default DD/MM/YYYY (international)
+      }
+    }
+
+    // 3) DD/MM/YY (two-digit year)
+    final dmyShort = RegExp(r'\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b');
+    final dmyShortMatch = dmyShort.firstMatch(text);
+    if (dmyShortMatch != null) {
+      final a = int.parse(dmyShortMatch.group(1)!);
+      final b = int.parse(dmyShortMatch.group(2)!);
+      final shortYear = int.parse(dmyShortMatch.group(3)!);
+      final year = shortYear + (shortYear < 50 ? 2000 : 1900);
+      if (a > 12) {
+        return _buildDate(year, b, a);
+      } else if (b > 12) {
+        return _buildDate(year, a, b);
+      } else {
+        return _buildDate(year, b, a);
+      }
+    }
+
+    // 4) "15 January 2026" / "15 Jan 2026"
+    final dayMonthYear = RegExp(
+      r'\b(\d{1,2})\s+'
+      r'(january|february|march|april|may|june|july|august|september|october|november|december|'
+      r'jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)'
+      r'[\s,]+(\d{4})\b',
+      caseSensitive: false,
+    );
+    final dmyWordMatch = dayMonthYear.firstMatch(text);
+    if (dmyWordMatch != null) {
+      final day = int.parse(dmyWordMatch.group(1)!);
+      final month = _monthMap[dmyWordMatch.group(2)!.toLowerCase()];
+      final year = int.parse(dmyWordMatch.group(3)!);
+      if (month != null) return _buildDate(year, month, day);
+    }
+
+    // 5) "January 15, 2026" / "Jan 15 2026"
+    final monthDayYear = RegExp(
+      r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+      r'jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)'
+      r'[\s]+(\d{1,2})[,\s]+(\d{4})\b',
+      caseSensitive: false,
+    );
+    final mdyWordMatch = monthDayYear.firstMatch(text);
+    if (mdyWordMatch != null) {
+      final month = _monthMap[mdyWordMatch.group(1)!.toLowerCase()];
+      final day = int.parse(mdyWordMatch.group(2)!);
+      final year = int.parse(mdyWordMatch.group(3)!);
+      if (month != null) return _buildDate(year, month, day);
+    }
+
+    // 6) "15-Jun-2026" or "15/Jun/2026"
+    final dayMonSepYear = RegExp(
+      r'\b(\d{1,2})[/\-]'
+      r'(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)'
+      r'[/\-](\d{4})\b',
+      caseSensitive: false,
+    );
+    final dmsyMatch = dayMonSepYear.firstMatch(text);
+    if (dmsyMatch != null) {
+      final day = int.parse(dmsyMatch.group(1)!);
+      final month = _monthMap[dmsyMatch.group(2)!.toLowerCase()];
+      final year = int.parse(dmsyMatch.group(3)!);
+      if (month != null) return _buildDate(year, month, day);
+    }
+
+    // 7) "Jun-15-2026" or "Jun/15/2026"
+    final monDayYear = RegExp(
+      r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)'
+      r'[/\-](\d{1,2})[/\-](\d{4})\b',
+      caseSensitive: false,
+    );
+    final mdySepMatch = monDayYear.firstMatch(text);
+    if (mdySepMatch != null) {
+      final month = _monthMap[mdySepMatch.group(1)!.toLowerCase()];
+      final day = int.parse(mdySepMatch.group(2)!);
+      final year = int.parse(mdySepMatch.group(3)!);
+      if (month != null) return _buildDate(year, month, day);
+    }
+
+    // 8) "January 15" / "Jun 15" (no year — assume current or next occurrence)
+    final monthDay = RegExp(
+      r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+      r'jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)'
+      r'[\s]+(\d{1,2})\b',
+      caseSensitive: false,
+    );
+    final mdNoYearMatch = monthDay.firstMatch(text);
+    if (mdNoYearMatch != null) {
+      final month = _monthMap[mdNoYearMatch.group(1)!.toLowerCase()];
+      final day = int.parse(mdNoYearMatch.group(2)!);
+      if (month != null) {
+        final now = DateTime.now();
+        var year = now.year;
+        final candidate = _buildDate(year, month, day);
+        if (candidate != null && candidate.isBefore(now)) {
+          return _buildDate(year + 1, month, day);
+        }
+        return candidate;
+      }
+    }
+
+    // 9) "15 January" / "15 Jun" (no year)
+    final dayMonth = RegExp(
+      r'\b(\d{1,2})\s+'
+      r'(january|february|march|april|may|june|july|august|september|october|november|december|'
+      r'jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b',
+      caseSensitive: false,
+    );
+    final dmNoYearMatch = dayMonth.firstMatch(text);
+    if (dmNoYearMatch != null) {
+      final day = int.parse(dmNoYearMatch.group(1)!);
+      final month = _monthMap[dmNoYearMatch.group(2)!.toLowerCase()];
+      if (month != null) {
+        final now = DateTime.now();
+        var year = now.year;
+        final candidate = _buildDate(year, month, day);
+        if (candidate != null && candidate.isBefore(now)) {
+          return _buildDate(year + 1, month, day);
+        }
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /// Safely builds a [DateTime], returning `null` for invalid combinations.
+  static DateTime? _buildDate(int year, int month, int day) {
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    if (year < 1900 || year > 2100) return null;
+    try {
+      final dt = DateTime(year, month, day);
+      // DateTime auto-adjusts overflows (e.g. Feb 30 → Mar 2).
+      // Reject if day doesn't match what we asked for.
+      if (dt.month != month || dt.day != day) return null;
+      return dt;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tee time extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts a tee time from [text].
+  ///
+  /// Returns a normalised time string (e.g. `"6:10 AM"`, `"14:30"`) or `null`.
+  ///
+  /// Recognised patterns:
+  /// - `Tee Time: 06:10`, `Start: 2:30 PM`
+  /// - `Time: 14:30`, `Tee-off: 7:00am`
+  /// - Standalone `HH:MM AM/PM` or 24-hour `HH:MM`
+  static String? extractTeeTime(String text) {
+    // --- Labelled patterns (highest priority) ---
+    final labelled = RegExp(
+      r'(?:tee\s*time|tee[\s\-]*off|start\s*time|time|starts?)\s*[:]\s*'
+      r'(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)?',
+      caseSensitive: false,
+    );
+    final labelledMatch = labelled.firstMatch(text);
+    if (labelledMatch != null) {
+      return _formatTime(labelledMatch.group(1)!, labelledMatch.group(2));
+    }
+
+    // --- "at HH:MM AM/PM" ---
+    final atTime = RegExp(
+      r'\bat\s+(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)?',
+      caseSensitive: false,
+    );
+    final atMatch = atTime.firstMatch(text);
+    if (atMatch != null) {
+      return _formatTime(atMatch.group(1)!, atMatch.group(2));
+    }
+
+    // --- "HH:MM AM/PM" with mandatory meridiem ---
+    final withMeridiem = RegExp(
+      r'\b(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)\b',
+    );
+    final meridiemMatch = withMeridiem.firstMatch(text);
+    if (meridiemMatch != null) {
+      return _formatTime(meridiemMatch.group(1)!, meridiemMatch.group(2));
+    }
+
+    // --- Standalone HH:MM (24-hour, only valid golf hours 05:00–20:59) ---
+    final standalone = RegExp(r'\b((?:0[5-9]|1[0-9]|20):\d{2})\b');
+    final standaloneMatch = standalone.firstMatch(text);
+    if (standaloneMatch != null) {
+      return standaloneMatch.group(1);
+    }
+
+    return null;
+  }
+
+  /// Formats a raw time string with an optional [meridiem] into a
+  /// consistent display format.
+  static String _formatTime(String raw, String? meridiem) {
+    if (meridiem == null || meridiem.isEmpty) return raw;
+    final m = meridiem.replaceAll('.', '').toUpperCase().trim();
+    return '$raw $m';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Course name extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts a golf course name from [text].
+  ///
+  /// Looks for keywords like "Golf Club", "Golf Course", "Country Club",
+  /// "Links", "GC", and UAE-specific course names ("Earth Course",
+  /// "Majlis Course", "Fire Course", "Faldo Course").
+  ///
+  /// Returns the full matched course name or `null`.
+  static String? extractCourse(String text) {
+    // --- Labelled: "Course: Dubai Hills Golf Club" ---
+    final labelled = RegExp(
+      r'(?:course|club|venue|location|facility)\s*[:]\s*(.+)',
+      caseSensitive: false,
+    );
+    final labelledMatch = labelled.firstMatch(text);
+    if (labelledMatch != null) {
+      final name = _cleanCourseName(labelledMatch.group(1)!);
+      if (name.isNotEmpty) return name;
+    }
+
+    // --- "Welcome to [Course Name]" ---
+    final welcome = RegExp(
+      r'welcome\s+to\s+(.+?)(?:\n|$)',
+      caseSensitive: false,
+    );
+    final welcomeMatch = welcome.firstMatch(text);
+    if (welcomeMatch != null) {
+      final name = _cleanCourseName(welcomeMatch.group(1)!);
+      if (name.isNotEmpty) return name;
+    }
+
+    // --- Known keyword patterns ---
+    // Capture word(s) before + the keyword + optional word(s) after.
+    final keywords = [
+      // Full names with suffixes
+      r"[\w\s'-]+?\s+Golf\s+(?:Club|Course|Resort|Academy|Centre|Center)",
+      r"[\w\s'-]+?\s+Country\s+Club",
+      r"[\w\s'-]+?\s+Golf\s+&\s+Country\s+Club",
+      r"[\w\s'-]+?\s+Links",
+      r"[\w\s'-]+?\s+GC\b",
+      // UAE-specific course names (sub-courses within a club)
+      r"(?:Earth|Majlis|Faldo|Fire|Water|Wind|Championship|Academy)\s+Course",
+    ];
+
+    for (final pattern in keywords) {
+      final match = RegExp(pattern, caseSensitive: false).firstMatch(text);
+      if (match != null) {
+        final name = _cleanCourseName(match.group(0)!);
+        if (name.isNotEmpty) return name;
+      }
+    }
+
+    return null;
+  }
+
+  /// Trims and cleans a raw course name string.
+  static String _cleanCourseName(String raw) {
+    return raw
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r"[^\w\s\&\'-]"), '')
+        .trim();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Player extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts player names from [text].
+  ///
+  /// Tries (in order):
+  /// 1. Lines under a "Players" / "Golfers" / "Group" heading.
+  /// 2. Numbered list items (e.g. "1. John Smith").
+  /// 3. Comma-separated names after a label (e.g. "Players: A, B, C").
+  /// 4. "Player N: Name" pattern (common in booking platforms).
+  /// 5. Heuristic: lines that look like "First Last" name patterns.
+  ///
+  /// Results are de-duplicated and capped at 8 (two groups max).
+  static List<String> extractPlayers(String text) {
+    final Set<String> found = {};
+
+    // --- 1) "Player N:" pattern (e.g. "Player 1: John Smith") ---
+    final playerN = RegExp(
+      r'player\s*\d+\s*[:]\s*(.+)',
+      caseSensitive: false,
+    );
+    for (final m in playerN.allMatches(text)) {
+      final name = _cleanPlayerName(m.group(1)!);
+      if (_isValidName(name)) found.add(name);
+    }
+    if (found.isNotEmpty) return found.take(8).toList();
+
+    // --- 2) Lines under a header: "Players:", "Golfers:", "Group:" ---
+    final headerPattern = RegExp(
+      r'(?:players?|golfers?|group\s*members?|attendees?|participants?)\s*[:]\s*\n((?:.+\n?)+)',
+      caseSensitive: false,
+    );
+    final headerMatch = headerPattern.firstMatch(text);
+    if (headerMatch != null) {
+      final block = headerMatch.group(1)!;
+      for (final line in block.split('\n')) {
+        // Strip leading numbers, bullets, dashes.
+        final cleaned = line
+            .replaceAll(RegExp(r'^\s*[\d]+[.)]\s*'), '')
+            .replaceAll(RegExp(r'^\s*[-•*]\s*'), '')
+            .trim();
+        if (_isValidName(cleaned)) found.add(cleaned);
+        // Stop at blank line or a new section header.
+        if (line.trim().isEmpty ||
+            RegExp(r'^[A-Z][a-z]+:').hasMatch(line.trim())) {
+          break;
+        }
+      }
+      if (found.isNotEmpty) return found.take(8).toList();
+    }
+
+    // --- 3) Comma-separated after label ---
+    final csvLabel = RegExp(
+      r'(?:players?|golfers?|group|names?)\s*[:]\s*(.+)',
+      caseSensitive: false,
+    );
+    final csvMatch = csvLabel.firstMatch(text);
+    if (csvMatch != null) {
+      final names = csvMatch.group(1)!.split(RegExp(r'[,;&]+'));
+      for (final raw in names) {
+        final name = _cleanPlayerName(raw);
+        if (_isValidName(name)) found.add(name);
+      }
+      if (found.isNotEmpty) return found.take(8).toList();
+    }
+
+    // --- 4) Numbered list anywhere: "1. John Smith", "2) Jane Doe" ---
+    final numbered = RegExp(
+      r'^\s*\d+[.)]\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)',
+      multiLine: true,
+    );
+    for (final m in numbered.allMatches(text)) {
+      final name = _cleanPlayerName(m.group(1)!);
+      if (_isValidName(name)) found.add(name);
+    }
+    if (found.isNotEmpty) return found.take(8).toList();
+
+    // --- 5) "Name:" / "Name -" pattern used by some platforms ---
+    final nameColon = RegExp(
+      r'(?:name|golfer|player)\s*[:]\s*(.+)',
+      caseSensitive: false,
+    );
+    for (final m in nameColon.allMatches(text)) {
+      final name = _cleanPlayerName(m.group(1)!);
+      if (_isValidName(name)) found.add(name);
+    }
+
+    return found.take(8).toList();
+  }
+
+  /// Cleans a raw player name string.
+  static String _cleanPlayerName(String raw) {
+    return raw
+        .replaceAll(RegExp(r"[^\w\s\'-]"), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Heuristic: a "valid" player name has 2–5 words, each starting
+  /// with an uppercase letter, total length 3–60 characters, and doesn't
+  /// contain golf-specific non-name keywords.
+  static bool _isValidName(String name) {
+    if (name.length < 3 || name.length > 60) return false;
+
+    final words = name.split(' ').where((w) => w.isNotEmpty).toList();
+    if (words.length < 2 || words.length > 5) return false;
+
+    // Reject common false positives from booking text.
+    final blacklist = {
+      'golf', 'club', 'course', 'booking', 'confirmation', 'reference',
+      'tee', 'time', 'date', 'player', 'slot', 'group', 'total', 'amount',
+      'payment', 'receipt', 'invoice', 'holes', 'round', 'buggy', 'cart',
+      'caddy', 'green', 'fee', 'rate', 'price', 'open', 'available',
+      'booked', 'reserved', 'unknown', //
+    };
+    for (final word in words) {
+      if (blacklist.contains(word.toLowerCase())) return false;
+    }
+
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Booking reference extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts a booking reference / confirmation number from [text].
+  ///
+  /// Recognised patterns:
+  /// - `Ref: ABC123`, `Ref #ABC123`, `Reference: ABC-123`
+  /// - `Booking #12345`, `Booking ID: XYZ789`
+  /// - `Confirmation: XYZ`, `Confirmation #ABC`
+  /// - `Reservation #12345`, `Reservation ID: ABC`
+  /// - `Order #12345`
+  static String? extractBookingRef(String text) {
+    final patterns = [
+      // Explicit labelled references.
+      RegExp(
+        r'(?:booking\s*(?:ref(?:erence)?|id|no|number|#)|'
+        r'ref(?:erence)?\s*(?:no|number|#|:)|'
+        r'confirmation\s*(?:no|number|#|code|:)|'
+        r'reservation\s*(?:no|number|#|id|:)|'
+        r'order\s*(?:no|number|#|:))'
+        r'\s*[:#]?\s*([A-Za-z0-9][\w\-]{2,20})',
+        caseSensitive: false,
+      ),
+      // Short-form: "Ref: ABC123" or "Ref #ABC123"
+      RegExp(
+        r'\bref\s*[:#]\s*([A-Za-z0-9][\w\-]{2,20})',
+        caseSensitive: false,
+      ),
+      // "Confirmation ABC123"
+      RegExp(
+        r'\bconfirmation\s+([A-Za-z0-9][\w\-]{3,20})',
+        caseSensitive: false,
+      ),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        return match.group(1)!.trim();
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Open slots extraction
+  // ---------------------------------------------------------------------------
+
+  /// Extracts the number of open (unfilled) slots from [text].
+  ///
+  /// If no explicit slot information is found, calculates as
+  /// `4 - playerCount` (clamped to 0–4).
+  ///
+  /// Recognised patterns:
+  /// - `2 slots available`, `3 open slots`, `1 spot left`
+  /// - `2/4 booked`, `3/4 players`, `1/4 filled`
+  /// - `X of 4 slots taken`
+  static int extractOpenSlots(String text, int playerCount) {
+    // --- "N slots available / open" ---
+    final slotsAvailable = RegExp(
+      r'(\d+)\s+(?:slots?|spots?|places?|spaces?)\s+'
+      r'(?:available|open|remaining|left|free)',
+      caseSensitive: false,
+    );
+    final saMatch = slotsAvailable.firstMatch(text);
+    if (saMatch != null) {
+      return int.parse(saMatch.group(1)!).clamp(0, _defaultGroupSize);
+    }
+
+    // --- "N open slots" ---
+    final openSlots = RegExp(
+      r'(\d+)\s+open\s+(?:slots?|spots?|places?)',
+      caseSensitive: false,
+    );
+    final osMatch = openSlots.firstMatch(text);
+    if (osMatch != null) {
+      return int.parse(osMatch.group(1)!).clamp(0, _defaultGroupSize);
+    }
+
+    // --- "X/4 booked" or "X/4 players" ---
+    final xOfN = RegExp(
+      r'(\d+)\s*/\s*(\d+)\s*(?:booked|filled|confirmed|players?|slots?)',
+      caseSensitive: false,
+    );
+    final xnMatch = xOfN.firstMatch(text);
+    if (xnMatch != null) {
+      final booked = int.parse(xnMatch.group(1)!);
+      final total = int.parse(xnMatch.group(2)!);
+      return (total - booked).clamp(0, total);
+    }
+
+    // --- "X of N slots taken/filled" ---
+    final xOfNWord = RegExp(
+      r'(\d+)\s+of\s+(\d+)\s+(?:slots?|spots?|places?)\s+'
+      r'(?:taken|filled|booked|confirmed)',
+      caseSensitive: false,
+    );
+    final xnwMatch = xOfNWord.firstMatch(text);
+    if (xnwMatch != null) {
+      final booked = int.parse(xnwMatch.group(1)!);
+      final total = int.parse(xnwMatch.group(2)!);
+      return (total - booked).clamp(0, total);
+    }
+
+    // --- "N spots/slots left" ---
+    final spotsLeft = RegExp(
+      r'(\d+)\s+(?:slots?|spots?|places?)\s+left',
+      caseSensitive: false,
+    );
+    final slMatch = spotsLeft.firstMatch(text);
+    if (slMatch != null) {
+      return int.parse(slMatch.group(1)!).clamp(0, _defaultGroupSize);
+    }
+
+    // --- Fallback: derive from player count ---
+    return (_defaultGroupSize - playerCount).clamp(0, _defaultGroupSize);
+  }
+}

@@ -1,0 +1,19 @@
+default_platform(:android)
+
+platform :android do
+  desc 'Deploy to Google Play internal testing'
+  lane :internal do
+    upload_to_play_store(
+      track: 'internal',
+      aab: '../build/app/outputs/bundle/release/app-release.aab'
+    )
+  end
+
+  desc 'Promote to production'
+  lane :production do
+    upload_to_play_store(
+      track: 'production',
+      aab: '../build/app/outputs/bundle/release/app-release.aab'
+    )
+  end
+end

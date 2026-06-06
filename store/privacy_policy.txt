@@ -1,0 +1,104 @@
+PRIVACY POLICY — TEED UP
+Published by The Artesian Group, Dubai, UAE
+Last updated: 1 June 2026
+
+========================================
+
+INTRODUCTION
+
+Teed Up ("the App") is published by The Artesian Group, based in Dubai, UAE. This Privacy Policy explains what data the App accesses, how it is processed, and — most importantly — what it does not do.
+
+Teed Up is a fully on-device application. It has no server, no cloud backend, no analytics, and no tracking. Your data never leaves your phone.
+
+
+1. DATA COLLECTION
+========================================
+
+Teed Up does NOT collect, transmit, or upload any personal data. All processing is performed entirely on your device. The App requests the following permissions solely to provide its core functionality:
+
+CAMERA
+  Purpose: Photograph golf-booking confirmation screenshots so the App can extract tee-time details.
+  Data handling: Images are processed on-device using Google ML Kit OCR. They are never uploaded to any server.
+
+CALENDAR
+  Purpose: Create, read, and manage golf events in your device's native calendar (iCloud, Google, Outlook, Exchange, etc.).
+  Data handling: Data remains in your device's calendar system. The App does not copy or store calendar data elsewhere.
+
+CONTACTS
+  Purpose: Look up player email addresses so calendar invitations can be sent to your playing partners.
+  Data handling: Contact data is cached locally in an on-device SQLite database for performance. It is never transmitted off the device.
+
+WHAT WE DO NOT COLLECT:
+  - No personal identifiers (name, email, phone number)
+  - No location data
+  - No usage analytics or telemetry
+  - No advertising identifiers
+  - No crash reports sent to external services
+  - No cookies, tracking pixels, or fingerprinting
+
+
+2. DATA STORAGE
+========================================
+
+All data generated or cached by the App is stored locally on your device. There is no server-side component — because there is no server.
+
+  - SQLite database: Stores a local cache of contact details (for invitation look-ups) and RSVP statuses for your golf events.
+  - SharedPreferences: Stores lightweight app settings such as your preferred calendar and notification preferences.
+  - Device calendar: Golf events are created using your device's native calendar APIs and are managed entirely by your operating system.
+
+Uninstalling the App removes all locally stored data. Calendar events you have created will remain in your device calendar unless you delete them separately.
+
+
+3. DATA SHARING
+========================================
+
+Teed Up does NOT share your data with any third parties. Period.
+
+  - Calendar invitations are sent through your device's native calendar service (e.g. iCloud, Google Calendar). The App itself does not send emails or network requests.
+  - No advertising SDKs are embedded in the App.
+  - No analytics SDKs are embedded in the App.
+  - No tracking pixels, beacons, or similar technologies are used.
+  - No data is sold, rented, or traded to any third party.
+
+
+4. THIRD-PARTY SERVICES
+========================================
+
+Teed Up uses the following platform-native and on-device libraries. None of them transmit data off your device:
+
+  - Google ML Kit — Text Recognition: Runs entirely on-device to extract text from booking screenshots. No images or text are sent to Google's cloud servers.
+  - Device Calendar APIs: Platform-native APIs (iOS EventKit / Android CalendarProvider) are used to create and manage golf events. Calendar syncing is handled by your operating system, not by the App.
+  - Device Contacts APIs: Platform-native APIs are used to read contact information for player look-up. No contact data is sent externally.
+
+The App contains no Firebase, no social-media SDKs, no crash-reporting services, and no remote-configuration tools.
+
+
+5. CHILDREN'S PRIVACY
+========================================
+
+Teed Up is not directed at children under the age of 13. We do not knowingly collect or process any data from children. Because the App collects no personal data from any user, there is no risk of inadvertent data collection from minors.
+
+
+6. CHANGES TO THIS POLICY
+========================================
+
+We may update this Privacy Policy from time to time. If we make material changes, we will:
+
+  1. Update the "Last updated" date at the top of this document.
+  2. Include a notice in the App's update release notes on the App Store and Google Play Store.
+
+We encourage you to review this policy periodically. Your continued use of the App after changes are posted constitutes your acceptance of the revised policy.
+
+
+7. CONTACT US
+========================================
+
+If you have any questions about this Privacy Policy or the App's data practices, please contact us:
+
+  Company:  The Artesian Group
+  Location: Dubai, United Arab Emirates
+  Email:    Alasdair@theartesiangroup.com
+
+
+========================================
+© 2026 The Artesian Group. All rights reserved.

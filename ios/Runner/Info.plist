@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Calendar Access -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>Teed Up needs calendar access to create golf events and send invitations to your playing partners.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Teed Up needs full calendar access to create golf events, add player invitations, and track RSVPs.</string>
+
+	<!-- Contacts Access -->
+	<key>NSContactsUsageDescription</key>
+	<string>Teed Up searches your contacts to find email addresses for your golf buddies.</string>
+
+	<!-- Camera Access -->
+	<key>NSCameraUsageDescription</key>
+	<string>Teed Up uses the camera to photograph your golf booking confirmation.</string>
+
+	<!-- Photo Library Access -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Teed Up needs photo access to select a screenshot of your golf booking.</string>
+
+	<!-- Notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+
+	<!-- App Info -->
+	<key>CFBundleName</key>
+	<string>Teed Up</string>
+	<key>CFBundleDisplayName</key>
+	<string>Teed Up</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+
+	<!-- Background Task Identifiers -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.teedup.golf.rsvpMonitor</string>
+	</array>
+</dict>
+</plist>
