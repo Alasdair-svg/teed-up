@@ -30,7 +30,7 @@ dependencies:
   path_provider: ^2.1.4
 
   # === Background Tasks ===
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0
 
   # === Notifications ===
   flutter_local_notifications: ^18.0.1
