@@ -74,3 +74,33 @@ workflows:
   #       submit_to_testflight: true
   #       beta_groups:
   #         - Internal Testers
+
+  # ============================================================
+  # iOS COMPILE CHECK — No signing, proves iOS builds in cloud
+  # ============================================================
+  ios-compile-check:
+    name: iOS Compile Check
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $FLUTTER_ROOT/.pub-cache
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install
+      - name: Run tests
+        script: flutter test
+      - name: Build iOS (no codesign)
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+
