@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../providers/app_state.dart';
+import '../services/contacts_service.dart';
+import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
 import 'verify_emails_screen.dart';
 
@@ -55,7 +58,25 @@ class _ScanScreenState extends State<ScanScreen> {
     _courseController.dispose();
     _refController.dispose();
     _newPlayerController.dispose();
+    // Clean up any residual temp image (e.g. if user backs out mid-scan).
+    final residualPath = context.read<AppState>().scannedImagePath;
+    _deleteTempImage(residualPath);
     super.dispose();
+  }
+
+  /// Deletes a temporary image file after OCR processing.
+  ///
+  /// Called after every scan attempt — success, failure, or cancellation —
+  /// so booking confirmation images are never left on disk.
+  Future<void> _deleteTempImage(String? path) async {
+    if (path == null) return;
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      // Non-critical — log and continue. The sandbox protects the file anyway.
+      debugPrint('[ScanScreen] Failed to delete temp image: $e');
+    }
   }
 
   Future<void> _captureImage(ImageSource source) async {
@@ -77,9 +98,58 @@ class _ScanScreenState extends State<ScanScreen> {
       final state = context.read<AppState>();
       state.setScannedImage(image.path);
 
-      // TODO: Integrate with OCR service (google_mlkit_text_recognition)
-      // For now, simulate a brief processing delay
-      await Future<void>.delayed(const Duration(milliseconds: 800));
+      // Run OCR via ML Kit on-device text recognition.
+      final scanService = ScanService();
+      try {
+        final round = await scanService.parseScreenshotFromFile(image.path);
+
+        if (!mounted) return;
+
+        // Feed parsed OCR results into app state.
+        state.updateScanResults(
+          courseName: round.courseName,
+          date: round.date,
+          teeTime: round.teeTime,
+          bookingRef: round.bookingRef,
+          players: round.players,
+        );
+
+        // Update text controllers with parsed values.
+        _courseController.text = round.courseName;
+        _refController.text = round.bookingRef ?? '';
+
+        // Auto-resolve player emails from device contacts.
+        final playerNames = round.players.map((p) => p.name).toList();
+        if (playerNames.isNotEmpty) {
+          try {
+            final contactsService = ContactsService();
+            final resolved = await contactsService.resolvePlayerEmails(playerNames);
+            if (resolved.isNotEmpty && mounted) {
+              final updatedPlayers = state.scannedPlayers.map((p) {
+                final email = resolved[p.name];
+                if (email != null) {
+                  return p.copyWith(
+                    email: email,
+                    contactSource: ContactSource.iCloud,
+                  );
+                }
+                return p;
+              }).toList();
+              state.updateScanResults(players: updatedPlayers);
+            }
+          } catch (contactErr) {
+            debugPrint('Contact resolution failed: $contactErr');
+            // Non-fatal — user can enter emails manually.
+          }
+        }
+      } on ScanException catch (scanErr) {
+        debugPrint('OCR scan failed: $scanErr');
+        // OCR returned no text — user can fill fields manually.
+      } finally {
+        await scanService.dispose();
+        // Always delete the temp capture — image has been processed.
+        await _deleteTempImage(image.path);
+      }
 
       if (!mounted) return;
 

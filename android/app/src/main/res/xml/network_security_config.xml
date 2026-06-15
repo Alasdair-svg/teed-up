@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration for Teed Up.
+
+    This app makes zero external network calls — all processing is on-device.
+    Cleartext HTTP traffic is explicitly banned as a defence-in-depth measure.
+    Only system-trusted CA certificates are accepted (no user-installed CAs).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system CAs only — no user-installed certificates -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

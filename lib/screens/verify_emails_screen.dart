@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../providers/app_state.dart';
+import '../services/calendar_service.dart';
+import '../services/rsvp_monitor.dart';
 import '../theme/app_theme.dart';
 
 /// Email verification screen — CRITICAL UX gate before sending invitations.
@@ -53,7 +56,7 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
     return true;
   }
 
-  void _sendInvitations() {
+  Future<void> _sendInvitations() async {
     final state = context.read<AppState>();
     final players = state.scannedPlayers;
 
@@ -65,10 +68,8 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
       );
     }
 
-    // TODO: Create calendar event, send invitations via CalDAV/calendar
-    // For now, create the round and navigate back to home.
-
-    final round = GolfRound(
+    // Build the round object.
+    var round = GolfRound(
       id: 'round_${DateTime.now().millisecondsSinceEpoch}',
       courseName: state.scannedCourseName ?? 'Unknown Course',
       date: state.scannedDate ?? DateTime.now(),
@@ -77,9 +78,39 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
       bookingRef: state.scannedBookingRef,
     );
 
+    // Create calendar event with attendees on the device.
+    final calendarId = state.selectedCalendarId;
+    if (calendarId != null && calendarId.isNotEmpty) {
+      try {
+        final calendarService = CalendarService();
+        final eventId = await calendarService.createGolfEvent(
+          round,
+          calendarId,
+        );
+
+        if (eventId != null) {
+          round = round.copyWith(calendarEventId: eventId);
+
+          // Register with RSVP monitor for background polling.
+          final attendeeStatus = <String, String>{};
+          for (final player in round.players) {
+            if (player.hasValidEmail) {
+              attendeeStatus[player.email!] = 'pending';
+            }
+          }
+          await RsvpMonitor.instance.registerEvent(eventId, attendeeStatus);
+        }
+      } catch (e) {
+        debugPrint('Calendar event creation failed: $e');
+        // Non-fatal — round is still saved locally.
+      }
+    }
+
     state.addRound(round);
     state.clearScanState();
     state.setTab(0);
+
+    if (!mounted) return;
 
     // Pop all the way back to home
     Navigator.of(context).popUntil((route) => route.isFirst);

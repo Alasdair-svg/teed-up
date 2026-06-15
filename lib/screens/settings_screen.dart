@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_state.dart';
+import '../services/calendar_service.dart';
+import '../services/contacts_service.dart';
+import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
 
 /// Settings screen with grouped sections for calendar, notifications,
@@ -130,9 +133,28 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showCalendarPicker(BuildContext context, AppState state) {
-    // TODO: Integrate with device_calendar to list real calendars
-    // For now, show a placeholder dialog
+  void _showCalendarPicker(BuildContext context, AppState state) async {
+    // Fetch real writable calendars from the device.
+    final calendarService = CalendarService();
+    final calendars = await calendarService.getAvailableCalendars();
+
+    // Filter to writable calendars only.
+    final writable = calendars
+        .where((c) => !c.isReadOnly! && c.id != null)
+        .toList();
+
+    if (!context.mounted) return;
+
+    if (writable.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No writable calendars found on this device.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -140,35 +162,18 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _CalendarOption(
-              name: 'iCloud Calendar',
-              color: AppColors.primary,
-              isSelected: state.defaultCalendarId == 'icloud',
-              onTap: () {
-                state.setDefaultCalendar('icloud');
-                Navigator.of(ctx).pop();
-              },
-            ),
-            const SizedBox(height: 8),
-            _CalendarOption(
-              name: 'Google Calendar',
-              color: Colors.blue,
-              isSelected: state.defaultCalendarId == 'google',
-              onTap: () {
-                state.setDefaultCalendar('google');
-                Navigator.of(ctx).pop();
-              },
-            ),
-            const SizedBox(height: 8),
-            _CalendarOption(
-              name: 'Outlook Calendar',
-              color: Colors.teal,
-              isSelected: state.defaultCalendarId == 'outlook',
-              onTap: () {
-                state.setDefaultCalendar('outlook');
-                Navigator.of(ctx).pop();
-              },
-            ),
+            for (var i = 0; i < writable.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _CalendarOption(
+                name: writable[i].name ?? 'Unnamed Calendar',
+                color: Color(writable[i].color ?? 0xFF1976D2),
+                isSelected: state.defaultCalendarId == writable[i].id,
+                onTap: () {
+                  state.setDefaultCalendar(writable[i].id);
+                  Navigator.of(ctx).pop();
+                },
+              ),
+            ],
           ],
         ),
         actions: [
@@ -181,16 +186,38 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showCachedContacts(BuildContext context) {
-    // TODO: Integrate with flutter_contacts and local cache
+  void _showCachedContacts(BuildContext context) async {
+    final contactsService = ContactsService();
+    final cached = await contactsService.getCachedEmails();
+
+    if (!context.mounted) return;
+
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cached Contacts'),
-        content: const Text(
-          'No cached contacts yet. Contacts will be cached '
-          'after your first scan.',
-        ),
+        content: cached.isEmpty
+            ? const Text(
+                'No cached contacts yet. Contacts will be cached '
+                'after your first scan.',
+              )
+            : SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: cached.length,
+                  itemBuilder: (_, i) {
+                    final name = cached.keys.elementAt(i);
+                    final email = cached[name]!;
+                    return ListTile(
+                      dense: true,
+                      title: Text(name),
+                      subtitle: Text(email),
+                      leading: const Icon(Icons.person_rounded, size: 20),
+                    );
+                  },
+                ),
+              ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -216,8 +243,9 @@ class SettingsScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              // TODO: Clear actual contact cache from SQLite
+            onPressed: () async {
+              await ContactsService().clearCache();
+              if (!context.mounted) return;
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -234,14 +262,28 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _restorePurchase(BuildContext context) {
-    // TODO: Integrate with in_app_purchase
+  void _restorePurchase(BuildContext context) async {
+    final state = context.read<AppState>();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Checking for existing purchases…'),
         backgroundColor: AppColors.primary,
       ),
     );
+
+    try {
+      final purchaseService = PurchaseService(appState: state);
+      await purchaseService.initialize();
+      await purchaseService.restorePurchases();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Restore failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _launchUrl(String url) async {

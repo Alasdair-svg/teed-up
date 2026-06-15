@@ -63,6 +63,36 @@ class Player {
   bool get hasValidEmail =>
       email != null && email!.isNotEmpty && email!.contains('@');
 
+  /// Creates a [Player] from a JSON map.
+  factory Player.fromJson(Map<String, dynamic> json) {
+    return Player(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      rsvpStatus: RsvpStatus.values.firstWhere(
+        (e) => e.name == json['rsvpStatus'],
+        orElse: () => RsvpStatus.pending,
+      ),
+      contactSource: ContactSource.values.firstWhere(
+        (e) => e.name == json['contactSource'],
+        orElse: () => ContactSource.manual,
+      ),
+      isNewlyAdded: json['isNewlyAdded'] == true,
+    );
+  }
+
+  /// Serialises this player to a JSON-compatible map.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'rsvpStatus': rsvpStatus.name,
+        'contactSource': contactSource.name,
+        'isNewlyAdded': isNewlyAdded,
+      };
+
   /// Creates a copy with the given fields replaced.
   Player copyWith({
     String? id,

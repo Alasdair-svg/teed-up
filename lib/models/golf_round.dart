@@ -48,6 +48,36 @@ class GolfRound {
   String get formattedTeeTime =>
       '${teeTime.hour.toString().padLeft(2, '0')}:${teeTime.minute.toString().padLeft(2, '0')}';
 
+  /// Creates a [GolfRound] from a JSON map.
+  factory GolfRound.fromJson(Map<String, dynamic> json) {
+    return GolfRound(
+      id: json['id'] as String,
+      courseName: json['courseName'] as String,
+      date: DateTime.parse(json['date'] as String),
+      teeTime: DateTime.parse(json['teeTime'] as String),
+      players: (json['players'] as List<dynamic>)
+          .map((p) => Player.fromJson(p as Map<String, dynamic>))
+          .toList(),
+      bookingRef: json['bookingRef'] as String?,
+      calendarEventId: json['calendarEventId'] as String?,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+    );
+  }
+
+  /// Serialises this round to a JSON-compatible map.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'courseName': courseName,
+        'date': date.toIso8601String(),
+        'teeTime': teeTime.toIso8601String(),
+        'players': players.map((p) => p.toJson()).toList(),
+        'bookingRef': bookingRef,
+        'calendarEventId': calendarEventId,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
   /// Creates a copy with the given fields replaced.
   GolfRound copyWith({
     String? id,

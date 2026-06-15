@@ -25,5 +25,7 @@
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
 
-# Suppress all missing class errors (R8 strict mode)
--ignorewarnings
+# Suppress informational notes (not real warnings) — targeted replacement for -ignorewarnings.
+# -ignorewarnings was too broad: it hid genuine R8 class-stripping errors.
+-dontnote **
+

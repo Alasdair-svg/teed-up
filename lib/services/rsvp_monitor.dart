@@ -40,6 +40,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:device_calendar/device_calendar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -124,7 +125,6 @@ class RsvpMonitor {
     try {
       await Workmanager().initialize(
         teedUpBackgroundDispatcher,
-        isInDebugMode: kDebugMode,
       );
 
       await Workmanager().registerPeriodicTask(
@@ -132,12 +132,12 @@ class RsvpMonitor {
         taskName,
         frequency: const Duration(minutes: _intervalMinutes),
         constraints: Constraints(
-          networkType: NetworkType.not_required,
+          networkType: NetworkType.notRequired,
           requiresBatteryNotLow: false,
           requiresCharging: false,
           requiresDeviceIdle: false,
         ),
-        existingWorkPolicy: ExistingWorkPolicy.keep,
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 5),
       );
@@ -530,56 +530,84 @@ class RsvpMonitor {
   ///   "attendeeNames": { "john@x.com": "John Smith", "jane@x.com": "Jane Doe" }
   /// }
   /// ```
-  ///
-  /// TODO(calendar): Replace this stub with actual CalendarService calls
-  /// once that module is implemented.
   static Future<List<Map<String, dynamic>>> _fetchUpcomingEvents(
     String calendarId,
   ) async {
-    // ─── STUB ────────────────────────────────────────────────────────────
-    // When CalendarService is available, replace with:
-    //
-    // ```dart
-    // import 'package:device_calendar/device_calendar.dart';
-    //
-    // final plugin = DeviceCalendarPlugin();
-    // final now = DateTime.now();
-    // final end = now.add(Duration(days: _lookAheadDays));
-    //
-    // final result = await plugin.retrieveEvents(
-    //   calendarId,
-    //   RetrieveEventsParams(startDate: now, endDate: end),
-    // );
-    //
-    // if (result.data == null) return [];
-    //
-    // return result.data!.map((event) {
-    //   final attendees = <String, String>{};
-    //   final attendeeNames = <String, String>{};
-    //
-    //   for (final a in event.attendees ?? []) {
-    //     final email = a.emailAddress ?? '';
-    //     if (email.isEmpty) continue;
-    //     attendees[email] = _attendeeStatusToString(a.attendanceStatus);
-    //     attendeeNames[email] = a.name ?? email;
-    //   }
-    //
-    //   return {
-    //     'eventId': event.eventId ?? '',
-    //     'title': event.title ?? '',
-    //     'date': event.start?.toIso8601String().split('T').first ?? '',
-    //     'attendees': attendees,
-    //     'attendeeNames': attendeeNames,
-    //   };
-    // }).where((e) => (e['eventId'] as String).isNotEmpty).toList();
-    // ```
-    // ─────────────────────────────────────────────────────────────────────
+    try {
+      final plugin = DeviceCalendarPlugin();
+      final now = DateTime.now();
+      final end = now.add(const Duration(days: 30));
 
-    debugPrint(
-      '[RsvpMonitor] Calendar integration stub — '
-      'awaiting CalendarService implementation',
-    );
-    return [];
+      final result = await plugin.retrieveEvents(
+        calendarId,
+        RetrieveEventsParams(
+          startDate: TZDateTime.from(now, local),
+          endDate: TZDateTime.from(end, local),
+        ),
+      );
+
+      if (result.data == null) return [];
+
+      return result.data!.map((event) {
+        final attendees = <String, String>{};
+        final attendeeNames = <String, String>{};
+
+        for (final a in event.attendees ?? <Attendee?>[]) {
+          if (a == null) continue;
+          final email = a.emailAddress ?? '';
+          if (email.isEmpty) continue;
+          attendees[email] = _attendeeStatusToString(a);
+          attendeeNames[email] = a.name ?? email;
+        }
+
+        return {
+          'eventId': event.eventId ?? '',
+          'title': event.title ?? '',
+          'date': event.start?.toIso8601String().split('T').first ?? '',
+          'attendees': attendees,
+          'attendeeNames': attendeeNames,
+        };
+      }).where((e) => (e['eventId'] as String).isNotEmpty).toList();
+    } catch (e) {
+      debugPrint('[RsvpMonitor] _fetchUpcomingEvents error: $e');
+      return [];
+    }
+  }
+
+  /// Converts an [Attendee]'s platform-specific status to a string.
+  static String _attendeeStatusToString(Attendee attendee) {
+    // Try iOS status first, then Android.
+    final iosStatus = attendee.iosAttendeeDetails?.attendanceStatus;
+    if (iosStatus != null) {
+      switch (iosStatus) {
+        case IosAttendanceStatus.Accepted:
+          return 'accepted';
+        case IosAttendanceStatus.Declined:
+          return 'declined';
+        case IosAttendanceStatus.Tentative:
+          return 'tentative';
+        case IosAttendanceStatus.Pending:
+        default:
+          return 'pending';
+      }
+    }
+
+    final androidStatus = attendee.androidAttendeeDetails?.attendanceStatus;
+    if (androidStatus != null) {
+      switch (androidStatus) {
+        case AndroidAttendanceStatus.Accepted:
+          return 'accepted';
+        case AndroidAttendanceStatus.Declined:
+          return 'declined';
+        case AndroidAttendanceStatus.Tentative:
+          return 'tentative';
+        case AndroidAttendanceStatus.Invited:
+        default:
+          return 'pending';
+      }
+    }
+
+    return 'pending';
   }
 
   // ---------------------------------------------------------------------------

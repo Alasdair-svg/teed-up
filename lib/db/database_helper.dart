@@ -8,6 +8,8 @@
 /// Uses the singleton pattern so only one connection exists app-wide.
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -51,8 +53,13 @@ class DatabaseHelper {
   // ---------------------------------------------------------------------------
 
   Future<Database> _initDatabase() async {
-    final documentsDir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(documentsDir.path, _kDatabaseName);
+    // On iOS, Application Support is excluded from iCloud backup by the OS.
+    // On Android, getApplicationDocumentsDirectory() maps to internal storage
+    // which is already sandboxed and not cloud-synced.
+    final dir = Platform.isIOS
+        ? await getApplicationSupportDirectory()
+        : await getApplicationDocumentsDirectory();
+    final dbPath = p.join(dir.path, _kDatabaseName);
 
     return openDatabase(
       dbPath,

@@ -35,6 +35,13 @@ const String kProductId = 'teed_up_full_access';
 /// SharedPreferences key for the local purchase cache.
 const String _kPurchasedKey = 'teed_up_purchased';
 
+/// SharedPreferences key for the purchase integrity token.
+///
+/// A secondary hash stored alongside the purchase boolean. If the boolean
+/// is `true` but the token is absent or mismatched, it indicates tampering
+/// (e.g. ADB SharedPreferences manipulation on a rooted device).
+const String _kPurchaseTokenKey = 'teed_up_purchase_token';
+
 /// Manages the in-app purchase lifecycle for Teed Up.
 ///
 /// Call [initialize] once at app startup, then use [buyApp] to initiate
@@ -131,9 +138,37 @@ class PurchaseService {
 
   /// Loads the cached purchase flag from [SharedPreferences] and syncs
   /// it to [AppState].
+  ///
+  /// Also validates the integrity token. If the flag is `true` but the
+  /// token is absent or incorrect, the cache is treated as tampered and
+  /// a store restore is triggered to re-verify with the platform.
   Future<void> _loadCachedPurchaseState() async {
     final prefs = await SharedPreferences.getInstance();
-    _isPurchased = prefs.getBool(_kPurchasedKey) ?? false;
+    final rawFlag = prefs.getBool(_kPurchasedKey) ?? false;
+
+    if (rawFlag) {
+      // Validate integrity token before trusting the cached flag.
+      final storedToken = prefs.getString(_kPurchaseTokenKey);
+      final expectedToken = _computeIntegrityToken();
+      if (storedToken == expectedToken) {
+        _isPurchased = true;
+      } else {
+        // Token mismatch — flag may have been set by ADB/root manipulation.
+        // Clear the suspect cache and let the store verify.
+        debugPrint(
+          'PurchaseService: Integrity token mismatch — '
+          'clearing cache and triggering restore.',
+        );
+        await prefs.remove(_kPurchasedKey);
+        await prefs.remove(_kPurchaseTokenKey);
+        _isPurchased = false;
+        // Trigger a store restore after a short delay so the store SDK
+        // has time to initialise.
+        Future.delayed(const Duration(seconds: 2), restorePurchases);
+      }
+    } else {
+      _isPurchased = false;
+    }
     _appState.setPurchased(_isPurchased);
   }
 
@@ -326,15 +361,38 @@ class PurchaseService {
 
   /// Marks the app as purchased in [SharedPreferences] and updates
   /// [AppState] so the UI reacts immediately.
+  ///
+  /// Also writes an integrity token alongside the purchase flag so that
+  /// any out-of-band modification of the flag can be detected on next launch.
   Future<void> _deliverProduct() async {
     _isPurchased = true;
 
-    // Persist locally.
+    // Persist locally with integrity token.
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kPurchasedKey, true);
+    await prefs.setString(_kPurchaseTokenKey, _computeIntegrityToken());
 
     // Update reactive state.
     _appState.setPurchased(true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Integrity
+  // ---------------------------------------------------------------------------
+
+  /// Computes a lightweight integrity token for the purchase state.
+  ///
+  /// Not cryptographic — this is a tamper-detection signal, not a secret.
+  /// It raises the bar against simple ADB SharedPreferences manipulation
+  /// on rooted devices without requiring a backend server.
+  String _computeIntegrityToken() {
+    // Combine product ID, a fixed app salt, and the install year to produce
+    // a value that is stable per-year but changes across calendar years
+    // (forcing a natural re-verify cycle).
+    final raw = '$kProductId:teedup:golf:${DateTime.now().year}';
+    final hash = raw.codeUnits
+        .fold<int>(0x811C9DC5, (h, c) => (h ^ c) * 0x01000193 & 0xFFFFFFFF);
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   // ---------------------------------------------------------------------------

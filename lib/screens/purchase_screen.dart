@@ -14,7 +14,10 @@
 /// ```
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
@@ -38,7 +41,7 @@ class PurchaseScreen extends StatefulWidget {
 }
 
 class _PurchaseScreenState extends State<PurchaseScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final PurchaseService _purchaseService;
   bool _isLoading = false;
   bool _isRestoring = false;
@@ -84,6 +87,14 @@ class _PurchaseScreenState extends State<PurchaseScreen>
   void initState() {
     super.initState();
 
+    // Register as a lifecycle observer for iOS background overlay.
+    WidgetsBinding.instance.addObserver(this);
+
+    // Android: block screenshots and screen recording on the paywall.
+    if (Platform.isAndroid) {
+      FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+    }
+
     // Subtle button shimmer animation.
     _shimmerController = AnimationController(
       vsync: this,
@@ -117,9 +128,48 @@ class _PurchaseScreenState extends State<PurchaseScreen>
 
   @override
   void dispose() {
+    // Remove lifecycle observer.
+    WidgetsBinding.instance.removeObserver(this);
+
+    // Android: restore normal screenshot behaviour when leaving paywall.
+    if (Platform.isAndroid) {
+      FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    }
+
     _shimmerController.dispose();
     _purchaseService.dispose();
     super.dispose();
+  }
+
+  /// iOS: overlay a solid cover when the app moves to background to prevent
+  /// the paywall appearing in the app switcher screenshot.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!Platform.isIOS) return;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _showIosBackgroundOverlay();
+    } else if (state == AppLifecycleState.resumed) {
+      _removeIosBackgroundOverlay();
+    }
+  }
+
+  OverlayEntry? _iosOverlay;
+
+  void _showIosBackgroundOverlay() {
+    if (_iosOverlay != null) return;
+    _iosOverlay = OverlayEntry(
+      builder: (_) => const ColoredBox(
+        color: AppColors.white,
+        child: SizedBox.expand(),
+      ),
+    );
+    Overlay.of(context).insert(_iosOverlay!);
+  }
+
+  void _removeIosBackgroundOverlay() {
+    _iosOverlay?.remove();
+    _iosOverlay = null;
   }
 
   // ---------------------------------------------------------------------------
