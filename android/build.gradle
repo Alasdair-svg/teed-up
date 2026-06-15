@@ -1,11 +1,11 @@
 buildscript {
-    ext.kotlin_version = '2.1.0'
+    ext.kotlin_version = '2.2.20'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.7.3'
+        classpath 'com.android.tools.build:gradle:8.11.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -23,6 +23,36 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+// ── Fix for unmaintained plugins missing the AGP namespace property ──
+// AGP 8+ requires every Android module to declare a 'namespace'.
+// Older plugins (e.g. flutter_windowmanager 0.2.0) only set it via
+// the <manifest package="…"> attribute. This block auto-injects
+// the namespace from the manifest for any subproject that lacks one.
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            def androidExt = project.extensions.findByName('android')
+            if (androidExt != null) {
+                try {
+                    if (androidExt.namespace == null || androidExt.namespace.isEmpty()) {
+                        def manifest = file("${project.projectDir}/src/main/AndroidManifest.xml")
+                        if (manifest.exists()) {
+                            def parsed = new XmlSlurper().parse(manifest)
+                            def pkg = parsed.@package.toString()
+                            if (pkg != null && !pkg.isEmpty()) {
+                                androidExt.namespace = pkg
+                                println "Auto-injected namespace '${pkg}' into ${project.name}"
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // Silently ignore — some subprojects may not have android blocks
+                }
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
