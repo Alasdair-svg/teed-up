@@ -81,3 +81,5 @@ coverage/
 
 # Test artifacts
 test/.test_coverage.dart
+build8-app-release.aab
+*.aab

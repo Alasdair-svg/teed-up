@@ -4,21 +4,21 @@
 <dict>
 	<!-- Calendar Access -->
 	<key>NSCalendarsUsageDescription</key>
-	<string>Teed Up needs calendar access to create golf events and send invitations to your playing partners.</string>
+	<string>All Teed Up needs calendar access to create golf events and send invitations to your playing partners.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Teed Up needs full calendar access to create golf events, add player invitations, and track RSVPs.</string>
+	<string>All Teed Up needs full calendar access to create golf events, add player invitations, and track RSVPs.</string>
 
 	<!-- Contacts Access -->
 	<key>NSContactsUsageDescription</key>
-	<string>Teed Up searches your contacts to find email addresses for your golf buddies.</string>
+	<string>All Teed Up searches your contacts to find email addresses for your golf buddies.</string>
 
 	<!-- Camera Access -->
 	<key>NSCameraUsageDescription</key>
-	<string>Teed Up uses the camera to photograph your golf booking confirmation.</string>
+	<string>All Teed Up uses the camera to photograph your golf booking confirmation.</string>
 
 	<!-- Photo Library Access -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Teed Up needs photo access to select a screenshot of your golf booking.</string>
+	<string>All Teed Up needs photo access to select a screenshot of your golf booking.</string>
 
 	<!-- Notifications -->
 	<key>UIBackgroundModes</key>
@@ -29,9 +29,9 @@
 
 	<!-- App Info -->
 	<key>CFBundleName</key>
-	<string>Teed Up</string>
+	<string>All Teed Up</string>
 	<key>CFBundleDisplayName</key>
-	<string>Teed Up</string>
+	<string>All Teed Up</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleVersion</key>

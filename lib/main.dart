@@ -166,7 +166,7 @@ class TeedUpApp extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) {
           return MaterialApp(
-            title: 'Teed Up',
+            title: 'All Teed Up',
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),
 

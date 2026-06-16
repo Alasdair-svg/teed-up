@@ -291,7 +291,7 @@ class _PurchaseScreenState extends State<PurchaseScreen>
 
                     // Title
                     Text(
-                      'Teed Up',
+                      'All Teed Up',
                       style:
                           Theme.of(context).textTheme.displayMedium?.copyWith(
                                 color: AppColors.primary,
@@ -301,7 +301,7 @@ class _PurchaseScreenState extends State<PurchaseScreen>
 
                     // Tagline
                     Text(
-                      'Snap your booking. Your group is sorted.',
+                      'It\'s In The Calendar',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textMuted,
                           ),
@@ -441,7 +441,7 @@ class _PurchaseScreenState extends State<PurchaseScreen>
                                   ),
                                   SizedBox(width: 10),
                                   Text(
-                                    'Unlock Teed Up',
+                                    'Unlock All Teed Up',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontWeight: FontWeight.w600,

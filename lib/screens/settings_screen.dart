@@ -457,7 +457,7 @@ class _TagFooter extends StatelessWidget {
 
         // TAG wordmark
         const Text(
-          'Teed Up',
+          'All Teed Up',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontWeight: FontWeight.w700,
@@ -467,7 +467,7 @@ class _TagFooter extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         const Text(
-          'by The Artesian Group®',
+          'by TAG',
           style: TextStyle(
             fontFamily: 'Inter',
             fontWeight: FontWeight.w400,
@@ -479,7 +479,7 @@ class _TagFooter extends StatelessWidget {
 
         // Tagline
         Text(
-          '"Snap your booking. Your group is sorted."',
+          '"It\'s In The Calendar"',
           style: TextStyle(
             fontFamily: 'Inter',
             fontWeight: FontWeight.w400,

@@ -44,46 +44,50 @@ workflows:
     #     submit_as_draft: true
 
   # ============================================================
-  # iOS BUILD — Uncomment after Apple Developer enrollment
-  # ============================================================
-  # ios-release:
-  #   name: iOS Release
-  #   max_build_duration: 60
-  #   instance_type: mac_mini_m2
-  #   environment:
-  #     flutter: stable
-  #     xcode: latest
-  #     cocoapods: default
-  #     groups:
-  #       - app_store_credentials
-  #   cache:
-  #     cache_paths:
-  #       - $HOME/Library/Caches/CocoaPods
-  #       - $FLUTTER_ROOT/.pub-cache
-  #   scripts:
-  #     - name: Get dependencies
-  #       script: flutter pub get
-  #     - name: Install CocoaPods
-  #       script: |
-  #         cd ios
-  #         pod install
-  #     - name: Run tests
-  #       script: flutter test
-  #     - name: Set up code signing
-  #       script: xcode-project use-profiles
-  #     - name: Build iOS IPA
-  #       script: |
-  #         flutter build ipa \
-  #           --release \
-  #           --export-options-plist=/Users/builder/export_options.plist
-  #   artifacts:
-  #     - build/ios/ipa/*.ipa
-  #   publishing:
-  #     app_store_connect:
-  #       auth: integration
-  #       submit_to_testflight: true
-  #       beta_groups:
-  #         - Internal Testers
+  ios-release:
+    name: iOS Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: TAG App Store Connect
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.teedup.golf
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $FLUTTER_ROOT/.pub-cache
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install
+      - name: Run tests
+        script: flutter test
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa \
+            --release \
+            --obfuscate \
+            --split-debug-info=build/ios-debug-info \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios-debug-info/**
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
 
   # ============================================================
   # iOS COMPILE CHECK — No signing, proves iOS builds in cloud

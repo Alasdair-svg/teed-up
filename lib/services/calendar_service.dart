@@ -544,7 +544,7 @@ class CalendarService {
     }
 
     buffer.writeln();
-    buffer.writeln('Created by Teed Up');
+    buffer.writeln('Created by All Teed Up');
 
     return buffer.toString();
   }

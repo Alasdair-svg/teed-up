@@ -147,7 +147,7 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Teed Up'),
+        title: const Text('All Teed Up'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_rounded),

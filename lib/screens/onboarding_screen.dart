@@ -430,7 +430,7 @@ class _DeviceCompatibilitySheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              'Teed Up requires all of the above to work correctly. '
+              'All Teed Up requires all of the above to work correctly. '
               'If your device or organisation restricts these features, '
               'the app may not function as intended.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
