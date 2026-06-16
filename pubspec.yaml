@@ -50,9 +50,6 @@ dependencies:
   collection: ^1.18.0
   shared_preferences: ^2.3.3
 
-  # === Security ===
-  # Android FLAG_SECURE: prevents screenshots/screen recording on purchase screen.
-  flutter_windowmanager: ^0.2.0
 
 dev_dependencies:
   flutter_test:

@@ -30,26 +30,26 @@ subprojects {
 // Older plugins (e.g. flutter_windowmanager 0.2.0) only set it via
 // the <manifest package="…"> attribute. This block auto-injects
 // the namespace from the manifest for any subproject that lacks one.
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            def androidExt = project.extensions.findByName('android')
-            if (androidExt != null) {
-                try {
-                    if (androidExt.namespace == null || androidExt.namespace.isEmpty()) {
-                        def manifest = file("${project.projectDir}/src/main/AndroidManifest.xml")
-                        if (manifest.exists()) {
-                            def parsed = new XmlSlurper().parse(manifest)
-                            def pkg = parsed.@package.toString()
-                            if (pkg != null && !pkg.isEmpty()) {
-                                androidExt.namespace = pkg
-                                println "Auto-injected namespace '${pkg}' into ${project.name}"
-                            }
+// Uses plugins.withId instead of afterEvaluate to avoid timing issues
+// with newer Gradle versions where projects are already evaluated.
+subprojects { subproject ->
+    plugins.withId("com.android.library") {
+        def androidExt = subproject.extensions.findByName("android")
+        if (androidExt != null) {
+            try {
+                if (androidExt.namespace == null || androidExt.namespace.isEmpty()) {
+                    def manifest = file("${subproject.projectDir}/src/main/AndroidManifest.xml")
+                    if (manifest.exists()) {
+                        def parsed = new XmlSlurper().parse(manifest)
+                        def pkg = parsed.@package.toString()
+                        if (pkg != null && !pkg.isEmpty()) {
+                            androidExt.namespace = pkg
+                            println "Auto-injected namespace '${pkg}' into ${subproject.name}"
                         }
                     }
-                } catch (Exception e) {
-                    // Silently ignore — some subprojects may not have android blocks
                 }
+            } catch (Exception e) {
+                // Silently ignore — some subprojects may not have android blocks
             }
         }
     }
