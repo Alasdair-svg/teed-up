@@ -8,7 +8,7 @@
 /// ## Architecture
 ///
 /// ```
-/// ┌─────────────┐    every 30 min    ┌──────────────┐
+/// ┌─────────────┐    every 15 min    ┌──────────────┐
 /// │  Workmanager │ ──────────────────►│ backgroundCb │
 /// └─────────────┘                    └──────┬───────┘
 ///                                           │
@@ -38,6 +38,7 @@
 /// ```
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:device_calendar/device_calendar.dart';
@@ -100,7 +101,13 @@ class RsvpMonitor {
   static const String taskName = 'com.teedup.rsvp_monitor';
 
   /// How often the background task runs (minutes).
-  static const int _intervalMinutes = 30;
+  static const int _intervalMinutes = 15;
+
+  /// How often the foreground timer polls (seconds).
+  static const int _foregroundIntervalSeconds = 60;
+
+  /// Foreground polling timer — active only when app is in foreground.
+  Timer? _foregroundTimer;
 
 
   /// SharedPreferences key for the selected calendar ID.
@@ -117,7 +124,7 @@ class RsvpMonitor {
 
   /// Initialises Workmanager and registers the periodic RSVP check task.
   ///
-  /// The task runs approximately every 30 minutes. On iOS, the actual
+  /// The task runs approximately every 15 minutes. On iOS, the actual
   /// interval is determined by the OS (BGTaskScheduler) and may be longer.
   ///
   /// Safe to call multiple times — Workmanager deduplicates by [taskName].
@@ -151,6 +158,47 @@ class RsvpMonitor {
       debugPrint('$stack');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Foreground polling (app lifecycle-aware)
+  // ---------------------------------------------------------------------------
+
+  /// Starts the foreground polling timer.
+  ///
+  /// Should be called when the app transitions to the foreground
+  /// (e.g. from [AppLifecycleListener.onResume] or [didChangeAppLifecycleState]).
+  /// Polls every 60 seconds for near-real-time RSVP updates while the user
+  /// is actively using the app.
+  ///
+  /// Safe to call multiple times — restarts the timer if already running.
+  void startForegroundPolling() {
+    stopForegroundPolling();
+    debugPrint(
+      '[RsvpMonitor] Foreground polling started '
+      '(every ${_foregroundIntervalSeconds}s)',
+    );
+    _foregroundTimer = Timer.periodic(
+      const Duration(seconds: _foregroundIntervalSeconds),
+      (_) async {
+        debugPrint('[RsvpMonitor] Foreground poll tick');
+        await checkForChanges();
+      },
+    );
+  }
+
+  /// Stops the foreground polling timer.
+  ///
+  /// Should be called when the app transitions to the background
+  /// (e.g. from [AppLifecycleListener.onPause]). The Workmanager periodic
+  /// task continues to run in the background at the 15-minute interval.
+  void stopForegroundPolling() {
+    _foregroundTimer?.cancel();
+    _foregroundTimer = null;
+    debugPrint('[RsvpMonitor] Foreground polling stopped');
+  }
+
+  /// Whether the foreground polling timer is currently active.
+  bool get isForegroundPollingActive => _foregroundTimer?.isActive ?? false;
 
   // ---------------------------------------------------------------------------
   // Background callback (runs in background isolate)

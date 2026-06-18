@@ -7,6 +7,7 @@ import '../providers/app_state.dart';
 import '../services/calendar_service.dart';
 import '../services/rsvp_monitor.dart';
 import '../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 /// Email verification screen — CRITICAL UX gate before sending invitations.
 ///
@@ -28,14 +29,18 @@ class VerifyEmailsScreen extends StatefulWidget {
 
 class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
   late List<TextEditingController> _emailControllers;
+  late bool _notifyFamily;
 
   @override
   void initState() {
     super.initState();
-    final players = context.read<AppState>().scannedPlayers;
+    final state = context.read<AppState>();
+    final players = state.scannedPlayers;
     _emailControllers = players
         .map((p) => TextEditingController(text: p.email ?? ''))
         .toList();
+    // Default from the "always notify" setting.
+    _notifyFamily = state.familyAlwaysNotify && state.hasFamilyContact;
   }
 
   @override
@@ -86,6 +91,9 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
         final eventId = await calendarService.createGolfEvent(
           round,
           calendarId,
+          notifyFamily: _notifyFamily,
+          familyName: state.familyContactName,
+          familyEmail: state.familyContactEmail,
         );
 
         if (eventId != null) {
@@ -209,6 +217,23 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
                   },
                 ),
               ),
+
+              // ── Family Notification ───────────────────────────
+              _FamilyNotifySection(
+                notifyFamily: _notifyFamily,
+                familyName: state.familyContactName,
+                familyEmail: state.familyContactEmail,
+                hasFamilyContact: state.hasFamilyContact,
+                onToggle: (value) {
+                  if (!state.hasFamilyContact && value) {
+                    // Prompt to set up family contact.
+                    _promptFamilySetup(context);
+                    return;
+                  }
+                  setState(() => _notifyFamily = value);
+                  state.setNotifyFamily(value);
+                },
+              ),
             ],
           );
         },
@@ -264,6 +289,36 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
                 disabledForegroundColor: AppColors.textMuted,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptFamilySetup(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Set Up Family Contact'),
+        content: const Text(
+          'No family contact configured yet. '
+          'Would you like to go to Settings to add one?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Not Now'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
+            },
+            child: const Text('Go to Settings'),
           ),
         ],
       ),
@@ -460,6 +515,113 @@ class _ContactSourceBadge extends StatelessWidget {
               fontWeight: FontWeight.w500,
               fontSize: 11,
               color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Toggle section for "Let the family know" feature.
+class _FamilyNotifySection extends StatelessWidget {
+  const _FamilyNotifySection({
+    required this.notifyFamily,
+    required this.hasFamilyContact,
+    required this.onToggle,
+    this.familyName,
+    this.familyEmail,
+  });
+
+  final bool notifyFamily;
+  final String? familyName;
+  final String? familyEmail;
+  final bool hasFamilyContact;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.palePurple.withValues(alpha: 0.5),
+              borderRadius: AppRadius.cardBorder,
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '👨‍👩‍👧‍👦',
+                      style: TextStyle(fontSize: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Let the family know',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: notifyFamily,
+                      onChanged: onToggle,
+                    ),
+                  ],
+                ),
+                if (hasFamilyContact) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '$familyName ($familyEmail)',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            color: AppColors.textMuted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Tap the toggle to set up a family contact',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

@@ -83,6 +83,53 @@ class SettingsScreen extends StatelessWidget {
               ),
               const _SettingsDivider(),
 
+              // ── FAMILY NOTIFICATIONS ──────────────────────────
+              const _SectionLabel(label: '👨‍👩‍👧‍👦  FAMILY NOTIFICATIONS'),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.palePurple.withValues(alpha: 0.5),
+                  borderRadius: AppRadius.cardBorder,
+                ),
+                child: Column(
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.family_restroom_rounded,
+                      title: 'Family Contact',
+                      subtitle: state.hasFamilyContact
+                          ? '${state.familyContactName} (${state.familyContactEmail})'
+                          : 'Not set',
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
+                      onTap: () => _showFamilyContactDialog(context, state),
+                    ),
+                    if (state.hasFamilyContact) ...[
+                      _SettingsTile(
+                        icon: Icons.auto_awesome_rounded,
+                        title: 'Always notify family',
+                        subtitle: 'Auto-add to every round',
+                        trailing: Switch(
+                          value: state.familyAlwaysNotify,
+                          onChanged: (v) => state.setFamilyAlwaysNotify(v),
+                        ),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.person_remove_rounded,
+                        title: 'Clear Family Contact',
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                        onTap: () => _confirmClearFamily(context, state),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const _SettingsDivider(),
+
               // ── PURCHASE ─────────────────────────────────────
               const _SectionLabel(label: 'PURCHASE'),
               Padding(
@@ -291,6 +338,129 @@ class SettingsScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _showFamilyContactDialog(BuildContext context, AppState state) {
+    final nameController = TextEditingController(
+      text: state.familyContactName ?? '',
+    );
+    final emailController = TextEditingController(
+      text: state.familyContactEmail ?? '',
+    );
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('👨‍👩‍👧‍👦 '),
+            Text('Family Contact'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Add a family member to receive calendar invites '
+              'for your golf rounds (information only).',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                color: AppColors.textBody,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                prefixIcon: Icon(Icons.person_rounded),
+                hintText: 'e.g. Sarah',
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email_rounded),
+                hintText: 'e.g. sarah@example.com',
+              ),
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final email = emailController.text.trim();
+
+              if (name.isEmpty || email.isEmpty || !email.contains('@')) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid name and email.'),
+                    backgroundColor: AppColors.warning,
+                  ),
+                );
+                return;
+              }
+
+              await state.setFamilyContact(name, email);
+              if (!context.mounted) return;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Family contact set: $name'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClearFamily(BuildContext context, AppState state) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Family Contact?'),
+        content: const Text(
+          'This will remove the configured family contact. '
+          'They will no longer receive calendar invites.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await state.clearFamilyContact();
+              if (!context.mounted) return;
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Family contact cleared'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

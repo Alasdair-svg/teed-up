@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/golf_round.dart';
 import '../models/player.dart';
@@ -277,6 +278,7 @@ class AppState extends ChangeNotifier {
     _addedPlayers = [];
     _removedPlayers = [];
     _unchangedPlayers = [];
+    _notifyFamily = false;
     notifyListeners();
   }
 
@@ -316,6 +318,82 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Family Notification
+  // ---------------------------------------------------------------------------
+
+  bool _notifyFamily = false;
+
+  /// Whether the current scan should include family notification.
+  bool get notifyFamily => _notifyFamily;
+
+  /// Sets whether to notify family for the current scan.
+  void setNotifyFamily(bool value) {
+    if (_notifyFamily == value) return;
+    _notifyFamily = value;
+    notifyListeners();
+  }
+
+  String? _familyContactName;
+  String? _familyContactEmail;
+  bool _familyAlwaysNotify = false;
+
+  /// The configured family contact name.
+  String? get familyContactName => _familyContactName;
+
+  /// The configured family contact email.
+  String? get familyContactEmail => _familyContactEmail;
+
+  /// Whether family is always auto-added without asking.
+  bool get familyAlwaysNotify => _familyAlwaysNotify;
+
+  /// Whether a family contact has been configured.
+  bool get hasFamilyContact =>
+      _familyContactName != null &&
+      _familyContactName!.isNotEmpty &&
+      _familyContactEmail != null &&
+      _familyContactEmail!.isNotEmpty;
+
+  /// Loads family contact settings from SharedPreferences.
+  Future<void> loadFamilySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    _familyContactName = prefs.getString('family_contact_name');
+    _familyContactEmail = prefs.getString('family_contact_email');
+    _familyAlwaysNotify = prefs.getBool('family_always_notify') ?? false;
+    notifyListeners();
+  }
+
+  /// Saves the family contact details to SharedPreferences.
+  Future<void> setFamilyContact(String name, String email) async {
+    _familyContactName = name;
+    _familyContactEmail = email;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('family_contact_name', name);
+    await prefs.setString('family_contact_email', email);
+    notifyListeners();
+  }
+
+  /// Clears the family contact from settings.
+  Future<void> clearFamilyContact() async {
+    _familyContactName = null;
+    _familyContactEmail = null;
+    _familyAlwaysNotify = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('family_contact_name');
+    await prefs.remove('family_contact_email');
+    await prefs.setBool('family_always_notify', false);
+    notifyListeners();
+  }
+
+  /// Sets the "always notify family" toggle and persists it.
+  Future<void> setFamilyAlwaysNotify(bool value) async {
+    if (_familyAlwaysNotify == value) return;
+    _familyAlwaysNotify = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('family_always_notify', value);
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
   // Reset (for testing)
   // ---------------------------------------------------------------------------
 
@@ -339,6 +417,7 @@ class AppState extends ChangeNotifier {
     _addedPlayers = [];
     _removedPlayers = [];
     _unchangedPlayers = [];
+    _notifyFamily = false;
     notifyListeners();
   }
 }

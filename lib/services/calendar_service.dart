@@ -136,15 +136,28 @@ class CalendarService {
   /// - **Description**: players list, booking ref, open slots info
   /// - **Attendees**: players with valid emails added as Required attendees
   ///
+  /// If [notifyFamily] is `true` and [familyEmail] is provided, the family
+  /// contact is added as an Optional attendee so they receive the calendar
+  /// invite as information only.
+  ///
   /// Returns the created event's ID, or `null` on failure.
   Future<String?> createGolfEvent(
     GolfRound round,
-    String calendarId,
-  ) async {
+    String calendarId, {
+    bool notifyFamily = false,
+    String? familyName,
+    String? familyEmail,
+  }) async {
     try {
       if (!await _ensurePermissions()) return null;
 
-      final event = _buildEvent(round, calendarId);
+      final event = _buildEvent(
+        round,
+        calendarId,
+        notifyFamily: notifyFamily,
+        familyName: familyName,
+        familyEmail: familyEmail,
+      );
       final result = await _plugin.createOrUpdateEvent(event);
 
       if (result?.isSuccess == true && result?.data != null) {
@@ -321,6 +334,23 @@ class CalendarService {
       // 4. Update the event fields.
       existingEvent.title = _buildSummary(round);
       existingEvent.description = _buildDescription(round);
+
+      // Preserve existing family attendee if present.
+      final existingFamilyAttendees = (existingEvent.attendees ?? <Attendee?>[])
+          .where((a) => a != null && a.role == AttendeeRole.Optional)
+          .whereType<Attendee>();
+      for (final familyAttendee in existingFamilyAttendees) {
+        // Only re-add if not already in the new list.
+        final alreadyPresent = newAttendees.any(
+          (a) =>
+              a.emailAddress?.toLowerCase() ==
+              familyAttendee.emailAddress?.toLowerCase(),
+        );
+        if (!alreadyPresent) {
+          newAttendees.add(familyAttendee);
+        }
+      }
+
       existingEvent.attendees = newAttendees;
       existingEvent.location = round.courseName;
 
@@ -468,7 +498,15 @@ class CalendarService {
   // ── Event building ─────────────────────────────────────────────────────
 
   /// Builds a [device_calendar.Event] from a [GolfRound].
-  Event _buildEvent(GolfRound round, String calendarId) {
+  ///
+  /// Optionally adds a family member as an [AttendeeRole.Optional] attendee.
+  Event _buildEvent(
+    GolfRound round,
+    String calendarId, {
+    bool notifyFamily = false,
+    String? familyName,
+    String? familyEmail,
+  }) {
     final localTz = local;
 
     // Combine date + tee time into a TZDateTime.
@@ -489,13 +527,34 @@ class CalendarService {
         if (player.hasValidEmail) _playerToAttendee(player),
     ];
 
+    // Add family member as Optional attendee if requested.
+    if (notifyFamily &&
+        familyEmail != null &&
+        familyEmail.isNotEmpty) {
+      attendees.add(Attendee(
+        name: familyName ?? familyEmail,
+        emailAddress: familyEmail,
+        role: AttendeeRole.Optional,
+        isOrganiser: false,
+      ));
+    }
+
+    // Build description, prepending family notification line if applicable.
+    String? familyNoteLine;
+    if (notifyFamily &&
+        familyName != null &&
+        familyName.isNotEmpty) {
+      familyNoteLine =
+          'ℹ️ $familyName notified — information only';
+    }
+
     return Event(
       calendarId,
       title: _buildSummary(round),
       start: startDt,
       end: endDt,
       location: round.courseName,
-      description: _buildDescription(round),
+      description: _buildDescription(round, familyNoteLine: familyNoteLine),
       attendees: attendees.isNotEmpty ? attendees : null,
       availability: Availability.Busy,
       reminders: [
@@ -516,8 +575,16 @@ class CalendarService {
   }
 
   /// Builds the event description with booking details.
-  String _buildDescription(GolfRound round) {
+  ///
+  /// If [familyNoteLine] is provided, it is prepended to the description.
+  String _buildDescription(GolfRound round, {String? familyNoteLine}) {
     final buffer = StringBuffer();
+
+    // Prepend family notification line if provided.
+    if (familyNoteLine != null) {
+      buffer.writeln(familyNoteLine);
+      buffer.writeln();
+    }
 
     buffer.writeln('🏌️ Golf Round — ${round.courseName}');
     buffer.writeln();
