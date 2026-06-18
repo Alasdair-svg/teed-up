@@ -54,6 +54,8 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: "com.teedup.golf"
     cache:
@@ -73,6 +75,7 @@ workflows:
         script: keychain initialize
       - name: Fetch signing files
         script: |
+          export CERTIFICATE_PRIVATE_KEY=$(echo $CERTIFICATE_PRIVATE_KEY_B64 | base64 --decode)
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
