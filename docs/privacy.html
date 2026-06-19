@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Teed Up by The Artesian Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design tokens ────────────────────────────────────── */
+    :root {
+      --purple:       #7B2D8E;
+      --purple-deep:  #5C1D6E;
+      --purple-soft:  #9B4DB8;
+      --purple-pale:  #F3EAF6;
+      --text-dark:    #1E1E2E;
+      --text-body:    #4A4A5E;
+      --text-muted:   #8888A0;
+      --white:        #FFFFFF;
+      --off-white:    #FAFAFE;
+      --grey:         #E8E8EE;
+      --grey-light:   #F4F4F8;
+      --radius-card:  12px;
+      --radius-sm:    8px;
+      --shadow:       0 4px 24px rgba(123, 45, 142, 0.12);
+      --transition:   300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Base ─────────────────────────────────────────────── */
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-body);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .wrapper {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--grey);
+    }
+    .header__badge {
+      display: inline-block;
+      background: var(--purple-pale);
+      color: var(--purple);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-dark);
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* ── Sections ─────────────────────────────────────────── */
+    section {
+      margin-bottom: 40px;
+    }
+    section h2 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--text-dark);
+      margin-bottom: 16px;
+      padding-left: 16px;
+      border-left: 3px solid var(--purple);
+    }
+    section h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--text-dark);
+      margin: 20px 0 8px;
+    }
+    section p {
+      margin-bottom: 12px;
+    }
+
+    /* ── Lists ────────────────────────────────────────────── */
+    ul, ol {
+      padding-left: 24px;
+      margin-bottom: 12px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    li::marker {
+      color: var(--purple-soft);
+    }
+
+    /* ── Highlight card ───────────────────────────────────── */
+    .highlight {
+      background: var(--purple-pale);
+      border-radius: var(--radius-card);
+      padding: 20px 24px;
+      margin: 24px 0;
+      border: 1px solid rgba(123, 45, 142, 0.08);
+    }
+    .highlight p {
+      margin-bottom: 0;
+      color: var(--purple-deep);
+      font-weight: 500;
+    }
+
+    /* ── Permission table ─────────────────────────────────── */
+    .perm-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 15px;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .perm-table thead th {
+      background: var(--purple);
+      color: var(--white);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      text-align: left;
+      padding: 14px 16px;
+      letter-spacing: 0.02em;
+    }
+    .perm-table tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--grey);
+      vertical-align: top;
+    }
+    .perm-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .perm-table tbody tr:nth-child(even) {
+      background: var(--grey-light);
+    }
+    .perm-table .perm-name {
+      font-weight: 500;
+      color: var(--text-dark);
+      white-space: nowrap;
+    }
+
+    /* ── Strong / emphasis ────────────────────────────────── */
+    strong {
+      color: var(--text-dark);
+      font-weight: 500;
+    }
+
+    /* ── Links ────────────────────────────────────────────── */
+    a {
+      color: var(--purple);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color var(--transition);
+    }
+    a:hover, a:focus-visible {
+      color: var(--purple-deep);
+      border-bottom-color: var(--purple-deep);
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    .footer {
+      margin-top: 56px;
+      padding-top: 24px;
+      border-top: 1px solid var(--grey);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .footer span {
+      color: var(--purple);
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .wrapper { padding: 32px 16px 56px; }
+      .header h1 { font-size: 28px; }
+      section h2 { font-size: 20px; }
+      .perm-table { font-size: 14px; }
+      .perm-table thead th,
+      .perm-table tbody td { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- ── Header ─────────────────────────────────────── -->
+    <header class="header">
+      <div class="header__badge">Teed Up</div>
+      <h1>Privacy Policy</h1>
+      <p>Last updated: 1 June 2026</p>
+    </header>
+
+    <!-- ── Introduction ───────────────────────────────── -->
+    <section>
+      <h2>Introduction</h2>
+      <p>
+        Teed Up ("the App") is published by <strong>The Artesian Group</strong>,
+        based in Dubai, UAE. This Privacy Policy explains what data the App
+        accesses, how it is processed, and — most importantly — what it
+        does&nbsp;<em>not</em> do.
+      </p>
+      <div class="highlight">
+        <p>
+          Teed Up is a fully on-device application. It has no server, no cloud
+          backend, no analytics, and no tracking. Your data never leaves your
+          phone.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── 1  Data Collection ─────────────────────────── -->
+    <section>
+      <h2>1. Data Collection</h2>
+      <p>
+        Teed Up does <strong>not</strong> collect, transmit, or upload any
+        personal data. All processing is performed entirely on your device.
+        The App requests the following permissions solely to provide its core
+        functionality:
+      </p>
+
+      <table class="perm-table">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Purpose</th>
+            <th>Data Handling</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="perm-name">Camera</td>
+            <td>
+              Photograph golf-booking confirmation screenshots so the App can
+              extract tee-time details.
+            </td>
+            <td>
+              Images are processed on-device using Google ML&nbsp;Kit OCR.
+              They are <strong>never uploaded</strong> to any server.
+            </td>
+          </tr>
+          <tr>
+            <td class="perm-name">Calendar</td>
+            <td>
+              Create, read, and manage golf events in your device's native
+              calendar (iCloud, Google, Outlook, Exchange, etc.).
+            </td>
+            <td>
+              Data remains in your device's calendar system. The App does not
+              copy or store calendar data elsewhere.
+            </td>
+          </tr>
+          <tr>
+            <td class="perm-name">Contacts</td>
+            <td>
+              Look up player email addresses so calendar invitations can be
+              sent to your playing partners.
+            </td>
+            <td>
+              Contact data is cached locally in an on-device SQLite database
+              for performance. It is <strong>never transmitted</strong> off
+              the device.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>What We Do NOT Collect</h3>
+      <ul>
+        <li>No personal identifiers (name, email, phone number)</li>
+        <li>No location data</li>
+        <li>No usage analytics or telemetry</li>
+        <li>No advertising identifiers</li>
+        <li>No crash reports sent to external services</li>
+        <li>No cookies, tracking pixels, or fingerprinting</li>
+      </ul>
+    </section>
+
+    <!-- ── 2  Data Storage ────────────────────────────── -->
+    <section>
+      <h2>2. Data Storage</h2>
+      <p>
+        All data generated or cached by the App is stored locally on your
+        device. There is no server-side component — <strong>because there is
+        no server</strong>.
+      </p>
+      <ul>
+        <li>
+          <strong>SQLite database</strong> — stores a local cache of contact
+          details (for invitation look-ups) and RSVP statuses for your golf
+          events.
+        </li>
+        <li>
+          <strong>SharedPreferences</strong> — stores lightweight app settings
+          such as your preferred calendar and notification preferences.
+        </li>
+        <li>
+          <strong>Device calendar</strong> — golf events are created using
+          your device's native calendar APIs and are managed entirely by your
+          operating system.
+        </li>
+      </ul>
+      <p>
+        Uninstalling the App removes all locally stored data. Calendar events
+        you have created will remain in your device calendar unless you
+        delete them separately.
+      </p>
+    </section>
+
+    <!-- ── 3  Data Sharing ────────────────────────────── -->
+    <section>
+      <h2>3. Data Sharing</h2>
+      <div class="highlight">
+        <p>
+          Teed Up does NOT share your data with any third parties. Period.
+        </p>
+      </div>
+      <ul>
+        <li>
+          <strong>Calendar invitations</strong> are sent through your device's
+          native calendar service (e.g.&nbsp;iCloud, Google Calendar). The App
+          itself does not send emails or network requests.
+        </li>
+        <li>No advertising SDKs are embedded in the App.</li>
+        <li>No analytics SDKs are embedded in the App.</li>
+        <li>No tracking pixels, beacons, or similar technologies are used.</li>
+        <li>No data is sold, rented, or traded to any third party.</li>
+      </ul>
+    </section>
+
+    <!-- ── 4  Third-Party Services ────────────────────── -->
+    <section>
+      <h2>4. Third-Party Services</h2>
+      <p>
+        Teed Up uses the following platform-native and on-device libraries.
+        None of them transmit data off your device:
+      </p>
+      <ul>
+        <li>
+          <strong>Google ML Kit — Text Recognition</strong><br />
+          Runs entirely on-device to extract text from booking screenshots.
+          No images or text are sent to Google's cloud servers.
+        </li>
+        <li>
+          <strong>Device Calendar APIs</strong><br />
+          Platform-native APIs (iOS EventKit / Android CalendarProvider) are
+          used to create and manage golf events. Calendar syncing is handled
+          by your operating system, not by the App.
+        </li>
+        <li>
+          <strong>Device Contacts APIs</strong><br />
+          Platform-native APIs are used to read contact information for
+          player look-up. No contact data is sent externally.
+        </li>
+      </ul>
+      <p>
+        The App contains <strong>no</strong> Firebase, no social-media SDKs,
+        no crash-reporting services, and no remote-configuration tools.
+      </p>
+    </section>
+
+    <!-- ── 5  Children's Privacy ──────────────────────── -->
+    <section>
+      <h2>5. Children's Privacy</h2>
+      <p>
+        Teed Up is not directed at children under the age of 13. We do not
+        knowingly collect or process any data from children. Because the App
+        collects no personal data from any user, there is no risk of
+        inadvertent data collection from minors.
+      </p>
+    </section>
+
+    <!-- ── 6  Changes to This Policy ──────────────────── -->
+    <section>
+      <h2>6. Changes to This Policy</h2>
+      <p>
+        We may update this Privacy Policy from time to time. If we make
+        material changes, we will:
+      </p>
+      <ol>
+        <li>Update the "Last updated" date at the top of this page.</li>
+        <li>
+          Include a notice in the App's update release notes on the
+          App&nbsp;Store and Google&nbsp;Play Store.
+        </li>
+      </ol>
+      <p>
+        We encourage you to review this policy periodically. Your continued
+        use of the App after changes are posted constitutes your acceptance
+        of the revised policy.
+      </p>
+    </section>
+
+    <!-- ── 7  Contact Us ──────────────────────────────── -->
+    <section>
+      <h2>7. Contact Us</h2>
+      <p>
+        If you have any questions about this Privacy Policy or the App's
+        data practices, please contact us:
+      </p>
+      <ul>
+        <li><strong>Company:</strong> The Artesian Group</li>
+        <li><strong>Location:</strong> Dubai, United Arab Emirates</li>
+        <li>
+          <strong>Email:</strong>
+          <a href="mailto:Alasdair@theartesiangroup.com"
+            >Alasdair@theartesiangroup.com</a
+          >
+        </li>
+      </ul>
+    </section>
+
+    <!-- ── Footer ─────────────────────────────────────── -->
+    <footer class="footer">
+      <p>
+        &copy; 2026 <span>The Artesian Group</span>. All rights reserved.
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
