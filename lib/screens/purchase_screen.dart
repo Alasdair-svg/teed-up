@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/golf_ball_logo.dart';
 
 /// The paywall screen presented to unpaid users.
 ///
@@ -266,26 +267,12 @@ class _PurchaseScreenState extends State<PurchaseScreen>
                   children: [
                     SizedBox(height: isTablet ? 48 : 32),
 
-                    // App icon
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.golf_course_rounded,
-                        size: 44,
-                        color: AppColors.white,
-                      ),
+                    // Branded golf ball logo
+                    const GolfBallLogo(
+                      size: 100,
+                      animate: false,
+                      showTee: true,
+                      showGlow: true,
                     ),
                     const SizedBox(height: 20),
 

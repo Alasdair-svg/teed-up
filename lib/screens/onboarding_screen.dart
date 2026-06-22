@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../providers/app_state.dart';
 import '../services/device_capability_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/golf_ball_logo.dart';
 import 'home_screen.dart';
 
 /// Onboarding screen shown on first launch.
@@ -144,6 +145,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (index) => setState(() => _currentPage = index),
                 itemBuilder: (context, index) => _OnboardingSlide(
                   data: _slides[index],
+                  slideIndex: index,
                   isTablet: isTablet,
                 ),
               ),
@@ -217,41 +219,56 @@ class _SlideData {
 
 /// A single onboarding slide with icon, title, and description.
 class _OnboardingSlide extends StatelessWidget {
-  const _OnboardingSlide({required this.data, required this.isTablet});
+  const _OnboardingSlide({
+    required this.data,
+    required this.slideIndex,
+    required this.isTablet,
+  });
 
   final _SlideData data;
+  final int slideIndex;
   final bool isTablet;
 
   @override
   Widget build(BuildContext context) {
     final iconSize = isTablet ? 120.0 : 88.0;
+    final heroSize = isTablet ? 200.0 : 160.0;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isTablet ? 64 : 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon circle
-          Container(
-            width: iconSize + 40,
-            height: iconSize + 40,
-            decoration: BoxDecoration(
-              color: AppColors.primaryPale,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  blurRadius: 40,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+          // First slide: branded spinning golf ball on tee
+          // Other slides: icon circle
+          if (slideIndex == 0)
+            GolfBallLogo(
+              size: heroSize,
+              animate: true,
+              showTee: true,
+              showGlow: true,
+            )
+          else
+            Container(
+              width: iconSize + 40,
+              height: iconSize + 40,
+              decoration: BoxDecoration(
+                color: AppColors.primaryPale,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 40,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(
+                data.icon,
+                size: iconSize,
+                color: AppColors.primary,
+              ),
             ),
-            child: Icon(
-              data.icon,
-              size: iconSize,
-              color: AppColors.primary,
-            ),
-          ),
           SizedBox(height: isTablet ? 48 : 40),
 
           // Title

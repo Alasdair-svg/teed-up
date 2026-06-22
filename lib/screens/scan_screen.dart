@@ -11,6 +11,7 @@ import '../providers/app_state.dart';
 import '../services/contacts_service.dart';
 import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/golf_ball_logo.dart';
 import 'verify_emails_screen.dart';
 
 /// Scan screen for capturing or selecting a booking confirmation image.
@@ -430,13 +431,18 @@ class _ImagePreview extends StatelessWidget {
 
   Widget _buildContent(BuildContext context) {
     if (isProcessing) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppColors.primary),
-            SizedBox(height: 16),
-            Text(
+            const GolfBallLogo(
+              size: 80,
+              animate: true,
+              showTee: false,
+              showGlow: true,
+            ),
+            const SizedBox(height: 16),
+            const Text(
               'Processing image…',
               style: TextStyle(
                 fontFamily: 'Inter',

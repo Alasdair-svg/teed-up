@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/golf_ball_logo.dart';
 import 'alerts_screen.dart';
 import 'round_detail_screen.dart';
 import 'scan_screen.dart';
@@ -188,19 +189,12 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Illustration placeholder
-            Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                color: AppColors.primaryPale,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.golf_course_rounded,
-                size: 80,
-                color: AppColors.primarySoft,
-              ),
+            // Branded golf ball on tee
+            const GolfBallLogo(
+              size: 160,
+              animate: true,
+              showTee: true,
+              showGlow: true,
             ),
             const SizedBox(height: 32),
 
