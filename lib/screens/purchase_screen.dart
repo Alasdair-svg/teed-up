@@ -17,7 +17,6 @@ library;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
@@ -91,10 +90,10 @@ class _PurchaseScreenState extends State<PurchaseScreen>
     // Register as a lifecycle observer for iOS background overlay.
     WidgetsBinding.instance.addObserver(this);
 
-    // Android: block screenshots and screen recording on the paywall.
-    if (Platform.isAndroid) {
-      FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-    }
+    // TODO: Re-add Android FLAG_SECURE screenshot blocking when a
+    // maintained window-manager package is added to pubspec.yaml.
+    // Previous implementation used flutter_windowmanager which was
+    // never added as a dependency.
 
     // Subtle button shimmer animation.
     _shimmerController = AnimationController(
@@ -132,10 +131,7 @@ class _PurchaseScreenState extends State<PurchaseScreen>
     // Remove lifecycle observer.
     WidgetsBinding.instance.removeObserver(this);
 
-    // Android: restore normal screenshot behaviour when leaving paywall.
-    if (Platform.isAndroid) {
-      FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
-    }
+    // (Android FLAG_SECURE cleanup — see TODO in initState.)
 
     _shimmerController.dispose();
     _purchaseService.dispose();
