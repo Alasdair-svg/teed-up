@@ -37,11 +37,11 @@ workflows:
       - build/app/outputs/bundle/release/app-release.aab
       # Debug symbols — upload to Play Console for deobfuscated crash reports
       - build/debug-info/**
-    # publishing:
-    #   google_play:
-    #     credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-    #     track: internal
-    #     submit_as_draft: true
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
 
   # ============================================================
   ios-release:
