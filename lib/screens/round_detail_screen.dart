@@ -10,14 +10,23 @@ import 'scan_screen.dart';
 /// Detailed view of a single golf round.
 ///
 /// Shows a hero header with course name and date, the player list with
-/// RSVP status icons, an event timeline, and action buttons for amending
-/// or cancelling the round.
+/// RSVP status icons, and action buttons.
+///
+/// When [fromScan] is `true` (navigated after a scan), a "Done" and
+/// "Send invite" button are shown. Otherwise only the amend action is shown.
 class RoundDetailScreen extends StatelessWidget {
   /// Creates a [RoundDetailScreen] for the round with [roundId].
-  const RoundDetailScreen({super.key, required this.roundId});
+  const RoundDetailScreen({
+    super.key,
+    required this.roundId,
+    this.fromScan = false,
+  });
 
   /// The ID of the round to display.
   final String roundId;
+
+  /// Whether this screen was pushed from the scan flow (shows Done button).
+  final bool fromScan;
 
   /// Route name for navigation.
   static const String routeName = '/round-detail';
@@ -41,10 +50,7 @@ class RoundDetailScreen extends StatelessWidget {
           backgroundColor: AppColors.white,
           body: CustomScrollView(
             slivers: [
-              // ── Hero Header ──────────────────────────────────
               _HeroHeader(round: round),
-
-              // ── Content ──────────────────────────────────────
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                 sliver: SliverList(
@@ -60,19 +66,75 @@ class RoundDetailScreen extends StatelessWidget {
                       const SizedBox(height: 20),
                     ],
 
-                    // Players section
+                    // Players
                     _SectionTitle(title: 'Players'),
                     const SizedBox(height: 12),
-                    ...round.players.map((p) => _PlayerTile(player: p)),
+                    ...round.players.map(
+                      (p) => _PlayerTile(
+                        player: p,
+                        onRsvpCycle: () {
+                          // Cycle: tbc → confirmed → pending → declined → tbc
+                          final next = _nextRsvp(p.rsvpStatus);
+                          state.updatePlayerRsvp(
+                            roundId: round.id,
+                            playerId: p.id,
+                            newStatus: next,
+                          );
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 28),
 
-                    // Timeline section
-                    _SectionTitle(title: 'Timeline'),
-                    const SizedBox(height: 12),
-                    _EventTimeline(round: round),
-                    const SizedBox(height: 32),
+                    // ── Let the family know (A10) ──────────────────
+                    _FamilyNotifyButton(
+                      round: round,
+                      onNotify: () async {
+                        await state.notifyFamily(roundId: round.id);
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                    // Action buttons
+                    // ── Send Invite (always shown) ─────────────────
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await state.sendCalendarInvite(roundId: round.id);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Calendar invite sent'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.calendar_today_rounded),
+                        label: const Text('Send invite'),
+                      ),
+                    ),
+
+                    // ── Done (scan-flow only) ─────────────────────
+                    if (fromScan) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // Pop back to home
+                            Navigator.of(context).popUntil(
+                              (route) => route.isFirst,
+                            );
+                          },
+                          child: const Text('Done'),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 28),
+
+                    // ── Amend ─────────────────────────────────────
                     _ActionButtons(round: round),
                   ]),
                 ),
@@ -82,6 +144,16 @@ class RoundDetailScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Cycles RSVP status: pending → confirmed → declined → pending.
+  static RsvpStatus _nextRsvp(RsvpStatus current) {
+    switch (current) {
+      case RsvpStatus.pending:   return RsvpStatus.confirmed;
+      case RsvpStatus.confirmed: return RsvpStatus.declined;
+      case RsvpStatus.accepted:  return RsvpStatus.declined; // legacy
+      case RsvpStatus.declined:  return RsvpStatus.pending;
+    }
   }
 }
 
@@ -249,31 +321,23 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-/// A single player tile with RSVP status icon and colour.
+/// A single player tile with tappable RSVP status (3-state cycle, A10).
 class _PlayerTile extends StatelessWidget {
-  const _PlayerTile({required this.player});
+  const _PlayerTile({required this.player, required this.onRsvpCycle});
 
   final Player player;
+  final VoidCallback onRsvpCycle;
 
   @override
   Widget build(BuildContext context) {
     final (statusIcon, statusColor, statusLabel) = switch (player.rsvpStatus) {
-      RsvpStatus.accepted => (
-          Icons.check_circle_rounded,
-          AppColors.success,
-          'Accepted'
-        ),
-      RsvpStatus.pending => (
-          Icons.schedule_rounded,
-          AppColors.warning,
-          'Pending'
-        ),
-      RsvpStatus.declined => (
-          Icons.cancel_rounded,
-          AppColors.error,
-          'Declined'
-        ),
+      RsvpStatus.confirmed => (Icons.check_circle_rounded,    AppColors.success,   'Confirmed'),
+      RsvpStatus.accepted  => (Icons.check_circle_rounded,    AppColors.success,   'Confirmed'), // legacy
+      RsvpStatus.pending   => (Icons.schedule_rounded,        AppColors.warning,   'Pending'),
+      RsvpStatus.declined  => (Icons.cancel_rounded,          AppColors.error,     'Declined'),
     };
+
+    final isTbc = player.name.trim().isEmpty || player.name.trim().toLowerCase() == 'tbc';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -286,7 +350,6 @@ class _PlayerTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Avatar
             Container(
               width: 40,
               height: 40,
@@ -296,7 +359,9 @@ class _PlayerTile extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                  isTbc ? '?' : (player.name.isNotEmpty
+                      ? player.name[0].toUpperCase()
+                      : '?'),
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontWeight: FontWeight.w600,
@@ -307,22 +372,23 @@ class _PlayerTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-
-            // Name and email
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    player.name,
-                    style: const TextStyle(
+                    isTbc ? 'Player TBC' : player.name,
+                    style: TextStyle(
                       fontFamily: 'Outfit',
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
-                      color: AppColors.textDark,
+                      color: isTbc ? AppColors.textMuted : AppColors.textDark,
+                      fontStyle: isTbc ? FontStyle.italic : FontStyle.normal,
                     ),
                   ),
-                  if (player.email != null && player.email!.isNotEmpty)
+                  if (!isTbc &&
+                      player.email != null &&
+                      player.email!.isNotEmpty)
                     Text(
                       player.email!,
                       style: const TextStyle(
@@ -334,29 +400,32 @@ class _PlayerTile extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Status badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(statusIcon, size: 14, color: statusColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                      color: statusColor,
+            // Tappable RSVP badge — cycles through states
+            GestureDetector(
+              onTap: onRsvpCycle,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 14, color: statusColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      statusLabel,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        color: statusColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

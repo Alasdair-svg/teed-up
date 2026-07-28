@@ -11,10 +11,10 @@ import 'round_detail_screen.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
 
-/// Main home screen with bottom navigation, upcoming rounds list, and scan FAB.
+/// Main home screen with bottom navigation, upcoming rounds list, and scan CTA.
 ///
-/// Shows three tabs: Home (rounds list), Alerts (RSVP changes), Settings.
-/// The Home tab displays upcoming round cards with player RSVP chips,
+/// Shows four tabs: Home (rounds list), Alerts (RSVP changes), Scan (elevated),
+/// Settings. The Home tab displays upcoming round cards with player RSVP chips,
 /// or an empty state prompting the user to scan their first booking.
 class HomeScreen extends StatelessWidget {
   /// Creates a [HomeScreen].
@@ -33,19 +33,18 @@ class HomeScreen extends StatelessWidget {
             children: const [
               _HomeTab(),
               AlertsScreen(),
+              SizedBox.shrink(), // Scan is always a push, not a tab page
               SettingsScreen(),
             ],
           ),
           bottomNavigationBar: _buildBottomNav(context, state),
-          floatingActionButton: state.currentTabIndex == 0
-              ? _ScanFab(onPressed: () => _openScanner(context))
-              : null,
         );
       },
     );
   }
 
   Widget _buildBottomNav(BuildContext context, AppState state) {
+    // 4 tabs — Scan (index 2) is the elevated centre action.
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -58,23 +57,37 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: BottomNavigationBar(
-          currentIndex: state.currentTabIndex,
-          onTap: (i) => state.setTab(i),
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.golf_course_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: _AlertsBadge(count: state.unreadAlertCount),
-              label: 'Alerts',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded),
-              label: 'Settings',
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              // Home
+              _NavItem(
+                icon: Icons.golf_course_rounded,
+                label: 'Home',
+                selected: state.currentTabIndex == 0,
+                onTap: () => state.setTab(0),
+              ),
+              // Alerts
+              _NavItem(
+                icon: Icons.notifications_rounded,
+                label: 'Alerts',
+                selected: state.currentTabIndex == 1,
+                badge: state.unreadAlertCount,
+                onTap: () => state.setTab(1),
+              ),
+              // Scan — elevated centre button
+              _ScanNavItem(onTap: () => _openScanner(context)),
+              // Settings
+              _NavItem(
+                icon: Icons.settings_rounded,
+                label: 'Settings',
+                selected: state.currentTabIndex == 3,
+                onTap: () => state.setTab(3),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -87,58 +100,91 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// Badge overlay for the alerts tab icon.
-class _AlertsBadge extends StatelessWidget {
-  const _AlertsBadge({required this.count});
+/// Individual nav tab item.
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
 
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Badge(
-      isLabelVisible: count > 0,
-      label: Text(
-        count > 99 ? '99+' : count.toString(),
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-      ),
-      backgroundColor: AppColors.error,
-      child: const Icon(Icons.notifications_rounded),
-    );
-  }
-}
-
-/// Gradient FAB for scanning a booking.
-class _ScanFab extends StatelessWidget {
-  const _ScanFab({required this.onPressed});
-
-  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+    final color = selected ? AppColors.primary : AppColors.textMuted;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Badge(
+                isLabelVisible: badge > 0,
+                label: Text(
+                  badge > 99 ? '99+' : badge.toString(),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+                backgroundColor: AppColors.error,
+                child: Icon(icon, size: 24, color: color),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 11,
+                  color: color,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: FloatingActionButton(
-        onPressed: onPressed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        heroTag: 'scan_fab',
-        child: const Icon(Icons.camera_alt_rounded, size: 28),
+        ),
       ),
     );
   }
 }
+
+/// Elevated scan button in the centre of the bottom nav bar.
+class _ScanNavItem extends StatelessWidget {
+  const _ScanNavItem({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 26),
+      ),
+    );
+  }
+}
+
 
 /// The Home tab body showing upcoming rounds or empty state.
 class _HomeTab extends StatelessWidget {
@@ -189,7 +235,6 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Branded golf ball on tee
             const GolfBallLogo(
               size: 160,
               animate: true,
@@ -197,34 +242,30 @@ class _EmptyState extends StatelessWidget {
               showGlow: true,
             ),
             const SizedBox(height: 32),
-
             Text(
-              'No upcoming rounds',
+              'No rounds yet',
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-
             Text(
-              'Scan your first booking confirmation to get started',
-              style: Theme.of(context).textTheme.bodyLarge,
+              'Fore-tunately, that’s easy to fix\u00a0\u2014 scan your first booking below.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textMuted,
+                    height: 1.5,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-
             SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ScanScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.camera_alt_rounded),
-                label: const Text('Scan Booking'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const ScanScreen()),
+                ),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Scan a booking'),
               ),
             ),
           ],
@@ -336,11 +377,15 @@ class _PlayerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (bgColor, fgColor) = switch (player.rsvpStatus) {
-      RsvpStatus.accepted => (AppColors.successLight, AppColors.success),
-      RsvpStatus.pending => (AppColors.warningLight, AppColors.warning),
-      RsvpStatus.declined => (AppColors.errorLight, AppColors.error),
+    final (bgColor, fgColor, label) = switch (player.rsvpStatus) {
+      RsvpStatus.confirmed  => (AppColors.successLight, AppColors.success,  player.name),
+      RsvpStatus.pending => (AppColors.warningLight, AppColors.warning,   player.name),
+      RsvpStatus.declined => (AppColors.errorLight,  AppColors.error,     player.name),
+      RsvpStatus.accepted => (AppColors.successLight, AppColors.success,   player.name), // legacy
     };
+
+    final isTbc = player.name.trim().isEmpty || player.name.trim().toLowerCase() == 'tbc';
+    final displayName = isTbc ? '?' : label;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -361,7 +406,7 @@ class _PlayerChip extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            player.name,
+            displayName,
             style: TextStyle(
               fontFamily: 'Inter',
               fontWeight: FontWeight.w500,
@@ -374,3 +419,4 @@ class _PlayerChip extends StatelessWidget {
     );
   }
 }
+

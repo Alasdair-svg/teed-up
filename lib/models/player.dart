@@ -1,13 +1,21 @@
 /// RSVP status for a player in a round.
+///
+/// 3-state cycle (spec A10): [pending] → [confirmed] → [declined]
 enum RsvpStatus {
-  /// Player has accepted the invitation.
-  accepted,
+
+  /// Player has confirmed / accepted the invitation.
+  confirmed,
 
   /// Player has not yet responded.
   pending,
 
   /// Player has declined the invitation.
   declined,
+
+  // Backwards-compat alias — JSON from older builds may have stored "accepted".
+  // Do not use in new code; use [confirmed] instead.
+  // ignore: constant_identifier_names
+  accepted,
 }
 
 /// Source of the player's contact information.
@@ -70,10 +78,7 @@ class Player {
       name: json['name'] as String,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
-      rsvpStatus: RsvpStatus.values.firstWhere(
-        (e) => e.name == json['rsvpStatus'],
-        orElse: () => RsvpStatus.pending,
-      ),
+      rsvpStatus: _parseRsvpStatus(json['rsvpStatus'] as String?),
       contactSource: ContactSource.values.firstWhere(
         (e) => e.name == json['contactSource'],
         orElse: () => ContactSource.manual,
@@ -112,5 +117,21 @@ class Player {
       contactSource: contactSource ?? this.contactSource,
       isNewlyAdded: isNewlyAdded ?? this.isNewlyAdded,
     );
+  }
+}
+
+/// Parses an RSVP status string with backwards compatibility.
+///
+/// Maps the legacy `"accepted"` value to [RsvpStatus.confirmed].
+RsvpStatus _parseRsvpStatus(String? value) {
+  switch (value) {
+    case 'confirmed':
+    case 'accepted': // legacy
+      return RsvpStatus.confirmed;
+    case 'declined':
+      return RsvpStatus.declined;
+    case 'pending':
+    default:
+      return RsvpStatus.pending;
   }
 }

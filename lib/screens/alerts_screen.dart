@@ -125,11 +125,12 @@ class _AlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDecline = alert.newStatus == RsvpStatus.declined;
-    final actionColor = isDecline ? AppColors.error : AppColors.success;
-    final actionLabel = isDecline ? 'declined' : 'accepted';
-    final actionIcon =
-        isDecline ? Icons.cancel_rounded : Icons.check_circle_rounded;
+    final (actionColor, actionLabel, actionIcon) = switch (alert.newStatus) {
+      RsvpStatus.confirmed => (AppColors.success, 'confirmed', Icons.check_circle_rounded),
+      RsvpStatus.accepted  => (AppColors.success, 'confirmed', Icons.check_circle_rounded), // legacy
+      RsvpStatus.pending   => (AppColors.warning, 'is pending', Icons.schedule_rounded),
+      RsvpStatus.declined  => (AppColors.error,   'declined',   Icons.cancel_rounded),
+    };
     final dateFormat = DateFormat('d MMM');
     final timeAgo = _formatTimeAgo(alert.detectedAt);
 
