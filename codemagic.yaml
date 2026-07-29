@@ -9,8 +9,8 @@ workflows:
     environment:
       flutter: stable
       java: 17
-      # groups:
-      #   - google_play_credentials  # Uncomment after adding in Codemagic UI
+      groups:
+        - google_play_credentials
     cache:
       cache_paths:
         - $HOME/.gradle/caches
