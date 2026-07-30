@@ -1,0 +1,135 @@
+name: Build & Publish Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    name: Build AAB & Upload to Play Store
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/teedup-release.keystore
+
+      - name: Configure signing
+        run: |
+          cat >> android/key.properties << EOF
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../teedup-release.keystore
+          EOF
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build App Bundle
+        run: |
+          flutter build appbundle \
+            --release \
+            --obfuscate \
+            --split-debug-info=build/debug-info
+
+      - name: Upload to Google Play (internal track)
+        run: |
+          pip install cryptography certifi
+          python3 - << 'PYEOF'
+          import json, ssl, certifi, urllib.request, urllib.parse, os, base64, time
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import padding
+
+          ctx = ssl.create_default_context(cafile=certifi.where())
+          PACKAGE_NAME = 'com.teedup.golf'
+          AAB_PATH = 'build/app/outputs/bundle/release/app-release.aab'
+
+          # Get access token via refresh token
+          CLIENT_ID = os.environ['PLAY_CLIENT_ID']
+          CLIENT_SECRET = os.environ['PLAY_CLIENT_SECRET']
+          REFRESH_TOKEN = os.environ['PLAY_REFRESH_TOKEN']
+
+          td = urllib.parse.urlencode({
+              'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET,
+              'refresh_token': REFRESH_TOKEN, 'grant_type': 'refresh_token'
+          }).encode()
+          rq = urllib.request.Request('https://oauth2.googleapis.com/token', data=td, method='POST')
+          rq.add_header('Content-Type', 'application/x-www-form-urlencoded')
+          with urllib.request.urlopen(rq, context=ctx) as r:
+              tok = json.loads(r.read())['access_token']
+          print('✅ Authenticated with Google Play API')
+
+          # Create edit
+          rq = urllib.request.Request(
+              f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE_NAME}/edits',
+              data=b'{}', method='POST'
+          )
+          rq.add_header('Authorization', f'Bearer {tok}')
+          rq.add_header('Content-Type', 'application/json')
+          with urllib.request.urlopen(rq, context=ctx) as r:
+              edit_id = json.loads(r.read())['id']
+          print(f'✅ Edit: {edit_id}')
+
+          # Upload AAB (resumable)
+          aab_size = os.path.getsize(AAB_PATH)
+          init_url = (
+              f'https://androidpublisher.googleapis.com/upload/androidpublisher/v3'
+              f'/applications/{PACKAGE_NAME}/edits/{edit_id}/bundles?uploadType=resumable'
+          )
+          rq = urllib.request.Request(init_url, data=b'{}', method='POST')
+          rq.add_header('Authorization', f'Bearer {tok}')
+          rq.add_header('Content-Type', 'application/json')
+          rq.add_header('X-Upload-Content-Type', 'application/octet-stream')
+          rq.add_header('X-Upload-Content-Length', str(aab_size))
+          with urllib.request.urlopen(rq, context=ctx) as r:
+              session_uri = r.headers.get('Location')
+
+          print(f'Uploading {aab_size/1024/1024:.1f} MB AAB...')
+          with open(AAB_PATH, 'rb') as f:
+              aab_data = f.read()
+          rq = urllib.request.Request(session_uri, data=aab_data, method='PUT')
+          rq.add_header('Content-Type', 'application/octet-stream')
+          rq.add_header('Content-Length', str(aab_size))
+          with urllib.request.urlopen(rq, context=ctx) as r:
+              version_code = json.loads(r.read())['versionCode']
+          print(f'✅ Uploaded — version code: {version_code}')
+
+          # Assign to internal track
+          track_body = json.dumps({'releases': [{'versionCodes': [str(version_code)], 'status': 'draft'}]}).encode()
+          rq = urllib.request.Request(
+              f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE_NAME}/edits/{edit_id}/tracks/internal',
+              data=track_body, method='PUT'
+          )
+          rq.add_header('Authorization', f'Bearer {tok}')
+          rq.add_header('Content-Type', 'application/json')
+          with urllib.request.urlopen(rq, context=ctx): pass
+
+          # Commit
+          rq = urllib.request.Request(
+              f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE_NAME}/edits/{edit_id}:commit',
+              data=b'{}', method='POST'
+          )
+          rq.add_header('Authorization', f'Bearer {tok}')
+          rq.add_header('Content-Type', 'application/json')
+          with urllib.request.urlopen(rq, context=ctx): pass
+
+          print(f'🎉 All Teed Up v{version_code} live on Google Play internal testing!')
+          PYEOF
+        env:
+          PLAY_CLIENT_ID: ${{ secrets.PLAY_CLIENT_ID }}
+          PLAY_CLIENT_SECRET: ${{ secrets.PLAY_CLIENT_SECRET }}
+          PLAY_REFRESH_TOKEN: ${{ secrets.PLAY_REFRESH_TOKEN }}
