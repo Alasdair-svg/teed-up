@@ -99,6 +99,54 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Finds a round that matches the given course, date and tee time.
+  GolfRound? findMatchingRound({
+    required String course,
+    required DateTime? date,
+    required DateTime? teeTime,
+  }) {
+    if (date == null) return null;
+    try {
+      return _upcomingRounds.firstWhere((r) {
+        final sameDay = r.date.year == date.year &&
+            r.date.month == date.month &&
+            r.date.day == date.day;
+        final sameCourse =
+            r.courseName.toLowerCase().contains(course.toLowerCase());
+        return sameDay && sameCourse;
+      });
+    } on StateError {
+      return null;
+    }
+  }
+
+  /// Updates RSVP status for a specific player in a round.
+  void updatePlayerRsvp({
+    required String roundId,
+    required String playerId,
+    required dynamic newStatus,
+  }) {
+    final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
+    if (index < 0) return;
+    final round = _upcomingRounds[index];
+    final updatedPlayers = round.players.map((p) {
+      if (p.id == playerId) return p.copyWith(rsvpStatus: newStatus);
+      return p;
+    }).toList();
+    _upcomingRounds[index] = round.copyWith(players: updatedPlayers);
+    notifyListeners();
+  }
+
+  /// Notifies family members about a round. Stub — full implementation pending.
+  Future<void> notifyFamily({required String roundId}) async {
+    // TODO: integrate with messaging/calendar service
+  }
+
+  /// Sends a calendar invite for a round. Stub — full implementation pending.
+  Future<void> sendCalendarInvite({required String roundId}) async {
+    // TODO: integrate with device calendar plugin
+  }
+
   // ---------------------------------------------------------------------------
   // RSVP Alerts
   // ---------------------------------------------------------------------------

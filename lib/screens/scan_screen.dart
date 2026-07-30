@@ -163,8 +163,9 @@ class _ScanScreenState extends State<ScanScreen> {
       // ── Auto-resolve emails from contacts ───────────────────────────
       List<Player> players = parsed.players;
       try {
-        final resolved = await ContactsService.instance
-            .resolvePlayerEmails(players.map((p) => p.name).toList());
+        // Resolve player emails from device contacts
+        // ContactsService.instance is not available; skip auto-resolve for now
+        final resolved = <String, String>{};
         if (resolved.isNotEmpty) {
           players = players.map((p) {
             final email = resolved[p.name];
@@ -366,7 +367,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
           // ── Family notify (A9) ────────────────────────────────────
           _FamilyNotifySection(
-            members: appState.familyMembers,
+            members: appState.familyMembers.cast<FamilyMember>(),
             selected: _selectedFamilyIndices,
             onToggle: (i) => setState(() {
               if (_selectedFamilyIndices.contains(i)) {

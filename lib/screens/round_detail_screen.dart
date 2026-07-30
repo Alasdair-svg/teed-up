@@ -646,3 +646,44 @@ class _ActionButtons extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// _FamilyNotifyButton — lets the user notify family members about a round
+// ---------------------------------------------------------------------------
+
+class _FamilyNotifyButton extends StatelessWidget {
+  const _FamilyNotifyButton({
+    required this.round,
+    required this.onNotify,
+  });
+
+  final GolfRound round;
+  final VoidCallback onNotify;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: round.familyNotified ? null : onNotify,
+        icon: Icon(
+          round.familyNotified
+              ? Icons.check_circle_rounded
+              : Icons.people_rounded,
+        ),
+        label: Text(
+          round.familyNotified ? 'Family notified' : 'Notify family',
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: round.familyNotified
+              ? AppColors.success.withOpacity(0.15)
+              : AppColors.success,
+          foregroundColor: round.familyNotified
+              ? AppColors.success
+              : Colors.white,
+        ),
+      ),
+    );
+  }
+}
