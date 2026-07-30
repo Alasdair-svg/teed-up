@@ -104,6 +104,7 @@ jobs:
           rq = urllib.request.Request(session_uri, data=aab_data, method='PUT')
           rq.add_header('Content-Type', 'application/octet-stream')
           rq.add_header('Content-Length', str(aab_size))
+          rq.add_header('Content-Range', f'bytes 0-{aab_size-1}/{aab_size}')
           with urllib.request.urlopen(rq, context=ctx) as r:
               version_code = json.loads(r.read())['versionCode']
           print(f'✅ Uploaded — version code: {version_code}')
