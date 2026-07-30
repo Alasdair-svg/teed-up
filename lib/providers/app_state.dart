@@ -147,6 +147,18 @@ class AppState extends ChangeNotifier {
     // TODO: integrate with device calendar plugin
   }
 
+  /// Sets whether family is always notified. Stub — full implementation pending.
+  void setFamilyAlwaysNotify(bool value) {
+    // TODO: persist preference
+    notifyListeners();
+  }
+
+  /// Sets the primary family contact. Stub — full implementation pending.
+  void setFamilyContact(dynamic contact) {
+    // TODO: persist contact
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------------
   // RSVP Alerts
   // ---------------------------------------------------------------------------
