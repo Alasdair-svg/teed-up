@@ -89,7 +89,7 @@ class RoundDetailScreen extends StatelessWidget {
                     _FamilyNotifyButton(
                       round: round,
                       onNotify: () async {
-                        await state.notifyFamily(roundId: round.id);
+                        await state.notifyFamilyAboutRound(roundId: round.id);
                       },
                     ),
                     const SizedBox(height: 16),

@@ -138,7 +138,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Notifies family members about a round. Stub — full implementation pending.
-  Future<void> notifyFamily({required String roundId}) async {
+  Future<void> notifyFamilyAboutRound({required String roundId}) async {
     // TODO: integrate with messaging/calendar service
   }
 
