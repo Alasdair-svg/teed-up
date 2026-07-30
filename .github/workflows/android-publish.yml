@@ -50,60 +50,56 @@ jobs:
         run: |
           pip install --quiet google-auth google-auth-httplib2 google-api-python-client
           python3 - << 'PYEOF'
-import json, os
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+          import json, os
+          from google.oauth2.credentials import Credentials
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
 
-PACKAGE_NAME = 'com.teedup.golf'
-AAB_PATH = 'build/app/outputs/bundle/release/app-release.aab'
+          PACKAGE_NAME = 'com.teedup.golf'
+          AAB_PATH = 'build/app/outputs/bundle/release/app-release.aab'
 
-creds = Credentials(
-    token=None,
-    refresh_token=os.environ['PLAY_REFRESH_TOKEN'],
-    token_uri='https://oauth2.googleapis.com/token',
-    client_id=os.environ['PLAY_CLIENT_ID'],
-    client_secret=os.environ['PLAY_CLIENT_SECRET'],
-    scopes=['https://www.googleapis.com/auth/androidpublisher'],
-)
+          creds = Credentials(
+              token=None,
+              refresh_token=os.environ['PLAY_REFRESH_TOKEN'],
+              token_uri='https://oauth2.googleapis.com/token',
+              client_id=os.environ['PLAY_CLIENT_ID'],
+              client_secret=os.environ['PLAY_CLIENT_SECRET'],
+              scopes=['https://www.googleapis.com/auth/androidpublisher'],
+          )
 
-service = build('androidpublisher', 'v3', credentials=creds)
-print('✅ Authenticated with Google Play API')
+          service = build('androidpublisher', 'v3', credentials=creds)
+          print('Authenticated with Google Play API')
 
-# Create edit session
-edit = service.edits().insert(packageName=PACKAGE_NAME, body={}).execute()
-edit_id = edit['id']
-print(f'✅ Edit: {edit_id}')
+          edit = service.edits().insert(packageName=PACKAGE_NAME, body={}).execute()
+          edit_id = edit['id']
+          print(f'Edit: {edit_id}')
 
-# Upload AAB — MediaFileUpload handles chunked resumable upload automatically
-media = MediaFileUpload(
-    AAB_PATH,
-    mimetype='application/octet-stream',
-    resumable=True,
-    chunksize=10 * 1024 * 1024,
-)
-print('Uploading AAB...')
-bundle = service.edits().bundles().upload(
-    packageName=PACKAGE_NAME,
-    editId=edit_id,
-    media_body=media,
-).execute()
-version_code = bundle['versionCode']
-print(f'✅ Uploaded — version code: {version_code}')
+          media = MediaFileUpload(
+              AAB_PATH,
+              mimetype='application/octet-stream',
+              resumable=True,
+              chunksize=10 * 1024 * 1024,
+          )
+          print('Uploading AAB...')
+          bundle = service.edits().bundles().upload(
+              packageName=PACKAGE_NAME,
+              editId=edit_id,
+              media_body=media,
+          ).execute()
+          version_code = bundle['versionCode']
+          print(f'Uploaded version code: {version_code}')
 
-# Assign to internal track as draft
-service.edits().tracks().update(
-    packageName=PACKAGE_NAME,
-    editId=edit_id,
-    track='internal',
-    body={'releases': [{'versionCodes': [str(version_code)], 'status': 'draft'}]},
-).execute()
-print('✅ Assigned to internal track')
+          service.edits().tracks().update(
+              packageName=PACKAGE_NAME,
+              editId=edit_id,
+              track='internal',
+              body={'releases': [{'versionCodes': [str(version_code)], 'status': 'draft'}]},
+          ).execute()
+          print('Assigned to internal track')
 
-# Commit
-service.edits().commit(packageName=PACKAGE_NAME, editId=edit_id).execute()
-print(f'🎉 All Teed Up v{version_code} live on Google Play internal testing!')
-PYEOF
+          service.edits().commit(packageName=PACKAGE_NAME, editId=edit_id).execute()
+          print(f'SUCCESS: All Teed Up v{version_code} live on Google Play internal testing!')
+          PYEOF
         env:
           PLAY_CLIENT_ID: ${{ secrets.PLAY_CLIENT_ID }}
           PLAY_CLIENT_SECRET: ${{ secrets.PLAY_CLIENT_SECRET }}
