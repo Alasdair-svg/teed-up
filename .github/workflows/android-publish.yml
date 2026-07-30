@@ -17,6 +17,20 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: 'gradle'
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ hashFiles('android/**/*.gradle', 'android/**/*.gradle.kts') }}
+          restore-keys: gradle-caches-
 
       - uses: subosito/flutter-action@v2
         with:
