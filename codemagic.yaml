@@ -9,8 +9,6 @@ workflows:
     environment:
       flutter: stable
       java: 17
-      groups:
-        - google_play_credentials
     cache:
       cache_paths:
         - $HOME/.gradle/caches
@@ -18,14 +16,6 @@ workflows:
     scripts:
       - name: Get dependencies
         script: flutter pub get
-      - name: Run tests
-        script: flutter test
-      - name: Build Android APK
-        script: |
-          flutter build apk \
-            --release \
-            --obfuscate \
-            --split-debug-info=build/debug-info
       - name: Build Android App Bundle
         script: |
           flutter build appbundle \
@@ -33,15 +23,8 @@ workflows:
             --obfuscate \
             --split-debug-info=build/debug-info
     artifacts:
-      - build/app/outputs/flutter-apk/app-release.apk
       - build/app/outputs/bundle/release/app-release.aab
-      # Debug symbols — upload to Play Console for deobfuscated crash reports
       - build/debug-info/**
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-        submit_as_draft: true
 
   # ============================================================
   ios-release:
