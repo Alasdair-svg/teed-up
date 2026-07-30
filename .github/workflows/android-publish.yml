@@ -25,15 +25,15 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/teedup-release.keystore
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/teedup-release.jks
 
       - name: Configure signing
         run: |
-          cat >> android/key.properties << EOF
+          cat > android/key.properties << EOF
           storePassword=${{ secrets.STORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=../teedup-release.keystore
+          storeFile=app/teedup-release.jks
           EOF
 
       - name: Get dependencies
