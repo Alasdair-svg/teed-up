@@ -11,6 +11,7 @@ class GolfRound {
     required this.players,
     this.bookingRef,
     this.calendarEventId,
+    this.familyNotified = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -38,6 +39,9 @@ class GolfRound {
   /// When this round was created in the app.
   final DateTime createdAt;
 
+  /// Whether family members were notified for this round.
+  final bool familyNotified;
+
   /// Timeline of events for this round.
   final List<RoundEvent> timeline = [];
 
@@ -60,6 +64,7 @@ class GolfRound {
           .toList(),
       bookingRef: json['bookingRef'] as String?,
       calendarEventId: json['calendarEventId'] as String?,
+      familyNotified: json['familyNotified'] as bool? ?? false,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
@@ -75,6 +80,7 @@ class GolfRound {
         'players': players.map((p) => p.toJson()).toList(),
         'bookingRef': bookingRef,
         'calendarEventId': calendarEventId,
+        'familyNotified': familyNotified,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -87,6 +93,7 @@ class GolfRound {
     List<Player>? players,
     String? bookingRef,
     String? calendarEventId,
+    bool? familyNotified,
     DateTime? createdAt,
   }) {
     return GolfRound(
@@ -97,6 +104,7 @@ class GolfRound {
       players: players ?? this.players,
       bookingRef: bookingRef ?? this.bookingRef,
       calendarEventId: calendarEventId ?? this.calendarEventId,
+      familyNotified: familyNotified ?? this.familyNotified,
       createdAt: createdAt ?? this.createdAt,
     );
   }

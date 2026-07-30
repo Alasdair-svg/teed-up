@@ -47,6 +47,10 @@ class AppState extends ChangeNotifier {
   /// All upcoming golf rounds, sorted by date (nearest first).
   List<GolfRound> get upcomingRounds => List.unmodifiable(_upcomingRounds);
 
+  /// Family members available for round notifications.
+  /// Returns an empty list until the family contacts feature is fully implemented.
+  List<dynamic> get familyMembers => const [];
+
   /// Replaces the entire rounds list (e.g. after initial DB load).
   void setRounds(List<GolfRound> rounds) {
     _upcomingRounds = List.of(rounds)
@@ -61,10 +65,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves a new round (alias for [addRound]) with optional family notification.
+  Future<void> saveRound(GolfRound round, {List<dynamic>? selectedFamily}) async {
+    addRound(round);
+  }
+
   /// Replaces a round with the same [GolfRound.id].
   ///
   /// If no matching round is found, the [updated] round is appended.
-  void updateRound(GolfRound updated) {
+  Future<void> updateRound(GolfRound updated, {List<dynamic>? selectedFamily}) async {
     final index = _upcomingRounds.indexWhere((r) => r.id == updated.id);
     if (index >= 0) {
       _upcomingRounds[index] = updated;
