@@ -5,7 +5,7 @@ platform :ios do
   lane :beta do
     app_store_connect_api_key(
       key_id: "93D3TRQ9HM",
-      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY="Apple Distribution"",
+      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
       key_filepath: "fastlane/keys/AuthKey_93D3TRQ9HM.p8",
       duration: 1200,
       in_house: false
@@ -16,7 +16,7 @@ platform :ios do
       scheme: 'Runner',
       export_method: 'app-store',
       codesigning_identity: 'Apple Distribution',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{ENV['GITHUB_WORKSPACE']}/ios/fastlane/keys/AuthKey_93D3TRQ9HM.p8 -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY="Apple Distribution""
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{ENV['GITHUB_WORKSPACE']}/ios/fastlane/keys/AuthKey_93D3TRQ9HM.p8 -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY='Apple Distribution'"
     )
     upload_to_testflight(
       skip_waiting_for_build_processing: true
@@ -27,7 +27,7 @@ platform :ios do
   lane :release do
     app_store_connect_api_key(
       key_id: "93D3TRQ9HM",
-      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY="Apple Distribution"",
+      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
       key_filepath: "fastlane/keys/AuthKey_93D3TRQ9HM.p8",
       duration: 1200,
       in_house: false
@@ -38,7 +38,7 @@ platform :ios do
       scheme: 'Runner',
       export_method: 'app-store',
       codesigning_identity: 'Apple Distribution',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{ENV['GITHUB_WORKSPACE']}/ios/fastlane/keys/AuthKey_93D3TRQ9HM.p8 -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY="Apple Distribution""
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{ENV['GITHUB_WORKSPACE']}/ios/fastlane/keys/AuthKey_93D3TRQ9HM.p8 -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 CODE_SIGN_IDENTITY='Apple Distribution'"
     )
     upload_to_app_store(
       force: true,
