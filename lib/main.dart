@@ -28,6 +28,13 @@ const String _kDeclineAlertsKey = 'teed_up_decline_alerts';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Catch Flutter framework errors (rendering, layout) without crashing.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('[Flutter] Caught framework error: ${details.exception}');
+    debugPrint('${details.stack}');
+    // Don't rethrow — prevents OS-level crash dialogs.
+  };
+
   // Force light mode, portrait-primary on phones
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -43,7 +50,7 @@ void main() async {
   await _loadPersistedState(appState);
 
   // Initialize services (non-blocking — errors are caught internally).
-  _initializeServices(appState);
+  await _initializeServices(appState);
 
   // Auto-save rounds whenever state changes.
   appState.addListener(() => _saveRounds(appState));
@@ -117,23 +124,31 @@ Future<void> _saveRounds(AppState state) async {
   }
 }
 
-/// Initializes non-critical services. Errors are caught internally.
-void _initializeServices(AppState appState) {
-  // Notification service (local notifications for RSVP alerts).
-  NotificationService.instance.initialize().catchError((e) {
-    debugPrint('[main] NotificationService init failed: $e');
-  });
+/// Initializes non-critical services. Errors are fully caught so they can
+/// never crash the app. Each service is optional — the app works without them.
+Future<void> _initializeServices(AppState appState) async {
+  // Notification service.
+  try {
+    await NotificationService.instance.initialize();
+  } catch (e, st) {
+    debugPrint('[main] NotificationService init failed: $e\n$st');
+  }
 
-  // RSVP monitor (background calendar polling).
-  RsvpMonitor.instance.initialize().catchError((e) {
-    debugPrint('[main] RsvpMonitor init failed: $e');
-  });
+  // RSVP background monitor.
+  try {
+    await RsvpMonitor.instance.initialize();
+  } catch (e, st) {
+    debugPrint('[main] RsvpMonitor init failed: $e\n$st');
+  }
 
-  // Purchase service (in-app purchase listener).
-  final purchaseService = PurchaseService(appState: appState);
-  purchaseService.initialize().catchError((e) {
-    debugPrint('[main] PurchaseService init failed: $e');
-  });
+  // In-app purchase service — may fail if Play Store is not configured yet.
+  try {
+    final purchaseService = PurchaseService(appState: appState);
+    await purchaseService.initialize();
+  } catch (e, st) {
+    debugPrint('[main] PurchaseService init failed: $e\n$st');
+    // App works fine without IAP — just mark as unpurchased for now.
+  }
 }
 
 /// Parses a status string into an [RsvpStatus].
