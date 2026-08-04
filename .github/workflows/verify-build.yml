@@ -1,0 +1,102 @@
+name: Verify Build (iOS + Android)
+
+# Manual trigger only — does NOT auto-run on push.
+# Codemagic handles real signing/submission; this is for build verification.
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to test'
+        required: false
+        default: 'redesign/all-teed-up-v2'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Flutter tests (fast — runs on Ubuntu, no platform SDKs needed)
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:
+    name: flutter test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyse
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Android debug build (no signing required)
+  # ─────────────────────────────────────────────────────────────────────────────
+  android:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK (debug, unsigned)
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # iOS simulator build (no signing required)
+  # ─────────────────────────────────────────────────────────────────────────────
+  ios:
+    name: iOS simulator build
+    runs-on: macos-14
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      - name: Build iOS (simulator, no codesign)
+        run: flutter build ios --simulator --no-codesign
