@@ -1,8 +1,11 @@
-/// Animated golf ball on a tee — the All Teed Up brand logo.
+/// Animated golf-globe-on-a-tee — the All Teed Up brand logo.
 ///
-/// Rendered entirely via [CustomPainter] with a dimple pattern that
-/// rotates around the Y-axis, giving a spinning globe effect. Uses
-/// TAG brand colours from [AppColors].
+/// Ported from `golf-globe-brand.js` v3.0. Renders a white golf ball with:
+///   - TAG-purple landmass silhouettes (simplified continent outlines)
+///   - 392-dimple Fibonacci distribution with concave gradient + specular highlight
+///   - Equator and meridian seam lines
+///   - "TAG 4" text that rotates with the globe (Atlantic-area anchor)
+///   - Wooden tee (warm brown gradient) below the ball
 ///
 /// Usage:
 /// ```dart
@@ -16,10 +19,57 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+// =============================================================================
+// Simplified continent outlines (lon/lat pairs, closed polygons)
+// Approximated from world-atlas-110m — enough to be recognisable as landmasses
+// =============================================================================
+
+/// A list of continent outlines, each as a list of [lon, lat] pairs.
+const List<List<List<double>>> _kContinents = [
+  // North America
+  [
+    [-168, 72], [-140, 70], [-100, 73], [-85, 72], [-65, 47], [-80, 25],
+    [-90, 16], [-105, 20], [-120, 30], [-125, 48], [-168, 72],
+  ],
+  // South America
+  [
+    [-80, 12], [-65, 10], [-50, 5], [-35, -5], [-35, -20], [-55, -35],
+    [-70, -55], [-75, -50], [-80, -30], [-80, 0], [-80, 12],
+  ],
+  // Europe
+  [
+    [-10, 36], [30, 36], [40, 42], [30, 60], [25, 70], [10, 58],
+    [0, 52], [-10, 44], [-10, 36],
+  ],
+  // Africa
+  [
+    [-18, 15], [40, 12], [50, 10], [42, -12], [35, -35], [18, -35],
+    [10, -18], [10, 5], [-18, 15],
+  ],
+  // Asia
+  [
+    [40, 42], [60, 36], [90, 22], [120, 22], [140, 40], [140, 55],
+    [100, 70], [60, 70], [30, 60], [40, 42],
+  ],
+  // Australia
+  [
+    [114, -22], [130, -14], [145, -18], [150, -36], [148, -42],
+    [130, -40], [114, -34], [114, -22],
+  ],
+  // Greenland
+  [
+    [-45, 58], [-20, 62], [-18, 76], [-40, 83], [-65, 76], [-60, 65], [-45, 58],
+  ],
+];
+
+// =============================================================================
+// Widget
+// =============================================================================
+
 /// A golf ball on a tee rendered with [CustomPainter].
 ///
-/// Set [animate] to `true` for the spinning effect, or `false` for a
-/// static logo (e.g. in an app bar).
+/// Set [animate] to `true` for the spinning effect. Set [showTee] to `false`
+/// for a compact logo without the tee (e.g. in an app bar or badge).
 class GolfBallLogo extends StatefulWidget {
   /// Creates a [GolfBallLogo].
   const GolfBallLogo({
@@ -30,13 +80,13 @@ class GolfBallLogo extends StatefulWidget {
     this.showGlow = true,
   });
 
-  /// Overall widget size (the ball diameter is roughly 70% of this).
+  /// Overall widget width. Height is ~1.3× when [showTee] is true.
   final double size;
 
-  /// Whether the ball should spin.
+  /// Whether the globe should spin continuously.
   final bool animate;
 
-  /// Whether to render the tee below the ball.
+  /// Whether to render the wooden tee below the ball.
   final bool showTee;
 
   /// Whether to render a soft purple glow behind the ball.
@@ -55,16 +105,14 @@ class _GolfBallLogoState extends State<GolfBallLogo>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 12),
     );
-    if (widget.animate) {
-      _controller.repeat();
-    }
+    if (widget.animate) _controller.repeat();
   }
 
   @override
-  void didUpdateWidget(GolfBallLogo oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void didUpdateWidget(GolfBallLogo old) {
+    super.didUpdateWidget(old);
     if (widget.animate && !_controller.isAnimating) {
       _controller.repeat();
     } else if (!widget.animate && _controller.isAnimating) {
@@ -80,234 +128,471 @@ class _GolfBallLogoState extends State<GolfBallLogo>
 
   @override
   Widget build(BuildContext context) {
+    final teeExtra = widget.showTee ? widget.size * 0.28 : 0.0;
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, _) {
-        return CustomPaint(
-          size: Size(widget.size, widget.size * (widget.showTee ? 1.35 : 1.0)),
-          painter: _GolfBallPainter(
-            rotation: _controller.value * math.pi * 2,
-            showTee: widget.showTee,
-            showGlow: widget.showGlow,
-          ),
-        );
-      },
+      builder: (context, _) => CustomPaint(
+        size: Size(widget.size, widget.size + teeExtra),
+        painter: _GolfGlobePainter(
+          rotation: _controller.value * math.pi * 2,
+          showTee: widget.showTee,
+          showGlow: widget.showGlow,
+          widgetSize: widget.size,
+        ),
+      ),
     );
   }
 }
 
-/// Custom painter that draws a golf ball with dimples and an optional tee.
-class _GolfBallPainter extends CustomPainter {
-  _GolfBallPainter({
+// =============================================================================
+// Painter
+// =============================================================================
+
+class _GolfGlobePainter extends CustomPainter {
+  _GolfGlobePainter({
     required this.rotation,
     required this.showTee,
     required this.showGlow,
+    required this.widgetSize,
   });
 
   final double rotation;
   final bool showTee;
   final bool showGlow;
+  final double widgetSize;
+
+  // Pre-computed Fibonacci dimple distribution (392 points)
+  static final List<_LatLon> _dimples = _buildDimples(392);
+
+  static List<_LatLon> _buildDimples(int count) {
+    final pts = <_LatLon>[];
+    final goldenAngle = math.pi * (3 - math.sqrt(5));
+    for (var i = 0; i < count; i++) {
+      final y = 1 - (i / (count - 1)) * 2;
+      final theta = goldenAngle * i;
+      final lat = math.asin(y.clamp(-1.0, 1.0)) * 180 / math.pi;
+      final lon = (theta * 180 / math.pi) % 360 - 180;
+      pts.add(_LatLon(lon, lat));
+    }
+    return pts;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Projection helpers (orthographic, Y-axis rotation)
+  // ---------------------------------------------------------------------------
+
+  /// Projects [lon]/[lat] (degrees) to screen [Offset] given ball [center] and
+  /// [radius]. Returns null if the point is on the back face.
+  Offset? _project(double lon, double lat, Offset center, double radius) {
+    final lonR = lon * math.pi / 180;
+    final latR = lat * math.pi / 180;
+
+    // Rotate longitude by current animation rotation
+    final rotLon = lonR + rotation;
+
+    final x = math.cos(latR) * math.cos(rotLon);
+    final y = math.sin(latR);
+    final z = math.cos(latR) * math.sin(rotLon);
+
+    if (z < -0.05) return null; // back-facing — cull
+
+    return Offset(
+      center.dx + x * radius,
+      center.dy - y * radius,
+    );
+  }
+
+  /// Returns how "front-facing" a point is: 1.0 = dead-centre, 0.0 = edge.
+  double _frontFactor(double lon, double lat) {
+    final lonR = lon * math.pi / 180;
+    final latR = lat * math.pi / 180;
+    final rotLon = lonR + rotation;
+    return (math.cos(latR) * math.sin(rotLon)).clamp(0.0, 1.0);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Paint
+  // ---------------------------------------------------------------------------
 
   @override
   void paint(Canvas canvas, Size size) {
-    final ballDiameter = size.width * 0.7;
-    final ballRadius = ballDiameter / 2;
-    final ballCenter = Offset(
-      size.width / 2,
-      showTee ? size.height * 0.38 : size.height / 2,
-    );
+    final ballRadius = widgetSize / 2 - 2;
+    final teeSpace = showTee ? ballRadius * 0.2 : 0.0;
+    final center = Offset(size.width / 2, widgetSize / 2 - teeSpace / 2);
+    final sc = widgetSize / 600; // scale factor matching golf-globe-brand.js
 
-    // ── Glow ──────────────────────────────────────────────────
+    // ── Glow ──────────────────────────────────────────────────────────────────
     if (showGlow) {
-      final glowPaint = Paint()
+      final gPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.15),
-            AppColors.primary.withValues(alpha: 0.05),
+            AppColors.primary.withValues(alpha: 0.18),
+            AppColors.primary.withValues(alpha: 0.06),
             AppColors.primary.withValues(alpha: 0.0),
           ],
-          stops: const [0.0, 0.6, 1.0],
+          stops: const [0.0, 0.55, 1.0],
         ).createShader(
-          Rect.fromCircle(center: ballCenter, radius: ballRadius * 1.6),
+          Rect.fromCircle(center: center, radius: ballRadius * 1.7),
         );
-      canvas.drawCircle(ballCenter, ballRadius * 1.6, glowPaint);
+      canvas.drawCircle(center, ballRadius * 1.7, gPaint);
     }
 
-    // ── Tee ───────────────────────────────────────────────────
-    if (showTee) {
-      _drawTee(canvas, size, ballCenter, ballRadius);
-    }
+    // ── Tee ───────────────────────────────────────────────────────────────────
+    if (showTee) _drawTee(canvas, center, ballRadius, sc);
 
-    // ── Ball body ─────────────────────────────────────────────
+    // ── Ball drop-shadow ──────────────────────────────────────────────────────
+    final shadowPaint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+      ..color = Colors.black.withValues(alpha: 0.15);
+    canvas.drawCircle(
+      center + Offset(3 * sc, 4 * sc),
+      ballRadius,
+      shadowPaint,
+    );
+
+    // ── Ball body (white golf-ball gradient) ──────────────────────────────────
     final ballPaint = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(-0.3, -0.3),
-        radius: 0.9,
-        colors: [
-          const Color(0xFFFFFFFF),
-          const Color(0xFFF0F0F0),
-          const Color(0xFFD8D8D8),
+        center: const Alignment(-0.25, -0.25),
+        radius: 1.0,
+        colors: const [
+          Color(0xFFFFFFFF),
+          Color(0xFFF8F8FA),
+          Color(0xFFECECF0),
+          Color(0xFFDDDDE5),
         ],
-        stops: const [0.0, 0.65, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: ballCenter, radius: ballRadius),
-      );
+        stops: const [0.0, 0.6, 0.85, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: ballRadius));
+    canvas.drawCircle(center, ballRadius, ballPaint);
 
-    canvas.drawCircle(ballCenter, ballRadius, ballPaint);
+    // ── Clip to sphere for all overlays ───────────────────────────────────────
+    canvas.save();
+    canvas.clipPath(Path()..addOval(
+      Rect.fromCircle(center: center, radius: ballRadius),
+    ));
 
-    // ── Dimples ───────────────────────────────────────────────
-    _drawDimples(canvas, ballCenter, ballRadius);
+    // ── Landmasses (TAG purple) ───────────────────────────────────────────────
+    _drawLandmasses(canvas, center, ballRadius);
 
-    // ── Specular highlight ────────────────────────────────────
-    final highlightPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(-0.4, -0.5),
-        radius: 0.4,
-        colors: [
-          Colors.white.withValues(alpha: 0.7),
-          Colors.white.withValues(alpha: 0.0),
-        ],
-      ).createShader(
-        Rect.fromCircle(center: ballCenter, radius: ballRadius),
-      );
-    canvas.drawCircle(ballCenter, ballRadius, highlightPaint);
+    // ── Seam lines ────────────────────────────────────────────────────────────
+    _drawSeams(canvas, center, ballRadius, sc);
 
-    // ── Rim outline ───────────────────────────────────────────
-    final rimPaint = Paint()
-      ..color = AppColors.primary.withValues(alpha: 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(ballCenter, ballRadius, rimPaint);
-  }
+    // ── Dimples ───────────────────────────────────────────────────────────────
+    _drawDimples(canvas, center, ballRadius, sc);
 
-  void _drawTee(Canvas canvas, Size size, Offset ballCenter, double ballRadius) {
-    final teeTopY = ballCenter.dy + ballRadius - 2;
-    final teeBottomY = size.height - 4;
-    final teeCenterX = ballCenter.dx;
+    // ── "TAG 4" globe label ───────────────────────────────────────────────────
+    if (widgetSize >= 100) _drawTag4(canvas, center, ballRadius, sc);
 
-    // Tee cup (curved top that holds the ball)
-    final cupPath = Path();
-    final cupWidth = ballRadius * 0.6;
-    final cupHeight = ballRadius * 0.15;
-    cupPath.moveTo(teeCenterX - cupWidth, teeTopY);
-    cupPath.quadraticBezierTo(
-      teeCenterX,
-      teeTopY + cupHeight,
-      teeCenterX + cupWidth,
-      teeTopY,
+    // ── Matte white ocean overlay ─────────────────────────────────────────────
+    canvas.drawCircle(
+      center,
+      ballRadius,
+      Paint()..color = const Color(0x26FFFFFF),
     );
 
-    final cupPaint = Paint()
-      ..color = AppColors.primary
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(cupPath, cupPaint);
+    canvas.restore(); // end sphere clip
 
-    // Tee shaft (tapered)
-    final shaftTopWidth = ballRadius * 0.08;
-    final shaftBottomWidth = ballRadius * 0.18;
+    // ── Specular highlight (top-left shine) ───────────────────────────────────
+    if (widgetSize > 64) {
+      canvas.drawCircle(
+        center,
+        ballRadius,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.35, -0.35),
+            radius: 0.55,
+            colors: [
+              Colors.white.withValues(alpha: 0.30),
+              Colors.white.withValues(alpha: 0.06),
+              Colors.white.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: center, radius: ballRadius)),
+      );
+    }
 
-    final shaftPath = Path()
-      ..moveTo(teeCenterX - shaftTopWidth, teeTopY + cupHeight - 1)
-      ..lineTo(teeCenterX - shaftBottomWidth, teeBottomY)
-      ..lineTo(teeCenterX + shaftBottomWidth, teeBottomY)
-      ..lineTo(teeCenterX + shaftTopWidth, teeTopY + cupHeight - 1)
+    // ── Rim outline ───────────────────────────────────────────────────────────
+    canvas.drawCircle(
+      center,
+      ballRadius,
+      Paint()
+        ..color = const Color(0xFFD0D0DA)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5 * sc.clamp(0.5, 2.0),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tee (wooden — warm brown gradient, matching golf-globe-brand.js)
+  // ---------------------------------------------------------------------------
+
+  void _drawTee(Canvas canvas, Offset ballCenter, double ballRadius, double sc) {
+    final teeTop = ballCenter.dy + ballRadius - 1;
+    final teeWidth = math.max(4.0, 12 * sc);
+    final teeStemW = math.max(2.0, 4 * sc);
+    final teeStemH = math.max(6.0, ballRadius * 0.35);
+    final teeBaseH = math.max(2.0, 4 * sc);
+    final cx = ballCenter.dx;
+
+    final teeGrad = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: const [Color(0xFFC49A6C), Color(0xFFB8895C), Color(0xFF8B6914)],
+      stops: const [0.0, 0.3, 1.0],
+    ).createShader(Rect.fromLTWH(cx - teeWidth / 2, teeTop, teeWidth, teeStemH + teeBaseH + 4));
+
+    // Cup + shaft path
+    final path = Path()
+      ..moveTo(cx - teeWidth / 2, teeTop + 2 * sc)
+      ..quadraticBezierTo(cx - teeWidth / 2, teeTop, cx - teeWidth * 0.3, teeTop)
+      ..quadraticBezierTo(cx, teeTop - 2 * sc, cx + teeWidth * 0.3, teeTop)
+      ..quadraticBezierTo(cx + teeWidth / 2, teeTop, cx + teeWidth / 2, teeTop + 2 * sc)
+      ..lineTo(cx + teeStemW / 2, teeTop + 2 * sc)
+      ..lineTo(cx + teeStemW / 2, teeTop + 2 * sc + teeStemH)
+      ..lineTo(cx - teeStemW / 2, teeTop + 2 * sc + teeStemH)
+      ..lineTo(cx - teeStemW / 2, teeTop + 2 * sc)
       ..close();
 
-    final shaftPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          AppColors.primary,
-          AppColors.deepPurple,
-        ],
-      ).createShader(
-        Rect.fromLTRB(
-          teeCenterX - shaftBottomWidth,
-          teeTopY,
-          teeCenterX + shaftBottomWidth,
-          teeBottomY,
-        ),
-      );
-    canvas.drawPath(shaftPath, shaftPaint);
-
-    // Tee base
-    final basePaint = Paint()
-      ..color = AppColors.deepPurple
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(teeCenterX - shaftBottomWidth * 1.3, teeBottomY),
-      Offset(teeCenterX + shaftBottomWidth * 1.3, teeBottomY),
-      basePaint,
+    canvas.drawPath(path, Paint()..shader = teeGrad);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF8B6914)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5 * sc,
     );
+
+    // Tee point
+    final baseY = teeTop + 2 * sc + teeStemH;
+    final tipPath = Path()
+      ..moveTo(cx - teeStemW / 2, baseY)
+      ..lineTo(cx, baseY + teeBaseH)
+      ..lineTo(cx + teeStemW / 2, baseY)
+      ..close();
+    canvas.drawPath(tipPath, Paint()..color = const Color(0xFF8B6914));
   }
 
-  void _drawDimples(Canvas canvas, Offset center, double radius) {
-    // Generate dimples using a Fibonacci sphere distribution
-    const dimpleCount = 92;
-    final dimpleRadius = radius * 0.065;
+  // ---------------------------------------------------------------------------
+  // Landmasses
+  // ---------------------------------------------------------------------------
 
-    final dimpleShadowPaint = Paint()..style = PaintingStyle.fill;
+  void _drawLandmasses(Canvas canvas, Offset center, double ballRadius) {
+    final landPaint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.92);
 
-    for (var i = 0; i < dimpleCount; i++) {
-      // Fibonacci sphere point distribution
-      final phi = math.acos(1 - 2 * (i + 0.5) / dimpleCount);
-      final theta = math.pi * (1 + math.sqrt(5)) * i + rotation;
+    for (final continent in _kContinents) {
+      final path = Path();
+      bool first = true;
+      for (final pt in continent) {
+        final projected = _project(pt[0], pt[1], center, ballRadius * 0.97);
+        if (projected == null) {
+          first = true;
+          continue;
+        }
+        if (first) {
+          path.moveTo(projected.dx, projected.dy);
+          first = false;
+        } else {
+          path.lineTo(projected.dx, projected.dy);
+        }
+      }
+      path.close();
+      canvas.drawPath(path, landPaint);
 
-      // 3D → 2D orthographic projection (Y-axis rotation)
-      final x3d = math.sin(phi) * math.cos(theta);
-      final y3d = math.cos(phi);
-      final z3d = math.sin(phi) * math.sin(theta);
-
-      // Only draw front-facing dimples
-      if (z3d < -0.05) continue;
-
-      final screenX = center.dx + x3d * radius * 0.85;
-      final screenY = center.dy - y3d * radius * 0.85;
-
-      // Scale dimple by depth — closer = larger
-      final depthScale = 0.5 + z3d * 0.5;
-      final scaledRadius = dimpleRadius * depthScale;
-
-      if (scaledRadius < 0.8) continue;
-
-      // Dimple colour: TAG purple shadow with depth-based alpha
-      final alpha = (0.08 + z3d * 0.12).clamp(0.0, 0.25);
-      dimpleShadowPaint.color = AppColors.primary.withValues(alpha: alpha);
-
-      // Dimple indent effect — slightly offset inner shadow
-      canvas.drawCircle(
-        Offset(screenX + 0.3, screenY + 0.5),
-        scaledRadius,
-        dimpleShadowPaint,
-      );
-
-      // Bright rim on upper-left edge for 3D indent illusion
-      if (scaledRadius > 1.5) {
-        final rimAlpha = (0.06 + z3d * 0.08).clamp(0.0, 0.15);
-        final rimHighlight = Paint()
-          ..color = Colors.white.withValues(alpha: rimAlpha)
+      // Country border outline
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = AppColors.deepPurple.withValues(alpha: 0.3)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.6;
-        canvas.drawArc(
-          Rect.fromCircle(
-            center: Offset(screenX, screenY),
-            radius: scaledRadius,
-          ),
-          -math.pi * 0.8, // Start angle (upper-left)
-          math.pi * 0.6, // Sweep angle
-          false,
-          rimHighlight,
+          ..strokeWidth = 0.3,
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Seam lines (equator + meridian)
+  // ---------------------------------------------------------------------------
+
+  void _drawSeams(Canvas canvas, Offset center, double ballRadius, double sc) {
+    if (widgetSize <= 64) return;
+
+    final seamPaint = Paint()
+      ..color = const Color(0xFF5C1D6E).withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(0.6, 1.2 * sc)
+      ..strokeCap = StrokeCap.round;
+
+    // Equator (lat = 0, all longitudes)
+    _drawGreatCircle(canvas, center, ballRadius, seamPaint, isEquator: true);
+    // Meridian (lon = 0, all latitudes)
+    _drawGreatCircle(canvas, center, ballRadius, seamPaint, isEquator: false);
+  }
+
+  void _drawGreatCircle(
+    Canvas canvas,
+    Offset center,
+    double ballRadius,
+    Paint paint, {
+    required bool isEquator,
+  }) {
+    final path = Path();
+    bool first = true;
+    for (var i = -180; i <= 180; i += 3) {
+      final lon = isEquator ? i.toDouble() : 0.0;
+      final lat = isEquator ? 0.0 : i.toDouble();
+      final projected = _project(lon, lat, center, ballRadius * 0.97);
+      if (projected == null) {
+        first = true;
+        continue;
+      }
+      if (first) {
+        path.moveTo(projected.dx, projected.dy);
+        first = false;
+      } else {
+        path.lineTo(projected.dx, projected.dy);
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dimples
+  // ---------------------------------------------------------------------------
+
+  void _drawDimples(Canvas canvas, Offset center, double ballRadius, double sc) {
+    for (final dimple in _dimples) {
+      final projected = _project(dimple.lon, dimple.lat, center, ballRadius * 0.97);
+      if (projected == null) continue;
+
+      final depth = _frontFactor(dimple.lon, dimple.lat);
+      final dimpleR = widgetSize <= 64
+          ? 1.4
+          : widgetSize <= 150
+              ? 2.6
+              : 4.5 * sc * 1.2;
+
+      if (widgetSize > 64) {
+        // Concave gradient
+        final baseAlpha = 0.12 + depth * 0.18;
+        final dGrad = RadialGradient(
+          center: const Alignment(0.15, 0.15),
+          radius: 1.0,
+          colors: [
+            Colors.black.withValues(alpha: baseAlpha * 0.08),
+            Colors.black.withValues(alpha: baseAlpha * 0.2),
+            Colors.black.withValues(alpha: baseAlpha * 0.55),
+            Colors.black.withValues(alpha: baseAlpha * 1.0),
+            Colors.black.withValues(alpha: baseAlpha * 0.8),
+            Colors.black.withValues(alpha: baseAlpha * 0.1),
+          ],
+          stops: const [0.0, 0.35, 0.55, 0.75, 0.9, 1.0],
+        ).createShader(Rect.fromCircle(center: projected, radius: dimpleR));
+
+        canvas.drawCircle(
+          projected,
+          dimpleR,
+          Paint()..shader = dGrad,
+        );
+
+        // Specular highlight (white crescent upper-left)
+        if (depth > 0.15) {
+          final hlR = dimpleR * (widgetSize >= 150 ? 0.55 : 0.45);
+          final hlCenter = Offset(projected.dx - dimpleR * 0.25, projected.dy - dimpleR * 0.25);
+          final hlAlpha = (0.18 + depth * 0.25).clamp(0.0, 0.45);
+          canvas.drawCircle(
+            hlCenter,
+            hlR,
+            Paint()
+              ..shader = RadialGradient(
+                colors: [
+                  Colors.white.withValues(alpha: hlAlpha),
+                  Colors.white.withValues(alpha: hlAlpha * 0.4),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
+              ).createShader(Rect.fromCircle(center: hlCenter, radius: hlR)),
+          );
+        }
+      } else {
+        // Small sizes — simple dots
+        canvas.drawCircle(
+          projected,
+          dimpleR,
+          Paint()..color = Colors.black.withValues(alpha: 0.14),
+        );
+        canvas.drawCircle(
+          Offset(projected.dx - dimpleR * 0.2, projected.dy - dimpleR * 0.2),
+          dimpleR * 0.35,
+          Paint()..color = Colors.white.withValues(alpha: 0.12),
         );
       }
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // "TAG 4" label — rotates with the globe (Atlantic anchor lon=-160, lat=0)
+  // ---------------------------------------------------------------------------
+
+  void _drawTag4(Canvas canvas, Offset center, double ballRadius, double sc) {
+    const anchorLon = -160.0;
+    const anchorLat = 0.0;
+
+    final projected = _project(anchorLon, anchorLat, center, ballRadius * 0.75);
+    if (projected == null) return;
+
+    final ff = _frontFactor(anchorLon, anchorLat);
+    if (ff < 0.25) return;
+
+    final tagFontSize = math.max(8.0, widgetSize * 0.09 * ff);
+    final numFontSize = math.max(10.0, widgetSize * 0.14 * ff);
+
+    // "TAG" in primary purple
+    final tagPainter = TextPainter(
+      text: TextSpan(
+        text: 'TAG',
+        style: TextStyle(
+          fontFamily: 'Outfit',
+          fontWeight: FontWeight.w700,
+          fontSize: tagFontSize,
+          color: AppColors.primary.withValues(alpha: 0.85 * ff),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    // "4" in dark
+    final numPainter = TextPainter(
+      text: TextSpan(
+        text: '4',
+        style: TextStyle(
+          fontFamily: 'Outfit',
+          fontWeight: FontWeight.w700,
+          fontSize: numFontSize,
+          color: AppColors.textDark.withValues(alpha: 0.85 * ff),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    canvas.save();
+    canvas.translate(projected.dx, projected.dy);
+    canvas.scale(math.max(0.3, ff), 1.0); // perspective squish
+
+    tagPainter.paint(canvas, Offset(-tagPainter.width / 2, -tagPainter.height - 1));
+    numPainter.paint(canvas, Offset(-numPainter.width / 2, 1));
+
+    canvas.restore();
+  }
+
   @override
-  bool shouldRepaint(_GolfBallPainter oldDelegate) =>
-      rotation != oldDelegate.rotation;
+  bool shouldRepaint(_GolfGlobePainter old) => rotation != old.rotation;
+}
+
+// =============================================================================
+// Helper types
+// =============================================================================
+
+class _LatLon {
+  const _LatLon(this.lon, this.lat);
+  final double lon;
+  final double lat;
 }

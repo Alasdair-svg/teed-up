@@ -29,6 +29,9 @@ class ContactsService {
   ContactsService({DatabaseHelper? dbHelper})
       : _db = dbHelper ?? DatabaseHelper.instance;
 
+  /// Shared production instance, for call sites that don't need DI.
+  static final ContactsService instance = ContactsService();
+
   final DatabaseHelper _db;
 
   // ---------------------------------------------------------------------------
@@ -73,6 +76,44 @@ class ContactsService {
     }
 
     return results;
+  }
+
+  /// Returns device-contact suggestions whose display name contains [query]
+  /// (case-insensitive substring match), for the family-setup autocomplete
+  /// (spec A4). Names in [exclude] (already-added family members) are
+  /// filtered out. Callers should cap the result count themselves
+  /// (e.g. `.take(4)`).
+  Future<List<ContactSuggestion>> searchByName(
+    String query, {
+    List<String> exclude = const [],
+  }) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+
+    try {
+      if (!await FlutterContacts.requestPermission(readonly: true)) {
+        debugPrint('ContactsService: contacts permission denied');
+        return [];
+      }
+
+      final excludeSet = exclude.map((e) => e.trim().toLowerCase()).toSet();
+      final contacts = await FlutterContacts.getContacts(
+        withProperties: true,
+        withPhoto: false,
+      );
+
+      return contacts
+          .where((c) => c.displayName.toLowerCase().contains(q))
+          .where((c) => !excludeSet.contains(c.displayName.trim().toLowerCase()))
+          .map((c) => ContactSuggestion(
+                name: c.displayName,
+                email: _pickBestEmail(c),
+              ))
+          .toList();
+    } catch (e, st) {
+      debugPrint('ContactsService: searchByName "$query" failed: $e\n$st');
+      return [];
+    }
   }
 
   /// Saves a manual correction for [name] → [email].
@@ -265,4 +306,16 @@ class ContactsService {
 
     return sorted.first.address;
   }
+}
+
+/// A device-contact match surfaced by [ContactsService.searchByName].
+class ContactSuggestion {
+  /// Creates a [ContactSuggestion] with a [name] and optional [email].
+  const ContactSuggestion({required this.name, this.email});
+
+  /// Display name from the device contact.
+  final String name;
+
+  /// Best email address for this contact, if any.
+  final String? email;
 }

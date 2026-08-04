@@ -163,9 +163,8 @@ class _ScanScreenState extends State<ScanScreen> {
       // ── Auto-resolve emails from contacts ───────────────────────────
       List<Player> players = parsed.players;
       try {
-        // Resolve player emails from device contacts
-        // ContactsService.instance is not available; skip auto-resolve for now
-        final resolved = <String, String>{};
+        final resolved = await ContactsService.instance
+            .resolvePlayerEmails(players.map((p) => p.name).toList());
         if (resolved.isNotEmpty) {
           players = players.map((p) {
             final email = resolved[p.name];
@@ -367,7 +366,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
           // ── Family notify (A9) ────────────────────────────────────
           _FamilyNotifySection(
-            members: appState.familyMembers.cast<FamilyMember>(),
+            members: appState.familyMembers,
             selected: _selectedFamilyIndices,
             onToggle: (i) => setState(() {
               if (_selectedFamilyIndices.contains(i)) {
@@ -948,18 +947,4 @@ class _SectionHeader extends StatelessWidget {
           ?.copyWith(fontWeight: FontWeight.w700),
     );
   }
-}
-
-// =============================================================================
-// FamilyMember model stub (referenced in AppState — define here if not yet in models)
-// =============================================================================
-
-/// A family member or friend to notify about tee times.
-///
-/// This class is referenced by [AppState]. If it already exists in the
-/// models package, this stub is redundant and can be removed.
-class FamilyMember {
-  const FamilyMember({required this.name, required this.email});
-  final String name;
-  final String email;
 }

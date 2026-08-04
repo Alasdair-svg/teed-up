@@ -47,7 +47,7 @@ class RoundDetailScreen extends StatelessWidget {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.offWhite,
           body: CustomScrollView(
             slivers: [
               _HeroHeader(round: round),
@@ -85,11 +85,11 @@ class RoundDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    // ── Let the family know (A10) ──────────────────
+                    // ── Let friends and family know (A10) ──────────
                     _FamilyNotifyButton(
                       round: round,
                       onNotify: () async {
-                        await state.notifyFamilyAboutRound(roundId: round.id);
+                        await state.notifyFamily(roundId: round.id);
                       },
                     ),
                     const SizedBox(height: 16),
@@ -146,13 +146,14 @@ class RoundDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Cycles RSVP status: pending → confirmed → declined → pending.
+  /// Cycles RSVP status (spec A10): tbc → confirmed → pending → declined → tbc.
   static RsvpStatus _nextRsvp(RsvpStatus current) {
     switch (current) {
-      case RsvpStatus.pending:   return RsvpStatus.confirmed;
-      case RsvpStatus.confirmed: return RsvpStatus.declined;
-      case RsvpStatus.accepted:  return RsvpStatus.declined; // legacy
-      case RsvpStatus.declined:  return RsvpStatus.pending;
+      case RsvpStatus.tbc:       return RsvpStatus.confirmed;
+      case RsvpStatus.confirmed: return RsvpStatus.pending;
+      case RsvpStatus.accepted:  return RsvpStatus.pending; // legacy
+      case RsvpStatus.pending:   return RsvpStatus.declined;
+      case RsvpStatus.declined:  return RsvpStatus.tbc;
     }
   }
 }
@@ -335,9 +336,12 @@ class _PlayerTile extends StatelessWidget {
       RsvpStatus.accepted  => (Icons.check_circle_rounded,    AppColors.success,   'Confirmed'), // legacy
       RsvpStatus.pending   => (Icons.schedule_rounded,        AppColors.warning,   'Pending'),
       RsvpStatus.declined  => (Icons.cancel_rounded,          AppColors.error,     'Declined'),
+      RsvpStatus.tbc       => (Icons.help_outline_rounded,    AppColors.textMuted, 'TBC'),
     };
 
-    final isTbc = player.name.trim().isEmpty || player.name.trim().toLowerCase() == 'tbc';
+    final isTbc = player.rsvpStatus == RsvpStatus.tbc ||
+        player.name.trim().isEmpty ||
+        player.name.trim().toLowerCase() == 'tbc';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -431,6 +435,70 @@ class _PlayerTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Let friends and family know" action (spec A10).
+///
+/// Shows an active gradient button until the round is marked
+/// [GolfRound.familyNotified], then becomes an inert "✓ Family notified"
+/// pill so it can't be triggered twice.
+class _FamilyNotifyButton extends StatelessWidget {
+  const _FamilyNotifyButton({required this.round, required this.onNotify});
+
+  final GolfRound round;
+  final Future<void> Function() onNotify;
+
+  @override
+  Widget build(BuildContext context) {
+    final notified = round.familyNotified;
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: notified ? null : AppColors.primaryGradient,
+              color: notified ? AppColors.palePurple : null,
+              borderRadius: AppRadius.buttonBorder,
+            ),
+            child: ElevatedButton(
+              onPressed: notified ? null : onNotify,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.buttonBorder),
+              ),
+              child: Text(
+                notified
+                    ? '✓ Family notified'
+                    : 'Let friends and family know',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: notified ? AppColors.primary : AppColors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (notified)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              "They know. They might even show up at the 19th hole.",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -642,47 +710,6 @@ class _ActionButtons extends StatelessWidget {
             child: const Text('Cancel Round'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _FamilyNotifyButton — lets the user notify family members about a round
-// ---------------------------------------------------------------------------
-
-class _FamilyNotifyButton extends StatelessWidget {
-  const _FamilyNotifyButton({
-    required this.round,
-    required this.onNotify,
-  });
-
-  final GolfRound round;
-  final VoidCallback onNotify;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton.icon(
-        onPressed: round.familyNotified ? null : onNotify,
-        icon: Icon(
-          round.familyNotified
-              ? Icons.check_circle_rounded
-              : Icons.people_rounded,
-        ),
-        label: Text(
-          round.familyNotified ? 'Family notified' : 'Notify family',
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: round.familyNotified
-              ? AppColors.success.withOpacity(0.15)
-              : AppColors.success,
-          foregroundColor: round.familyNotified
-              ? AppColors.success
-              : Colors.white,
-        ),
       ),
     );
   }

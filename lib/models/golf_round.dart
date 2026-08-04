@@ -36,11 +36,11 @@ class GolfRound {
   /// Linked device calendar event ID (if created).
   final String? calendarEventId;
 
+  /// Whether friends & family have been informed about this round.
+  final bool familyNotified;
+
   /// When this round was created in the app.
   final DateTime createdAt;
-
-  /// Whether family members were notified for this round.
-  final bool familyNotified;
 
   /// Timeline of events for this round.
   final List<RoundEvent> timeline = [];
@@ -64,7 +64,7 @@ class GolfRound {
           .toList(),
       bookingRef: json['bookingRef'] as String?,
       calendarEventId: json['calendarEventId'] as String?,
-      familyNotified: json['familyNotified'] as bool? ?? false,
+      familyNotified: json['familyNotified'] == true,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,

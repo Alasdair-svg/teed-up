@@ -36,6 +36,12 @@ target 'Runner' do
   target 'RunnerTests' do
     inherit! :search_paths
   end
+
+  # Share-sheet integration (spec A6) — lets the Share Extension target
+  # import the receive_sharing_intent plugin's native code.
+  target 'Share Extension' do
+    inherit! :search_paths
+  end
 end
 
 post_install do |installer|

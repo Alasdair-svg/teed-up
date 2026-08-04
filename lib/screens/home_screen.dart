@@ -26,7 +26,7 @@ class HomeScreen extends StatelessWidget {
     return Consumer<AppState>(
       builder: (context, state, _) {
         return Scaffold(
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.offWhite,
           body: IndexedStack(
             index: state.currentTabIndex,
             children: const [
@@ -517,7 +517,11 @@ class _PlayerAvatar extends StatelessWidget {
 
   String get _initials {
     final name = player.name.trim();
-    if (name.isEmpty || name.toLowerCase() == 'tbc') return '?';
+    if (player.rsvpStatus == RsvpStatus.tbc ||
+        name.isEmpty ||
+        name.toLowerCase() == 'tbc') {
+      return '?';
+    }
     final parts = name.split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -531,6 +535,7 @@ class _PlayerAvatar extends StatelessWidget {
       RsvpStatus.accepted   => AppColors.primary,
       RsvpStatus.declined   => AppColors.error,
       RsvpStatus.pending    => AppColors.primary,
+      RsvpStatus.tbc        => AppColors.textMuted,
     };
   }
 

@@ -7,6 +7,21 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 
+	<!-- Share-sheet integration (spec A6) -->
+	<key>AppGroupId</key>
+	<string>$(CUSTOM_GROUP_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ShareMedia-$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			</array>
+		</dict>
+	</array>
+
 	<!-- Calendar Access -->
 	<key>NSCalendarsUsageDescription</key>
 	<string>All Teed Up needs calendar access to create golf events and send invitations to your playing partners.</string>
@@ -74,5 +89,9 @@
 	<array>
 		<string>com.teedup.golf.rsvpMonitor</string>
 	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>

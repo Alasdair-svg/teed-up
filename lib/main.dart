@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'db/database_helper.dart';
@@ -12,10 +13,16 @@ import 'models/rsvp_change.dart';
 import 'providers/app_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/scan_screen.dart';
 import 'services/notification_service.dart';
 import 'services/purchase_service.dart';
 import 'services/rsvp_monitor.dart';
 import 'theme/app_theme.dart';
+
+/// Root navigator key — lets the share-sheet listener (spec A6) push
+/// [ScanScreen] from outside the widget tree (shares can arrive while the
+/// app is backgrounded or cold-started).
+final navigatorKey = GlobalKey<NavigatorState>();
 
 /// SharedPreferences keys for persistence.
 const String _kRoundsKey = 'teed_up_rounds';
@@ -56,6 +63,35 @@ void main() async {
   appState.addListener(() => _saveRounds(appState));
 
   runApp(TeedUpApp(appState: appState));
+
+  _listenForSharedMedia();
+}
+
+/// Spec A6 — OS share-sheet integration. Routes an image shared from
+/// Photos/WhatsApp/Telegram straight into [ScanScreen]'s review flow,
+/// whether the app was already running, backgrounded, or cold-started.
+void _listenForSharedMedia() {
+  void openScanScreen(String path) {
+    navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => ScanScreen(sharedImagePath: path),
+      ),
+    );
+  }
+
+  // App was launched fresh by a share action.
+  ReceiveSharingIntent.instance.getInitialMedia().then((files) {
+    if (files.isEmpty) return;
+    openScanScreen(files.first.path);
+    ReceiveSharingIntent.instance.reset();
+  });
+
+  // App was already running (foreground/background) when shared to.
+  ReceiveSharingIntent.instance.getMediaStream().listen((files) {
+    if (files.isEmpty) return;
+    openScanScreen(files.first.path);
+    ReceiveSharingIntent.instance.reset();
+  });
 }
 
 /// Loads rounds, alerts, flags, and calendar selection from persistence.
@@ -72,6 +108,8 @@ Future<void> _loadPersistedState(AppState state) async {
     }
     state.setSelectedCalendarId(prefs.getString(_kCalendarIdKey));
     state.setDeclineAlerts(prefs.getBool(_kDeclineAlertsKey) ?? true);
+    await state.loadFamilyMembers();
+    await state.loadFamilySettings();
 
     // -- Rounds (JSON in SharedPreferences) --
     final roundsJson = prefs.getString(_kRoundsKey);
@@ -181,6 +219,7 @@ class TeedUpApp extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) {
           return MaterialApp(
+            navigatorKey: navigatorKey,
             title: 'All Teed Up',
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),

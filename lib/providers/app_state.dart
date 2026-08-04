@@ -5,12 +5,17 @@
 /// purchase status. Backed by SQLite for persistence (loaded on init).
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/family_member.dart';
 import '../models/golf_round.dart';
 import '../models/player.dart';
+import '../models/player_diff.dart';
 import '../models/rsvp_change.dart';
+import '../services/calendar_service.dart';
 
 /// Central [ChangeNotifier] that holds the app's reactive state.
 ///
@@ -47,10 +52,6 @@ class AppState extends ChangeNotifier {
   /// All upcoming golf rounds, sorted by date (nearest first).
   List<GolfRound> get upcomingRounds => List.unmodifiable(_upcomingRounds);
 
-  /// Family members available for round notifications.
-  /// Returns an empty list until the family contacts feature is fully implemented.
-  List<dynamic> get familyMembers => const [];
-
   /// Replaces the entire rounds list (e.g. after initial DB load).
   void setRounds(List<GolfRound> rounds) {
     _upcomingRounds = List.of(rounds)
@@ -65,23 +66,57 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Saves a new round (alias for [addRound]) with optional family notification.
-  Future<void> saveRound(GolfRound round, {List<dynamic>? selectedFamily}) async {
-    addRound(round);
-  }
-
   /// Replaces a round with the same [GolfRound.id].
   ///
   /// If no matching round is found, the [updated] round is appended.
-  Future<void> updateRound(GolfRound updated, {List<dynamic>? selectedFamily}) async {
-    final index = _upcomingRounds.indexWhere((r) => r.id == updated.id);
+  ///
+  /// If [selectedFamily] is provided and non-empty, those members are
+  /// patched onto the round's device calendar event as informational
+  /// (Optional) attendees and the round is marked [GolfRound.familyNotified].
+  Future<void> updateRound(
+    GolfRound updated, {
+    List<FamilyMember>? selectedFamily,
+  }) async {
+    final notify = selectedFamily != null && selectedFamily.isNotEmpty;
+    var toSave = notify ? updated.copyWith(familyNotified: true) : updated;
+
+    if (notify && _selectedCalendarId != null) {
+      toSave = await _pushFamilyToCalendar(toSave, selectedFamily);
+    }
+
+    final index = _upcomingRounds.indexWhere((r) => r.id == toSave.id);
     if (index >= 0) {
-      _upcomingRounds[index] = updated;
+      _upcomingRounds[index] = toSave;
     } else {
-      _upcomingRounds.add(updated);
+      _upcomingRounds.add(toSave);
     }
     _upcomingRounds.sort((a, b) => a.date.compareTo(b.date));
     notifyListeners();
+  }
+
+  /// Saves a brand-new [round] (from a fresh scan, spec A7/A9).
+  ///
+  /// If [selectedFamily] is provided and non-empty, the calendar event is
+  /// created with those members as informational (Optional) attendees.
+  Future<void> saveRound(
+    GolfRound round, {
+    List<FamilyMember>? selectedFamily,
+  }) async {
+    final notify = selectedFamily != null && selectedFamily.isNotEmpty;
+    var toSave = notify ? round.copyWith(familyNotified: true) : round;
+
+    if (_selectedCalendarId != null) {
+      final eventId = await CalendarService().createGolfEvent(
+        toSave,
+        _selectedCalendarId!,
+        notifyFamilyMembers: notify ? selectedFamily : null,
+      );
+      if (eventId != null) {
+        toSave = toSave.copyWith(calendarEventId: eventId);
+      }
+    }
+
+    addRound(toSave);
   }
 
   /// Removes a round by its [id].
@@ -99,52 +134,147 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Finds a round that matches the given course, date and tee time.
+  /// Finds an existing upcoming round matching [course]/[date]/[teeTime]
+  /// (spec A7 — booking-match detection on rescan).
+  ///
+  /// Match is exact on course name (case-insensitive), calendar day, and
+  /// tee-time hour/minute.
   GolfRound? findMatchingRound({
     required String course,
-    required DateTime? date,
-    required DateTime? teeTime,
+    required DateTime date,
+    required DateTime teeTime,
   }) {
-    if (date == null) return null;
-    try {
-      return _upcomingRounds.firstWhere((r) {
-        final sameDay = r.date.year == date.year &&
-            r.date.month == date.month &&
-            r.date.day == date.day;
-        final sameCourse =
-            r.courseName.toLowerCase().contains(course.toLowerCase());
-        return sameDay && sameCourse;
-      });
-    } on StateError {
-      return null;
+    final courseNorm = course.trim().toLowerCase();
+    for (final r in _upcomingRounds) {
+      final sameCourse = r.courseName.trim().toLowerCase() == courseNorm;
+      final sameDay = r.date.year == date.year &&
+          r.date.month == date.month &&
+          r.date.day == date.day;
+      final sameTime = r.teeTime.hour == teeTime.hour &&
+          r.teeTime.minute == teeTime.minute;
+      if (sameCourse && sameDay && sameTime) return r;
+    }
+    return null;
+  }
+
+  /// Updates a single player's RSVP status within a round (spec A10 —
+  /// 4-state cycle: tbc → confirmed → pending → declined).
+  ///
+  /// Declining automatically raises an alert, mirroring the prototype's
+  /// auto-alert-on-decline behaviour.
+  Future<void> updatePlayerRsvp({
+    required String roundId,
+    required String playerId,
+    required RsvpStatus newStatus,
+  }) async {
+    final round = getRound(roundId);
+    if (round == null) return;
+
+    Player? changedPlayer;
+    final players = round.players.map((p) {
+      if (p.id != playerId) return p;
+      changedPlayer = p;
+      return p.copyWith(rsvpStatus: newStatus);
+    }).toList();
+    if (changedPlayer == null) return;
+
+    await updateRound(round.copyWith(players: players));
+
+    if (newStatus == RsvpStatus.declined) {
+      addAlert(RsvpChange(
+        eventId: round.id,
+        playerName: changedPlayer!.name,
+        playerEmail: changedPlayer!.email,
+        oldStatus: changedPlayer!.rsvpStatus,
+        newStatus: newStatus,
+        detectedAt: DateTime.now(),
+      ));
     }
   }
 
-  /// Updates RSVP status for a specific player in a round.
-  void updatePlayerRsvp({
-    required String roundId,
-    required String playerId,
-    required dynamic newStatus,
-  }) {
-    final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
-    if (index < 0) return;
-    final round = _upcomingRounds[index];
-    final updatedPlayers = round.players.map((p) {
-      if (p.id == playerId) return p.copyWith(rsvpStatus: newStatus);
-      return p;
-    }).toList();
-    _upcomingRounds[index] = round.copyWith(players: updatedPlayers);
+  /// Informs friends & family about [roundId] (spec A10 — "Let friends and
+  /// family know").
+  ///
+  /// Adds every configured [familyMembers] entry as an informational
+  /// (Optional) calendar attendee on the round's event — creating the
+  /// event first if it doesn't exist yet — then marks the round notified.
+  /// No-ops if already notified.
+  Future<void> notifyFamily({required String roundId}) async {
+    final round = getRound(roundId);
+    if (round == null || round.familyNotified) return;
+
+    var toSave = round.copyWith(familyNotified: true);
+    if (_familyMembers.isNotEmpty && _selectedCalendarId != null) {
+      toSave = await _pushFamilyToCalendar(toSave, _familyMembers);
+    }
+
+    final index = _upcomingRounds.indexWhere((r) => r.id == toSave.id);
+    if (index >= 0) {
+      _upcomingRounds[index] = toSave;
+    } else {
+      _upcomingRounds.add(toSave);
+    }
     notifyListeners();
   }
 
-  /// Notifies family members about a round. Stub — full implementation pending.
-  Future<void> notifyFamilyAboutRound({required String roundId}) async {
-    // TODO: integrate with messaging/calendar service
+  /// Sends (creates or refreshes) the calendar invite for a round's
+  /// players — the always-shown "Send invite" action. Does not touch
+  /// family attendees.
+  Future<void> sendCalendarInvite({required String roundId}) async {
+    final round = getRound(roundId);
+    if (round == null || _selectedCalendarId == null) return;
+
+    final calendarService = CalendarService();
+    if (round.calendarEventId != null) {
+      final diff = PlayerDiff.compare(
+        oldPlayers: round.players,
+        newPlayers: round.players,
+      );
+      await calendarService.updateGolfEvent(
+        round.calendarEventId!,
+        round,
+        diff,
+        _selectedCalendarId!,
+      );
+    } else {
+      final eventId = await calendarService.createGolfEvent(
+        round,
+        _selectedCalendarId!,
+      );
+      if (eventId != null) {
+        await updateRound(round.copyWith(calendarEventId: eventId));
+      }
+    }
   }
 
-  /// Sends a calendar invite for a round. Stub — full implementation pending.
-  Future<void> sendCalendarInvite({required String roundId}) async {
-    // TODO: integrate with device calendar plugin
+  /// Creates or patches [round]'s calendar event so [members] are added as
+  /// informational (Optional) attendees. Returns the round, updated with a
+  /// [GolfRound.calendarEventId] if one was just created.
+  Future<GolfRound> _pushFamilyToCalendar(
+    GolfRound round,
+    List<FamilyMember> members,
+  ) async {
+    final calendarService = CalendarService();
+    if (round.calendarEventId != null) {
+      final diff = PlayerDiff.compare(
+        oldPlayers: round.players,
+        newPlayers: round.players,
+      );
+      await calendarService.updateGolfEvent(
+        round.calendarEventId!,
+        round,
+        diff,
+        _selectedCalendarId!,
+        notifyFamilyMembers: members,
+      );
+      return round;
+    }
+    final eventId = await calendarService.createGolfEvent(
+      round,
+      _selectedCalendarId!,
+      notifyFamilyMembers: members,
+    );
+    return eventId != null ? round.copyWith(calendarEventId: eventId) : round;
   }
 
   // ---------------------------------------------------------------------------
@@ -380,9 +510,6 @@ class AppState extends ChangeNotifier {
 
   bool _notifyFamily = false;
 
-  /// Whether the current scan should include family notification.
-  bool get notifyFamily => _notifyFamily;
-
   /// Sets whether to notify family for the current scan.
   void setNotifyFamily(bool value) {
     if (_notifyFamily == value) return;
@@ -451,6 +578,56 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Friends & Family (spec A4/A9/A12 — up to 5 members, name + email)
+  // ---------------------------------------------------------------------------
+
+  static const int maxFamilyMembers = 5;
+  static const String _familyMembersPrefsKey = 'teed_up_family_members';
+
+  List<FamilyMember> _familyMembers = [];
+
+  /// Friends/family kept informed about tee times (max [maxFamilyMembers]).
+  List<FamilyMember> get familyMembers => List.unmodifiable(_familyMembers);
+
+  /// Loads the persisted friends & family list from SharedPreferences.
+  Future<void> loadFamilyMembers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_familyMembersPrefsKey);
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      _familyMembers = decoded
+          .map((e) => FamilyMember.fromJson(e as Map<String, dynamic>))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('AppState: failed to load family members: $e');
+    }
+  }
+
+  Future<void> _persistFamilyMembers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(_familyMembers.map((f) => f.toJson()).toList());
+    await prefs.setString(_familyMembersPrefsKey, encoded);
+  }
+
+  /// Adds a friend/family member. No-ops once [maxFamilyMembers] is reached.
+  void addFamilyMember({required String name, required String email}) {
+    if (_familyMembers.length >= maxFamilyMembers) return;
+    _familyMembers.add(FamilyMember(name: name, email: email));
+    notifyListeners();
+    _persistFamilyMembers();
+  }
+
+  /// Removes the friend/family member at [index].
+  void removeFamilyMember(int index) {
+    if (index < 0 || index >= _familyMembers.length) return;
+    _familyMembers.removeAt(index);
+    notifyListeners();
+    _persistFamilyMembers();
+  }
+
+  // ---------------------------------------------------------------------------
   // Reset (for testing)
   // ---------------------------------------------------------------------------
 
@@ -460,6 +637,7 @@ class AppState extends ChangeNotifier {
     _currentTabIndex = 0;
     _upcomingRounds = [];
     _alerts = [];
+    _familyMembers = [];
     _selectedCalendarId = null;
     _declineAlertsEnabled = true;
     _isOnboarded = false;

@@ -7,6 +7,7 @@ import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/family_setup_section.dart';
 
 /// Settings screen with grouped sections for calendar, notifications,
 /// contacts, purchase, and about information.
@@ -22,7 +23,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.offWhite,
       appBar: AppBar(
         title: const Text('Settings'),
         automaticallyImplyLeading: false,
@@ -83,51 +84,27 @@ class SettingsScreen extends StatelessWidget {
               ),
               const _SettingsDivider(),
 
-              // ── FAMILY NOTIFICATIONS ──────────────────────────
-              const _SectionLabel(label: '👨‍👩‍👧‍👦  FAMILY NOTIFICATIONS'),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.palePurple.withValues(alpha: 0.5),
-                  borderRadius: AppRadius.cardBorder,
-                ),
-                child: Column(
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.family_restroom_rounded,
-                      title: 'Family Contact',
-                      subtitle: state.hasFamilyContact
-                          ? '${state.familyContactName} (${state.familyContactEmail})'
-                          : 'Not set',
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => _showFamilyContactDialog(context, state),
-                    ),
-                    if (state.hasFamilyContact) ...[
-                      _SettingsTile(
-                        icon: Icons.auto_awesome_rounded,
-                        title: 'Always notify family',
-                        subtitle: 'Auto-add to every round',
-                        trailing: Switch(
-                          value: state.familyAlwaysNotify,
-                          onChanged: (v) => state.setFamilyAlwaysNotify(v),
-                        ),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.person_remove_rounded,
-                        title: 'Clear Family Contact',
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textMuted,
-                        ),
-                        onTap: () => _confirmClearFamily(context, state),
-                      ),
-                    ],
-                  ],
+              // ── FRIENDS & FAMILY (A12 — up to 5 members) ─────
+              const _SectionLabel(label: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}  FRIENDS & FAMILY'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: FamilySetupSection(
+                  entries: state.familyMembers,
+                  onAdd: (name, email) =>
+                      state.addFamilyMember(name: name, email: email),
+                  onRemove: state.removeFamilyMember,
                 ),
               ),
+              if (state.familyMembers.isNotEmpty)
+                _SettingsTile(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'Always notify all members',
+                  subtitle: 'Auto-select on every scan',
+                  trailing: Switch(
+                    value: state.familyAlwaysNotify,
+                    onChanged: (v) => state.setFamilyAlwaysNotify(v),
+                  ),
+                ),
               const _SettingsDivider(),
 
               // ── PURCHASE ─────────────────────────────────────
@@ -338,95 +315,6 @@ class SettingsScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-
-  void _showFamilyContactDialog(BuildContext context, AppState state) {
-    final nameController = TextEditingController(
-      text: state.familyContactName ?? '',
-    );
-    final emailController = TextEditingController(
-      text: state.familyContactEmail ?? '',
-    );
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Text('👨‍👩‍👧‍👦 '),
-            Text('Family Contact'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add a family member to receive calendar invites '
-              'for your golf rounds (information only).',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppColors.textBody,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                prefixIcon: Icon(Icons.person_rounded),
-                hintText: 'e.g. Sarah',
-              ),
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email_rounded),
-                hintText: 'e.g. sarah@example.com',
-              ),
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final email = emailController.text.trim();
-
-              if (name.isEmpty || email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a valid name and email.'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-                return;
-              }
-
-              await state.setFamilyContact(name, email);
-              if (!context.mounted) return;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Family contact set: $name'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _confirmClearFamily(BuildContext context, AppState state) {

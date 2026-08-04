@@ -13,6 +13,7 @@ import 'dart:ui' show Size;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import '../models/golf_round.dart';
+import '../models/player.dart';
 import 'booking_parser.dart';
 
 /// Service that converts a booking screenshot into a [GolfRound].
@@ -72,7 +73,7 @@ class ScanService {
     if (rawText.trim().isEmpty) {
       throw const ScanException('No text detected in image');
     }
-    return BookingParser.parseBookingText(rawText);
+    return _withTbcSlots(BookingParser.parseBookingText(rawText), rawText);
   }
 
   // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ class ScanService {
     if (rawText.trim().isEmpty) {
       throw const ScanException('No text detected in image');
     }
-    return BookingParser.parseBookingText(rawText);
+    return _withTbcSlots(BookingParser.parseBookingText(rawText), rawText);
   }
 
   // ---------------------------------------------------------------------------
@@ -192,6 +193,30 @@ class ScanService {
     }
 
     return buffer.toString();
+  }
+
+  /// Appends "Player TBC" placeholder slots (spec A8) when the raw OCR
+  /// [rawText] indicates the booking has more players than were named.
+  ///
+  /// Kept separate from [BookingParser.parseBookingText] so that parser's
+  /// unit tests (which assert exact named-player counts) stay unaffected.
+  GolfRound _withTbcSlots(GolfRound round, String rawText) {
+    final openSlots = BookingParser.extractOpenSlots(
+      rawText,
+      round.players.length,
+    );
+    if (openSlots <= 0) return round;
+
+    final now = DateTime.now();
+    final tbcPlayers = List.generate(
+      openSlots,
+      (i) => Player(
+        id: 'tbc_${now.microsecondsSinceEpoch}_$i',
+        name: 'Player TBC',
+        rsvpStatus: RsvpStatus.tbc,
+      ),
+    );
+    return round.copyWith(players: [...round.players, ...tbcPlayers]);
   }
 
   /// Throws a [StateError] if the service has already been disposed.
