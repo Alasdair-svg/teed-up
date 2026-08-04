@@ -10,9 +10,12 @@ on:
         required: false
         default: 'redesign/all-teed-up-v2'
 
+env:
+  FLUTTER_VERSION: '3.44.1'
+
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # Flutter tests (fast — runs on Ubuntu, no platform SDKs needed)
+  # Flutter tests (fast — runs on Ubuntu)
   # ─────────────────────────────────────────────────────────────────────────────
   test:
     name: flutter test
@@ -22,11 +25,14 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
-          cache: true
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 --branch ${{ env.FLUTTER_VERSION }} \
+            https://github.com/flutter/flutter.git $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: flutter doctor
+        run: flutter doctor --android-licenses < /dev/null || true
 
       - name: Install dependencies
         run: flutter pub get
@@ -54,11 +60,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
-          cache: true
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 --branch ${{ env.FLUTTER_VERSION }} \
+            https://github.com/flutter/flutter.git $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: flutter pub get
@@ -85,11 +91,11 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
-          cache: true
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 --branch ${{ env.FLUTTER_VERSION }} \
+            https://github.com/flutter/flutter.git $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: flutter pub get
