@@ -6,6 +6,8 @@
     <string>app-store</string>
     <key>teamID</key>
     <string>CH9U7G9757</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
     <key>uploadBitcode</key>
     <false/>
     <key>uploadSymbols</key>
@@ -14,7 +16,7 @@
     <false/>
     <key>destination</key>
     <string>export</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
+    <key>installerSigningCertificate</key>
+    <string>3rd Party Mac Developer Installer</string>
 </dict>
 </plist>

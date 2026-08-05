@@ -22,10 +22,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          # Cache key includes Podfile hash so any Podfile change busts the cache
-          key: ${{ runner.os }}-pods-v2-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
+          key: ${{ runner.os }}-pods-v3-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pods-v2-
+            ${{ runner.os }}-pods-v3-
 
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -40,24 +39,79 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$ASC_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          mkdir -p /tmp/asc_keys
+          echo "$ASC_API_KEY_P8" > /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "KEY_PATH=/tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8" >> $GITHUB_ENV
+          # Verify key written correctly
+          wc -c /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
 
-      - name: Build signed IPA
+      - name: Generate Flutter build artifacts (Dart → native)
+        run: |
+          # Run flutter build to generate the Flutter engine artifacts and
+          # Generated.xcconfig that xcodebuild needs. Use --no-codesign so
+          # Flutter doesn't try to handle signing itself.
+          flutter build ios --release --no-codesign \
+            --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
+            --dart-define=FLUTTER_BUILD_NUMBER=10
+
+      - name: Archive with xcodebuild
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /tmp/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=10 \
+            MARKETING_VERSION=1.1.0 \
+            archive | xcpretty || xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /tmp/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=10 \
+            MARKETING_VERSION=1.1.0 \
+            archive
+
+      - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath /tmp/Runner.xcarchive \
+            -exportPath /tmp/Runner_export \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+          echo "IPA files:"
+          find /tmp/Runner_export -name "*.ipa"
 
       - name: Upload to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
+          IPA_PATH=$(find /tmp/Runner_export -name "*.ipa" | head -1)
           echo "Uploading: $IPA_PATH"
           xcrun altool --upload-app \
             --type ios \
@@ -71,5 +125,5 @@ jobs:
         if: always()
         with:
           name: AllTeedUp-v1.1.0-${{ github.run_number }}.ipa
-          path: build/ios/ipa/*.ipa
+          path: /tmp/Runner_export/*.ipa
           retention-days: 14
