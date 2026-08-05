@@ -144,7 +144,6 @@ class RsvpMonitor {
           requiresCharging: false,
           requiresDeviceIdle: false,
         ),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 5),
       );
