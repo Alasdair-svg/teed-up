@@ -3,19 +3,22 @@ default_platform(:ios)
 platform :ios do
   desc 'Push a new beta build to TestFlight'
   lane :beta do
+    # __dir__ is the absolute path to the fastlane/ directory containing this Fastfile
+    key_path = File.expand_path("keys/AuthKey_93D3TRQ9HM.p8", __dir__)
+
     app_store_connect_api_key(
       key_id: "93D3TRQ9HM",
       issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
-      key_filepath: "fastlane/keys/AuthKey_93D3TRQ9HM.p8",
+      key_filepath: key_path,
       duration: 1200,
       in_house: false
     )
-    
+
     build_app(
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
       export_method: 'app-store',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{File.expand_path('fastlane/keys/AuthKey_93D3TRQ9HM.p8')} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{key_path} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
     )
     upload_to_testflight(
       skip_waiting_for_build_processing: true
@@ -24,10 +27,12 @@ platform :ios do
 
   desc 'Push a new release to App Store'
   lane :release do
+    key_path = File.expand_path("keys/AuthKey_93D3TRQ9HM.p8", __dir__)
+
     app_store_connect_api_key(
       key_id: "93D3TRQ9HM",
       issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
-      key_filepath: "fastlane/keys/AuthKey_93D3TRQ9HM.p8",
+      key_filepath: key_path,
       duration: 1200,
       in_house: false
     )
@@ -36,7 +41,7 @@ platform :ios do
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
       export_method: 'app-store',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{File.expand_path('fastlane/keys/AuthKey_93D3TRQ9HM.p8')} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{key_path} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
     )
     upload_to_app_store(
       force: true,
