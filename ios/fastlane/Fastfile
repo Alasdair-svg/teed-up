@@ -18,7 +18,7 @@ platform :ios do
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
       export_method: 'app-store',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{key_path} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath '#{key_path}' -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 ENABLE_BITCODE=NO"
     )
     upload_to_testflight(
       skip_waiting_for_build_processing: true
@@ -41,7 +41,7 @@ platform :ios do
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
       export_method: 'app-store',
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{key_path} -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828"
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath '#{key_path}' -authenticationKeyID 93D3TRQ9HM -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 ENABLE_BITCODE=NO"
     )
     upload_to_app_store(
       force: true,

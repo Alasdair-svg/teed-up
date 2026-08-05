@@ -710,7 +710,8 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ALLOWED = NO;
+				CODE_SIGN_STYLE = Manual;
 				CUSTOM_GROUP_ID = group.com.teedup.golf;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
@@ -736,7 +737,8 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ALLOWED = NO;
+				CODE_SIGN_STYLE = Manual;
 				CUSTOM_GROUP_ID = group.com.teedup.golf;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
@@ -921,7 +923,8 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ALLOWED = NO;
+				CODE_SIGN_STYLE = Manual;
 				CUSTOM_GROUP_ID = group.com.teedup.golf;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
