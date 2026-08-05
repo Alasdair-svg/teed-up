@@ -298,7 +298,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				70D881373A8BDD5230854FA5 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -721,6 +720,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf.ShareExtension;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
 				PRODUCT_NAME = "Share Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -748,6 +750,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf.ShareExtension;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
 				PRODUCT_NAME = "Share Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -934,6 +939,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf.ShareExtension;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
 				PRODUCT_NAME = "Share Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;

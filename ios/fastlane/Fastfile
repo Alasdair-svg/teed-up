@@ -3,7 +3,6 @@ default_platform(:ios)
 platform :ios do
   desc 'Push a new beta build to TestFlight'
   lane :beta do
-    # __dir__ is the absolute path to the fastlane/ directory containing this Fastfile
     key_path = File.expand_path("keys/AuthKey_98UDF59KU7.p8", __dir__)
 
     app_store_connect_api_key(
@@ -14,12 +13,16 @@ platform :ios do
       in_house: false
     )
 
+    # Share Extension has CODE_SIGN_ALLOWED=NO and CODE_SIGNING_REQUIRED=NO set
+    # directly in project.pbxproj — its App ID (com.teedup.golf.ShareExtension) is
+    # not registered in Apple Developer Portal.
     build_app(
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
       export_method: 'app-store',
       xcargs: "-allowProvisioningUpdates -authenticationKeyPath '#{key_path}' -authenticationKeyID 98UDF59KU7 -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 ENABLE_BITCODE=NO"
     )
+
     upload_to_testflight(
       skip_waiting_for_build_processing: true
     )
