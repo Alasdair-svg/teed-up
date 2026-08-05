@@ -42,14 +42,10 @@ jobs:
           mkdir -p /tmp/asc_keys
           echo "$ASC_API_KEY_P8" > /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
           echo "KEY_PATH=/tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8" >> $GITHUB_ENV
-          # Verify key written correctly
           wc -c /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
 
       - name: Generate Flutter build artifacts (Dart → native)
         run: |
-          # Run flutter build to generate the Flutter engine artifacts and
-          # Generated.xcconfig that xcodebuild needs. Use --no-codesign so
-          # Flutter doesn't try to handle signing itself.
           flutter build ios --release --no-codesign \
             --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
             --dart-define=FLUTTER_BUILD_NUMBER=10
@@ -60,24 +56,12 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          set -o pipefail
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
-            -archivePath /tmp/Runner.xcarchive \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CURRENT_PROJECT_VERSION=10 \
-            MARKETING_VERSION=1.1.0 \
-            archive | xcpretty || xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath /tmp/Runner.xcarchive \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
@@ -88,6 +72,10 @@ jobs:
             MARKETING_VERSION=1.1.0 \
             archive
 
+          echo "Archive created:"
+          ls -la "$RUNNER_TEMP/Runner.xcarchive"
+          echo "ARCHIVE_PATH=$RUNNER_TEMP/Runner.xcarchive" >> $GITHUB_ENV
+
       - name: Export IPA
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -95,8 +83,8 @@ jobs:
         run: |
           xcodebuild \
             -exportArchive \
-            -archivePath /tmp/Runner.xcarchive \
-            -exportPath /tmp/Runner_export \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$RUNNER_TEMP/Runner_export" \
             -exportOptionsPlist ios/ExportOptions.plist \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
@@ -104,14 +92,15 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
           echo "IPA files:"
-          find /tmp/Runner_export -name "*.ipa"
+          find "$RUNNER_TEMP/Runner_export" -name "*.ipa"
+          echo "EXPORT_PATH=$RUNNER_TEMP/Runner_export" >> $GITHUB_ENV
 
       - name: Upload to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          IPA_PATH=$(find /tmp/Runner_export -name "*.ipa" | head -1)
+          IPA_PATH=$(find "$EXPORT_PATH" -name "*.ipa" | head -1)
           echo "Uploading: $IPA_PATH"
           xcrun altool --upload-app \
             --type ios \
@@ -125,5 +114,5 @@ jobs:
         if: always()
         with:
           name: AllTeedUp-v1.1.0-${{ github.run_number }}.ipa
-          path: /tmp/Runner_export/*.ipa
+          path: ${{ env.EXPORT_PATH }}/*.ipa
           retention-days: 14
