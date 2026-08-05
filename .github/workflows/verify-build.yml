@@ -103,9 +103,7 @@ jobs:
       - name: Precache iOS engine artifacts
         run: flutter precache --ios
 
-      - name: Install CocoaPods dependencies
-        working-directory: ios
-        run: pod install
-
       - name: Build iOS (simulator, no codesign)
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: '17.0'
         run: flutter build ios --simulator --no-codesign
