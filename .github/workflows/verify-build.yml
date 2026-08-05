@@ -104,6 +104,4 @@ jobs:
         run: flutter precache --ios
 
       - name: Build iOS (simulator, no codesign)
-        env:
-          IPHONEOS_DEPLOYMENT_TARGET: '17.0'
         run: flutter build ios --simulator --no-codesign
