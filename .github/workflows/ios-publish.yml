@@ -56,11 +56,14 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          set -o pipefail
+          set -euo pipefail
+          # -destination 'generic/platform=iOS' forces App Store distribution signing
+          # (not Development/device signing, which requires a registered device UUID)
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
+            -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$KEY_PATH" \
