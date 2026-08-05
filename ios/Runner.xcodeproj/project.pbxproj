@@ -299,6 +299,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				70D881373A8BDD5230854FA5 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
