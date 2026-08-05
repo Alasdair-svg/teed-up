@@ -49,6 +49,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				322E637917453A834447CF3D /* Share Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
