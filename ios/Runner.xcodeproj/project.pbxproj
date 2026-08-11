@@ -709,9 +709,11 @@
 			baseConfigurationReference = 7F4DF1CED8F21738EEEAEF76 /* Pods-Share Extension.release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ALLOWED = YES;
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
-				CODE_SIGN_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_REQUIRED = YES;
 				CUSTOM_GROUP_ID = group.com.teedup.golf;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
@@ -722,10 +724,8 @@
 					"@executable_path/../../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf.ShareExtension;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_IDENTITY = "";
 				PRODUCT_NAME = "Share Extension";
+				PROVISIONING_PROFILE_SPECIFIER = "All Teed Up ShareExtension AppStore Profile";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
