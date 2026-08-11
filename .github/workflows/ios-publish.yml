@@ -13,18 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 16
-        run: |
-          # Use Xcode 16
-          if [ -d "/Applications/Xcode_16.2.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.1.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
-          elif [ -d "/Applications/Xcode_16.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
-          fi
-          xcodebuild -version
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
@@ -100,7 +88,7 @@ jobs:
 
       - name: Generate Flutter build artifacts (Dart → native)
         run: |
-          flutter build ios --release --no-codesign \
+          flutter build ios --release --no-codesign --config-only \
             --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
             --dart-define=FLUTTER_BUILD_NUMBER=10
 
