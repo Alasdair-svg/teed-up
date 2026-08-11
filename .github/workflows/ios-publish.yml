@@ -34,14 +34,15 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Import Distribution Certificate
+      - name: Import Distribution Certificate & Provisioning Profiles
         env:
           DISTRIBUTION_CERT_P12: ${{ secrets.DISTRIBUTION_CERT_P12 }}
           DISTRIBUTION_CERT_PASSWORD: ${{ secrets.DISTRIBUTION_CERT_PASSWORD }}
+          PROVISIONING_PROFILE_RUNNER: ${{ secrets.PROVISIONING_PROFILE_RUNNER }}
+          PROVISIONING_PROFILE_SHARE: ${{ secrets.PROVISIONING_PROFILE_SHARE }}
         run: |
+          # 1. Import Certificate into keychain
           echo "$DISTRIBUTION_CERT_P12" | base64 --decode > /tmp/dist_cert.p12
-          wc -c /tmp/dist_cert.p12
-
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 12)"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -53,12 +54,18 @@ jobs:
             -P "$DISTRIBUTION_CERT_PASSWORD" \
             -A -t cert -f pkcs12
 
-          # Set search list to include custom keychain + login keychain
           security list-keychains -s "$KEYCHAIN_PATH" $(security list-keychains | tr -d '"')
           security default-keychain -s "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          # 2. Install Provisioning Profiles
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+
+          echo "$PROVISIONING_PROFILE_RUNNER" | base64 --decode > "$PROFILES_DIR/runner.mobileprovision"
+          echo "$PROVISIONING_PROFILE_SHARE" | base64 --decode > "$PROFILES_DIR/share.mobileprovision"
+
+          ls -la "$PROFILES_DIR"
 
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
@@ -97,7 +104,6 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION=10 \
             MARKETING_VERSION=1.1.0 \
             archive
