@@ -7,16 +7,19 @@
     <key>teamID</key>
     <string>CH9U7G9757</string>
     <key>signingStyle</key>
-    <string>automatic</string>
-    <key>uploadBitcode</key>
-    <false/>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.teedup.golf</key>
+        <string>All Teed Up AppStore Profile</string>
+        <key>com.teedup.golf.ShareExtension</key>
+        <string>All Teed Up ShareExtension AppStore Profile</string>
+    </dict>
     <key>uploadSymbols</key>
     <true/>
-    <key>compileBitcode</key>
-    <false/>
     <key>destination</key>
     <string>export</string>
-    <key>installerSigningCertificate</key>
-    <string>3rd Party Mac Developer Installer</string>
 </dict>
 </plist>
