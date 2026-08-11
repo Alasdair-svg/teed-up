@@ -13,6 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Xcode 16
+        run: |
+          # Use Xcode 16
+          if [ -d "/Applications/Xcode_16.2.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+          fi
+          xcodebuild -version
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
@@ -75,7 +87,6 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          # altool searches ~/.appstoreconnect/private_keys and ~/.private_keys
           mkdir -p ~/.appstoreconnect/private_keys
           mkdir -p ~/.private_keys
           mkdir -p /tmp/asc_keys
