@@ -75,10 +75,17 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
+          # altool searches ~/.appstoreconnect/private_keys and ~/.private_keys
+          mkdir -p ~/.appstoreconnect/private_keys
+          mkdir -p ~/.private_keys
           mkdir -p /tmp/asc_keys
+
+          echo "$ASC_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "$ASC_API_KEY_P8" > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
           echo "$ASC_API_KEY_P8" > /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
+
           echo "KEY_PATH=/tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8" >> $GITHUB_ENV
-          wc -c /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
+          wc -c ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
       - name: Generate Flutter build artifacts (Dart → native)
         run: |
