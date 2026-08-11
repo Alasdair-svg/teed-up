@@ -37,8 +37,6 @@ target 'Runner' do
     inherit! :search_paths
   end
 
-  # Share-sheet integration (spec A6) — lets the Share Extension target
-  # import the receive_sharing_intent plugin's native code.
   target 'Share Extension' do
     inherit! :search_paths
   end
@@ -50,6 +48,9 @@ post_install do |installer|
 
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
 
       # Required for permission_handler
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
@@ -63,10 +64,7 @@ post_install do |installer|
     end
   end
 
-  # Force Share Extension to skip code signing entirely.
-  # Its App ID (com.teedup.golf.ShareExtension) is not registered in Apple
-  # Developer Portal so -allowProvisioningUpdates cannot provision it.
-  # This post_install override wins over CocoaPods-generated xcconfig values.
+  # Force Share Extension to skip code signing entirely for CI
   installer.generated_projects.each do |project|
     project.targets.each do |target|
       if target.name == 'Share Extension'
@@ -81,7 +79,6 @@ post_install do |installer|
     end
   end
 
-  # Also override in the main project targets
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_project.targets.each do |target|
       if target.name == 'Share Extension'
