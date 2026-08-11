@@ -58,12 +58,12 @@ jobs:
           security default-keychain -s "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # 2. Install Provisioning Profiles
+          # 2. Install Provisioning Profiles with exact UUID filenames
           PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILES_DIR"
 
-          echo "$PROVISIONING_PROFILE_RUNNER" | base64 --decode > "$PROFILES_DIR/runner.mobileprovision"
-          echo "$PROVISIONING_PROFILE_SHARE" | base64 --decode > "$PROFILES_DIR/share.mobileprovision"
+          echo "$PROVISIONING_PROFILE_RUNNER" | base64 --decode > "$PROFILES_DIR/c015757e-20ed-4bae-b2f3-d48eafb80b23.mobileprovision"
+          echo "$PROVISIONING_PROFILE_SHARE" | base64 --decode > "$PROFILES_DIR/c340aa0e-8178-46be-b48e-30dd880b49e1.mobileprovision"
 
           ls -la "$PROFILES_DIR"
 
@@ -104,6 +104,9 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="All Teed Up AppStore Profile" \
             CURRENT_PROJECT_VERSION=10 \
             MARKETING_VERSION=1.1.0 \
             archive
