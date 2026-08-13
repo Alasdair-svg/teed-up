@@ -1,4 +1,5 @@
 /// Barrel export for all models.
+export 'family_member.dart';
 export 'golf_round.dart';
 export 'player.dart';
 export 'player_diff.dart';

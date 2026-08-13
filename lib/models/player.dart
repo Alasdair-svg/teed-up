@@ -1,6 +1,6 @@
 /// RSVP status for a player in a round.
 ///
-/// 3-state cycle (spec A10): [pending] → [confirmed] → [declined]
+/// 4-state cycle (spec A10): [tbc] → [confirmed] → [pending] → [declined] → [tbc]
 enum RsvpStatus {
 
   /// Player has confirmed / accepted the invitation.
@@ -16,6 +16,10 @@ enum RsvpStatus {
   // Do not use in new code; use [confirmed] instead.
   // ignore: constant_identifier_names
   accepted,
+
+  /// Slot not yet assigned to a named player (booking said more players
+  /// than were identified by OCR).
+  tbc,
 }
 
 /// Source of the player's contact information.
@@ -130,6 +134,8 @@ RsvpStatus _parseRsvpStatus(String? value) {
       return RsvpStatus.confirmed;
     case 'declined':
       return RsvpStatus.declined;
+    case 'tbc':
+      return RsvpStatus.tbc;
     case 'pending':
     default:
       return RsvpStatus.pending;

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-publish:
+  build-and-upload:
     name: Build IPA & Upload to TestFlight
     runs-on: macos-latest
 
@@ -22,9 +22,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          key: ${{ runner.os }}-pods-v3-${{ hashFiles('ios/Podfile', 'ios/Podfile.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pods-
+            ${{ runner.os }}-pods-v3-
 
       - name: Get Flutter dependencies
         run: flutter pub get
@@ -32,15 +32,131 @@ jobs:
       - name: Install CocoaPods
         run: |
           cd ios
-          pod install
+          pod install --repo-update
 
-      - name: Prepare AuthKey for Fastlane
+      - name: Import Distribution Certificate & Provisioning Profiles
+        env:
+          DISTRIBUTION_CERT_P12: ${{ secrets.DISTRIBUTION_CERT_P12 }}
+          DISTRIBUTION_CERT_PASSWORD: ${{ secrets.DISTRIBUTION_CERT_PASSWORD }}
+          PROVISIONING_PROFILE_RUNNER: ${{ secrets.PROVISIONING_PROFILE_RUNNER }}
+          PROVISIONING_PROFILE_SHARE: ${{ secrets.PROVISIONING_PROFILE_SHARE }}
         run: |
-          mkdir -p ios/fastlane/keys
-          echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 --decode > ios/fastlane/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          # 1. Import Certificate into keychain
+          echo "$DISTRIBUTION_CERT_P12" | base64 --decode > /tmp/dist_cert.p12
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 12)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-      - name: Build and Upload via Fastlane
+          security import /tmp/dist_cert.p12 \
+            -k "$KEYCHAIN_PATH" \
+            -P "$DISTRIBUTION_CERT_PASSWORD" \
+            -A -t cert -f pkcs12
+
+          security list-keychains -s "$KEYCHAIN_PATH" $(security list-keychains | tr -d '"')
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # 2. Install Provisioning Profiles with exact UUID filenames
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+
+          echo "$PROVISIONING_PROFILE_RUNNER" | base64 --decode > "$PROFILES_DIR/c015757e-20ed-4bae-b2f3-d48eafb80b23.mobileprovision"
+          echo "$PROVISIONING_PROFILE_SHARE" | base64 --decode > "$PROFILES_DIR/c340aa0e-8178-46be-b48e-30dd880b49e1.mobileprovision"
+
+          ls -la "$PROFILES_DIR"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+      - name: Write ASC API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          cd ios
-          bundle install
-          bundle exec fastlane beta
+          mkdir -p ~/.appstoreconnect/private_keys
+          mkdir -p ~/.private_keys
+          mkdir -p /tmp/asc_keys
+
+          echo "$ASC_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "$ASC_API_KEY_P8" > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "$ASC_API_KEY_P8" > /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
+
+          echo "KEY_PATH=/tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8" >> $GITHUB_ENV
+          wc -c ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Generate Flutter build artifacts (Dart → native)
+        run: |
+          flutter build ios --release --no-codesign --config-only \
+            --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
+            --dart-define=FLUTTER_BUILD_NUMBER=10
+
+      - name: Archive with xcodebuild
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION=10 \
+            MARKETING_VERSION=1.1.0 \
+            archive
+
+          echo "ARCHIVE_PATH=$RUNNER_TEMP/Runner.xcarchive" >> $GITHUB_ENV
+          ls -la "$RUNNER_TEMP/Runner.xcarchive"
+
+      - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$RUNNER_TEMP/Runner_export" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+          find "$RUNNER_TEMP/Runner_export" -name "*.ipa"
+          echo "EXPORT_PATH=$RUNNER_TEMP/Runner_export" >> $GITHUB_ENV
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA_PATH=$(find "$EXPORT_PATH" -name "*.ipa" | head -1)
+          echo "Uploading: $IPA_PATH"
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+
+      - name: Save IPA as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AllTeedUp-v1.1.0-${{ github.run_number }}.ipa
+          path: ${{ env.EXPORT_PATH }}/*.ipa
+          retention-days: 14

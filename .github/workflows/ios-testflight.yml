@@ -1,0 +1,79 @@
+name: iOS → TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'What changed in this build (shown in TestFlight)'
+        required: false
+        default: 'Latest redesign build for internal testing'
+
+jobs:
+  build-and-upload:
+    name: Build IPA & Upload to TestFlight
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flutter 3.44.1
+        run: |
+          git clone --depth 1 --branch 3.44.1 https://github.com/flutter/flutter.git $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+
+      - name: Flutter version check
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Precache iOS engine artifacts
+        run: flutter precache --ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      # ── Write App Store Connect API key ────────────────────────────────────
+      - name: Write ASC API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$ASC_API_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      # ── Build signed IPA via xcodebuild (automatic provisioning) ───────────
+      - name: Build IPA (automatic signing via ASC API key)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          flutter build ipa --release \
+            --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
+            --dart-define=FLUTTER_BUILD_NUMBER=10 \
+            --export-options-plist=ios/ExportOptions.plist
+
+      # ── Upload to TestFlight ───────────────────────────────────────────────
+      - name: Upload to TestFlight via xcrun altool
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -1)
+          echo "Uploading: $IPA_PATH"
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
+
+      - name: Upload IPA as artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AllTeedUp-v1.1.0-${{ github.run_number }}.ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14

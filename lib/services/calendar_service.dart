@@ -13,6 +13,7 @@ import 'dart:io' show Platform;
 import 'package:device_calendar/device_calendar.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/family_member.dart';
 import '../models/golf_round.dart';
 import '../models/player.dart';
 import '../models/player_diff.dart';
@@ -69,8 +70,8 @@ class CalendarService {
   /// Prefix used in event titles to identify Teed Up events.
   static const String eventPrefix = '⛳';
 
-  /// Default golf round duration in hours.
-  static const int _roundDurationHours = 5;
+  /// Default golf round duration in minutes (4.5 hours = 270 minutes).
+  static const int _roundDurationMinutes = 270;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Permissions
@@ -123,6 +124,27 @@ class CalendarService {
     }
   }
 
+  /// Returns [getAvailableCalendars] grouped by account (spec: multi-calendar
+  /// account linking) — e.g. all calendars under a single Google or iCloud
+  /// account grouped together, keyed by `"{accountName} ({accountType})"`.
+  ///
+  /// Calendars with no account info are grouped under `"Other"`.
+  Future<Map<String, List<Calendar>>> getAvailableCalendarsGrouped() async {
+    final calendars = await getAvailableCalendars();
+    final grouped = <String, List<Calendar>>{};
+
+    for (final calendar in calendars) {
+      final name = calendar.accountName?.trim();
+      final type = calendar.accountType?.trim();
+      final key = (name == null || name.isEmpty)
+          ? 'Other'
+          : (type == null || type.isEmpty ? name : '$name ($type)');
+      grouped.putIfAbsent(key, () => []).add(calendar);
+    }
+
+    return grouped;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Create event
   // ─────────────────────────────────────────────────────────────────────────
@@ -136,14 +158,18 @@ class CalendarService {
   /// - **Description**: players list, booking ref, open slots info
   /// - **Attendees**: players with valid emails added as Required attendees
   ///
-  /// If [notifyFamily] is `true` and [familyEmail] is provided, the family
-  /// contact is added as an Optional attendee so they receive the calendar
-  /// invite as information only.
+  /// If [notifyFamilyMembers] is non-empty, each member is added as an
+  /// [AttendeeRole.Optional] attendee so they receive the calendar invite
+  /// as information only (they're never marked as a player).
+  ///
+  /// [notifyFamily]/[familyName]/[familyEmail] are a legacy single-contact
+  /// form retained for older call sites — merged into [notifyFamilyMembers].
   ///
   /// Returns the created event's ID, or `null` on failure.
   Future<String?> createGolfEvent(
     GolfRound round,
     String calendarId, {
+    List<FamilyMember>? notifyFamilyMembers,
     bool notifyFamily = false,
     String? familyName,
     String? familyEmail,
@@ -151,12 +177,16 @@ class CalendarService {
     try {
       if (!await _ensurePermissions()) return null;
 
+      final mergedFamily = <FamilyMember>[
+        ...?notifyFamilyMembers,
+        if (notifyFamily && familyEmail != null && familyEmail.isNotEmpty)
+          FamilyMember(name: familyName ?? familyEmail, email: familyEmail),
+      ];
+
       final event = _buildEvent(
         round,
         calendarId,
-        notifyFamily: notifyFamily,
-        familyName: familyName,
-        familyEmail: familyEmail,
+        notifyFamilyMembers: mergedFamily.isEmpty ? null : mergedFamily,
       );
       final result = await _plugin.createOrUpdateEvent(event);
 
@@ -247,6 +277,21 @@ class CalendarService {
     }
   }
 
+  /// Like [findExistingEvent], but searches every calendar in [calendarIds]
+  /// (spec: multi-calendar account linking) and returns the first match.
+  Future<GolfRound?> findExistingEventAcrossCalendars(
+    String course,
+    String date,
+    String teeTime,
+    List<String> calendarIds,
+  ) async {
+    for (final calendarId in calendarIds) {
+      final match = await findExistingEvent(course, date, teeTime, calendarId);
+      if (match != null) return match;
+    }
+    return null;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Update event (CRITICAL — preserves RSVP statuses)
   // ─────────────────────────────────────────────────────────────────────────
@@ -267,8 +312,9 @@ class CalendarService {
     String eventId,
     GolfRound round,
     PlayerDiff diff,
-    String calendarId,
-  ) async {
+    String calendarId, {
+    List<FamilyMember>? notifyFamilyMembers,
+  }) async {
     try {
       if (!await _ensurePermissions()) return;
 
@@ -331,11 +377,7 @@ class CalendarService {
       // Removed players are simply omitted from the list — the
       // calendar provider handles sending cancellation notices.
 
-      // 4. Update the event fields.
-      existingEvent.title = _buildSummary(round);
-      existingEvent.description = _buildDescription(round);
-
-      // Preserve existing family attendee if present.
+      // Preserve existing family (Optional) attendees if present.
       final existingFamilyAttendees = (existingEvent.attendees ?? <Attendee?>[])
           .where((a) => a != null && a.role == AttendeeRole.Optional)
           .whereType<Attendee>();
@@ -351,6 +393,31 @@ class CalendarService {
         }
       }
 
+      // Add any newly-selected family members not already on the event.
+      String? familyNoteLine;
+      if (notifyFamilyMembers != null && notifyFamilyMembers.isNotEmpty) {
+        for (final member in notifyFamilyMembers) {
+          final emailKey = member.email.toLowerCase();
+          final alreadyPresent = newAttendees.any(
+            (a) => a.emailAddress?.toLowerCase() == emailKey,
+          );
+          if (!alreadyPresent) {
+            newAttendees.add(Attendee(
+              name: member.name,
+              emailAddress: member.email,
+              role: AttendeeRole.Optional,
+              isOrganiser: false,
+            ));
+          }
+        }
+        final names = notifyFamilyMembers.map((m) => m.name).join(', ');
+        familyNoteLine = 'ℹ️ $names notified — information only';
+      }
+
+      // 4. Update the event fields.
+      existingEvent.title = _buildSummary(round);
+      existingEvent.description =
+          _buildDescription(round, familyNoteLine: familyNoteLine);
       existingEvent.attendees = newAttendees;
       existingEvent.location = round.courseName;
 
@@ -416,6 +483,27 @@ class CalendarService {
       debugPrint('[CalendarService] getUpcomingRounds error: $e\n$st');
       return [];
     }
+  }
+
+  /// Like [getUpcomingRounds], but aggregates across every calendar in
+  /// [calendarIds] (spec: multi-calendar account linking), de-duplicated
+  /// by event id and sorted by date ascending.
+  Future<List<GolfRound>> getUpcomingRoundsForCalendars(
+    List<String> calendarIds, {
+    int days = 60,
+  }) async {
+    final seen = <String>{};
+    final rounds = <GolfRound>[];
+
+    for (final calendarId in calendarIds) {
+      final calendarRounds = await getUpcomingRounds(calendarId, days: days);
+      for (final round in calendarRounds) {
+        if (seen.add(round.id)) rounds.add(round);
+      }
+    }
+
+    rounds.sort((a, b) => a.date.compareTo(b.date));
+    return rounds;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -499,13 +587,12 @@ class CalendarService {
 
   /// Builds a [device_calendar.Event] from a [GolfRound].
   ///
-  /// Optionally adds a family member as an [AttendeeRole.Optional] attendee.
+  /// Optionally adds each of [notifyFamilyMembers] as an
+  /// [AttendeeRole.Optional] attendee.
   Event _buildEvent(
     GolfRound round,
     String calendarId, {
-    bool notifyFamily = false,
-    String? familyName,
-    String? familyEmail,
+    List<FamilyMember>? notifyFamilyMembers,
   }) {
     final localTz = local;
 
@@ -519,7 +606,7 @@ class CalendarService {
       round.teeTime.minute,
     );
 
-    final endDt = startDt.add(const Duration(hours: _roundDurationHours));
+    final endDt = startDt.add(const Duration(minutes: _roundDurationMinutes));
 
     // Build attendee list from players with valid emails.
     final attendees = <Attendee>[
@@ -527,25 +614,23 @@ class CalendarService {
         if (player.hasValidEmail) _playerToAttendee(player),
     ];
 
-    // Add family member as Optional attendee if requested.
-    if (notifyFamily &&
-        familyEmail != null &&
-        familyEmail.isNotEmpty) {
-      attendees.add(Attendee(
-        name: familyName ?? familyEmail,
-        emailAddress: familyEmail,
-        role: AttendeeRole.Optional,
-        isOrganiser: false,
-      ));
+    // Add family members as Optional attendees if requested.
+    if (notifyFamilyMembers != null) {
+      for (final member in notifyFamilyMembers) {
+        attendees.add(Attendee(
+          name: member.name,
+          emailAddress: member.email,
+          role: AttendeeRole.Optional,
+          isOrganiser: false,
+        ));
+      }
     }
 
     // Build description, prepending family notification line if applicable.
     String? familyNoteLine;
-    if (notifyFamily &&
-        familyName != null &&
-        familyName.isNotEmpty) {
-      familyNoteLine =
-          'ℹ️ $familyName notified — information only';
+    if (notifyFamilyMembers != null && notifyFamilyMembers.isNotEmpty) {
+      final names = notifyFamilyMembers.map((m) => m.name).join(', ');
+      familyNoteLine = 'ℹ️ $names notified — information only';
     }
 
     return Event(
@@ -558,8 +643,8 @@ class CalendarService {
       attendees: attendees.isNotEmpty ? attendees : null,
       availability: Availability.Busy,
       reminders: [
-        Reminder(minutes: 60), // 1 hour before
-        Reminder(minutes: 1440), // 24 hours before
+        Reminder(minutes: 60),    // 1 hour before (spec A13)
+        Reminder(minutes: 720),   // 12 hours before (spec A13)
       ],
     );
   }
@@ -574,7 +659,13 @@ class CalendarService {
         '| $playerNames';
   }
 
-  /// Builds the event description with booking details.
+  /// Builds the event description with booking details (spec A13 — TAG Nexus format).
+  ///
+  /// Sections:
+  /// - 🏌️ Players list with email addresses
+  /// - 🟢 Open slots (omitted when zero)
+  /// - ⏱️ Duration
+  /// - "Created by All Teed Up"
   ///
   /// If [familyNoteLine] is provided, it is prepended to the description.
   String _buildDescription(GolfRound round, {String? familyNoteLine}) {
@@ -586,25 +677,32 @@ class CalendarService {
       buffer.writeln();
     }
 
-    buffer.writeln('🏌️ Golf Round — ${round.courseName}');
-    buffer.writeln();
-
-    // Players list.
-    buffer.writeln('Players:');
+    // 🏌️ Players
+    buffer.writeln('🏌️ Players');
     for (var i = 0; i < round.players.length; i++) {
       final p = round.players[i];
-      buffer.writeln('  ${i + 1}. ${p.name}${p.email != null ? ' (${p.email})' : ''}');
+      final isTbc = p.rsvpStatus.name == 'tbc' || p.name.toLowerCase().contains('tbc');
+      if (isTbc) {
+        buffer.writeln('  ${i + 1}. Player TBC');
+      } else {
+        final emailSuffix = p.email != null ? ' <${p.email}>' : '';
+        buffer.writeln('  ${i + 1}. ${p.name}$emailSuffix');
+      }
     }
 
-    // Open slots.
+    // 🟢 Open slots (drop line if zero)
     const totalSlots = 4;
     final openSlots = totalSlots - round.players.length;
     if (openSlots > 0) {
       buffer.writeln();
-      buffer.writeln('📋 $openSlots open slot${openSlots > 1 ? 's' : ''} remaining');
+      buffer.writeln('🟢 $openSlots open slot${openSlots > 1 ? 's' : ''}');
     }
 
-    // Booking reference.
+    // ⏱️ Duration
+    buffer.writeln();
+    buffer.writeln('⏱️ Duration: 4h 30m');
+
+    // Booking reference (if present)
     if (round.bookingRef != null && round.bookingRef!.isNotEmpty) {
       buffer.writeln();
       buffer.writeln('Booking Ref: ${round.bookingRef}');

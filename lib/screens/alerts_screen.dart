@@ -22,7 +22,7 @@ class AlertsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.offWhite,
       appBar: AppBar(
         title: const Text('Alerts'),
         automaticallyImplyLeading: false,
@@ -130,6 +130,7 @@ class _AlertCard extends StatelessWidget {
       RsvpStatus.accepted  => (AppColors.success, 'confirmed', Icons.check_circle_rounded), // legacy
       RsvpStatus.pending   => (AppColors.warning, 'is pending', Icons.schedule_rounded),
       RsvpStatus.declined  => (AppColors.error,   'declined',   Icons.cancel_rounded),
+      RsvpStatus.tbc       => (AppColors.textMuted, 'is TBC',   Icons.help_outline_rounded),
     };
     final dateFormat = DateFormat('d MMM');
     final timeAgo = _formatTimeAgo(alert.detectedAt);

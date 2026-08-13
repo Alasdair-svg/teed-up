@@ -144,7 +144,6 @@ class RsvpMonitor {
           requiresCharging: false,
           requiresDeviceIdle: false,
         ),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 5),
       );
@@ -693,12 +692,23 @@ class RsvpMonitor {
   ///
   /// This initialises a fresh NotificationService instance because in
   /// background isolates the main-isolate singleton may not be available.
+  ///
+  /// No-ops if the user has turned off decline alerts in Settings — read
+  /// directly from SharedPreferences (same key `main.dart` persists) since
+  /// background isolates can't share the live `AppState` instance.
   static Future<void> _notifyDecline(
     RsvpChange change,
     String eventTitle,
     String eventDate,
   ) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final alertsEnabled = prefs.getBool('teed_up_decline_alerts') ?? true;
+      if (!alertsEnabled) {
+        debugPrint('[RsvpMonitor] Decline alerts disabled — skipping notification.');
+        return;
+      }
+
       final notificationService = NotificationService.instance;
       await notificationService.initialize();
       await notificationService.showDeclineNotification(

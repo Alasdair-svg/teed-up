@@ -7,6 +7,7 @@ import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/family_setup_section.dart';
 
 /// Settings screen with grouped sections for calendar, notifications,
 /// contacts, purchase, and about information.
@@ -22,7 +23,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.offWhite,
       appBar: AppBar(
         title: const Text('Settings'),
         automaticallyImplyLeading: false,
@@ -36,13 +37,25 @@ class SettingsScreen extends StatelessWidget {
               const _SectionLabel(label: 'CALENDAR'),
               _SettingsTile(
                 icon: Icons.calendar_month_rounded,
-                title: 'Default Calendar',
-                subtitle: state.defaultCalendarId ?? 'Not set',
+                title: 'Primary Calendar',
+                subtitle: state.primaryCalendarId ?? 'Not set',
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textMuted,
                 ),
                 onTap: () => _showCalendarPicker(context, state),
+              ),
+              _SettingsTile(
+                icon: Icons.link_rounded,
+                title: 'Linked Calendars',
+                subtitle: state.linkedCalendarIds.isEmpty
+                    ? 'None — scanning primary calendar only'
+                    : '${state.linkedCalendarIds.length} linked for scanning & alerts',
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                ),
+                onTap: () => _showLinkedCalendarsPicker(context, state),
               ),
               const _SettingsDivider(),
 
@@ -83,51 +96,27 @@ class SettingsScreen extends StatelessWidget {
               ),
               const _SettingsDivider(),
 
-              // ── FAMILY NOTIFICATIONS ──────────────────────────
-              const _SectionLabel(label: '👨‍👩‍👧‍👦  FAMILY NOTIFICATIONS'),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.palePurple.withValues(alpha: 0.5),
-                  borderRadius: AppRadius.cardBorder,
-                ),
-                child: Column(
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.family_restroom_rounded,
-                      title: 'Family Contact',
-                      subtitle: state.hasFamilyContact
-                          ? '${state.familyContactName} (${state.familyContactEmail})'
-                          : 'Not set',
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => _showFamilyContactDialog(context, state),
-                    ),
-                    if (state.hasFamilyContact) ...[
-                      _SettingsTile(
-                        icon: Icons.auto_awesome_rounded,
-                        title: 'Always notify family',
-                        subtitle: 'Auto-add to every round',
-                        trailing: Switch(
-                          value: state.familyAlwaysNotify,
-                          onChanged: (v) => state.setFamilyAlwaysNotify(v),
-                        ),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.person_remove_rounded,
-                        title: 'Clear Family Contact',
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textMuted,
-                        ),
-                        onTap: () => _confirmClearFamily(context, state),
-                      ),
-                    ],
-                  ],
+              // ── FRIENDS & FAMILY (A12 — up to 5 members) ─────
+              const _SectionLabel(label: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}  FRIENDS & FAMILY'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: FamilySetupSection(
+                  entries: state.familyMembers,
+                  onAdd: (name, email) =>
+                      state.addFamilyMember(name: name, email: email),
+                  onRemove: state.removeFamilyMember,
                 ),
               ),
+              if (state.familyMembers.isNotEmpty)
+                _SettingsTile(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'Always notify all members',
+                  subtitle: 'Auto-select on every scan',
+                  trailing: Switch(
+                    value: state.familyAlwaysNotify,
+                    onChanged: (v) => state.setFamilyAlwaysNotify(v),
+                  ),
+                ),
               const _SettingsDivider(),
 
               // ── PURCHASE ─────────────────────────────────────
@@ -227,6 +216,83 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Multi-select picker for calendars to scan for RSVP changes / decline
+  /// alerts, in addition to the Primary Calendar (spec: multi-calendar
+  /// account linking). Grouped by account (Google/iCloud/Outlook/etc.).
+  void _showLinkedCalendarsPicker(BuildContext context, AppState state) async {
+    final calendarService = CalendarService();
+    final grouped = await calendarService.getAvailableCalendarsGrouped();
+
+    if (!context.mounted) return;
+
+    if (grouped.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No calendars found on this device.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Linked Calendars'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Consumer<AppState>(
+            builder: (context, liveState, _) => SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final entry in grouped.entries) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    for (final calendar in entry.value)
+                      if (calendar.id != null)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(calendar.name ?? 'Unnamed Calendar'),
+                          value: liveState.linkedCalendarIds.contains(calendar.id) ||
+                              liveState.primaryCalendarId == calendar.id,
+                          // The primary calendar is always implicitly
+                          // monitored (see AppState.calendarsToMonitor) —
+                          // show it checked and non-interactive here.
+                          onChanged: liveState.primaryCalendarId == calendar.id
+                              ? null
+                              : (_) => liveState.toggleLinkedCalendar(calendar.id!),
+                        ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Done'),
           ),
         ],
       ),
@@ -338,95 +404,6 @@ class SettingsScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-
-  void _showFamilyContactDialog(BuildContext context, AppState state) {
-    final nameController = TextEditingController(
-      text: state.familyContactName ?? '',
-    );
-    final emailController = TextEditingController(
-      text: state.familyContactEmail ?? '',
-    );
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Text('👨‍👩‍👧‍👦 '),
-            Text('Family Contact'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add a family member to receive calendar invites '
-              'for your golf rounds (information only).',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppColors.textBody,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                prefixIcon: Icon(Icons.person_rounded),
-                hintText: 'e.g. Sarah',
-              ),
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email_rounded),
-                hintText: 'e.g. sarah@example.com',
-              ),
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final email = emailController.text.trim();
-
-              if (name.isEmpty || email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please enter a valid name and email.'),
-                    backgroundColor: AppColors.warning,
-                  ),
-                );
-                return;
-              }
-
-              await state.setFamilyContact(name, email);
-              if (!context.mounted) return;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Family contact set: $name'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _confirmClearFamily(BuildContext context, AppState state) {

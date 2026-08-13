@@ -55,6 +55,56 @@ subprojects { subproject ->
     }
 }
 
+// ── Fix for plugins with inconsistent Java/Kotlin JVM targets ──
+// Some plugins (e.g. receive_sharing_intent 1.8.1) compile their Java
+// sources against 1.8 while their Kotlin sources target a newer JVM,
+// which AGP 8+/Kotlin 2+ now reject outright ("Inconsistent JVM Target
+// Compatibility Between Java and Kotlin Tasks"). Force every subproject
+// onto the same target (17, matching app/build.gradle) so plugin code
+// never needs patching directly in the pub-cache.
+subprojects { subproject ->
+    // ":app" already sets these itself (build.gradle) — skip it here.
+    // Its evaluation is also forced early by evaluationDependsOn(":app")
+    // above, so a second afterEvaluate hook on it would throw
+    // "Cannot run Project.afterEvaluate(Closure) when the project is
+    // already evaluated."
+    if (subproject.name == "app") return
+
+    // plugins.withId (not a plain hasProperty check) is required here —
+    // the root project's own subprojects{} closures run and are checked
+    // *before* each subproject's own build.gradle has applied
+    // 'com.android.library' and created its 'android' extension, so an
+    // immediate hasProperty('android') check always fails.
+    //
+    // afterEvaluate (not an immediate set) is required too — several
+    // plugins (e.g. device_calendar) set their own compileOptions to 1.8
+    // further down in their own build.gradle, which runs *after* this
+    // plugins.withId callback and would otherwise clobber the override.
+    // Safe to use afterEvaluate here (unlike ":app") because only ":app"
+    // gets force-evaluated early by evaluationDependsOn(":app") above.
+    subproject.plugins.withId("com.android.library") {
+        subproject.afterEvaluate {
+            subproject.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            // Also inside afterEvaluate (not a bare configureEach at root
+            // config time) — some plugins (e.g. workmanager_android) set
+            // their own kotlinOptions.jvmTarget explicitly, and whichever
+            // assignment runs last wins. Setting it here, after that
+            // plugin's own build.gradle has fully executed, guarantees
+            // this override is the final word.
+            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "17"
+                }
+            }
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }

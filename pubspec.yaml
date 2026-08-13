@@ -1,7 +1,7 @@
 name: teed_up
 description: "Teed Up — Snap your golf booking. Your group is sorted."
 publish_to: 'none'
-version: 1.0.0+9
+version: 1.1.0+10
 
 environment:
   sdk: ^3.5.0
@@ -23,13 +23,18 @@ dependencies:
   # === Camera & Image ===
   image_picker: ^1.1.2
 
+  # === OS Share-sheet integration (spec A6 — share screenshots from Photos/WhatsApp/Telegram) ===
+  # Pinned to 1.8.1 (last CocoaPods-based release) — 1.9.0 requires Swift
+  # Package Manager + Xcode 15+, which isn't available in this environment.
+  receive_sharing_intent: 1.8.1
+
   # === Local Database ===
   sqflite: ^2.3.3+2
   path: ^1.9.0
   path_provider: ^2.1.4
 
   # === Background Tasks ===
-  workmanager: ^0.9.0
+  workmanager: 0.8.0
 
   # === Notifications ===
   flutter_local_notifications: ^18.0.1
