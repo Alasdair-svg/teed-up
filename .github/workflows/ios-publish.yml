@@ -29,6 +29,12 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Read version from pubspec.yaml
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//')
+          echo "BUILD_NAME=${VERSION_LINE%+*}" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=${VERSION_LINE#*+}" >> "$GITHUB_ENV"
+
       - name: Install CocoaPods
         run: |
           cd ios
@@ -89,8 +95,8 @@ jobs:
       - name: Generate Flutter build artifacts (Dart → native)
         run: |
           flutter build ios --release --no-codesign --config-only \
-            --dart-define=FLUTTER_BUILD_NAME=1.1.0 \
-            --dart-define=FLUTTER_BUILD_NUMBER=10
+            --build-name="$BUILD_NAME" \
+            --build-number="$BUILD_NUMBER"
 
       - name: Archive with xcodebuild
         env:
@@ -110,8 +116,8 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CURRENT_PROJECT_VERSION=10 \
-            MARKETING_VERSION=1.1.0 \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            MARKETING_VERSION="$BUILD_NAME" \
             archive
 
           echo "ARCHIVE_PATH=$RUNNER_TEMP/Runner.xcarchive" >> $GITHUB_ENV
@@ -157,6 +163,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: AllTeedUp-v1.1.0-${{ github.run_number }}.ipa
+          name: AllTeedUp-v${{ env.BUILD_NAME }}-${{ github.run_number }}.ipa
           path: ${{ env.EXPORT_PATH }}/*.ipa
           retention-days: 14
