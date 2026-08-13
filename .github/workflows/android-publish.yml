@@ -107,7 +107,7 @@ jobs:
               packageName=PACKAGE_NAME,
               editId=edit_id,
               track='internal',
-              body={'releases': [{'versionCodes': [str(version_code)], 'status': 'draft'}]},
+              body={'releases': [{'versionCodes': [str(version_code)], 'status': 'completed'}]},
           ).execute()
           print('Assigned to internal track')
 
