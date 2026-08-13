@@ -111,6 +111,7 @@ Future<void> _loadPersistedState(AppState state) async {
     await state.loadFamilyMembers();
     await state.loadFamilySettings();
     await state.loadLinkedCalendarIds();
+    await state.loadReminderSettings();
 
     // -- Rounds (JSON in SharedPreferences) --
     final roundsJson = prefs.getString(_kRoundsKey);

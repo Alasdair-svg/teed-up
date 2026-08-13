@@ -110,8 +110,12 @@ class RsvpMonitor {
   Timer? _foregroundTimer;
 
 
-  /// SharedPreferences key for the selected calendar ID.
+  /// SharedPreferences key for the selected (primary) calendar ID.
   static const String _calendarIdKey = 'teed_up_selected_calendar_id';
+
+  /// SharedPreferences key for additional linked calendar IDs (spec:
+  /// multi-calendar account linking — same key `AppState` persists to).
+  static const String _linkedCalendarIdsKey = 'teed_up_linked_calendar_ids';
 
   /// SharedPreferences key for the RSVP cache (JSON-encoded map).
   ///
@@ -225,14 +229,14 @@ class RsvpMonitor {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // 1) Read the selected calendar ID.
-      final calendarId = prefs.getString(_calendarIdKey);
-      if (calendarId == null || calendarId.isEmpty) {
+      // 1) Read the primary + linked calendar IDs to scan.
+      final calendarIds = _resolveCalendarIds(prefs);
+      if (calendarIds.isEmpty) {
         debugPrint('[RsvpMonitor] No calendar selected — skipping check');
         return;
       }
 
-      // 2) Fetch upcoming events from the device calendar.
+      // 2) Fetch upcoming events from the device calendar(s).
       //
       // NOTE: CalendarService and DatabaseHelper are expected to be
       // implemented in sibling modules. When they are available, uncomment
@@ -240,7 +244,7 @@ class RsvpMonitor {
       //
       // In the background isolate we cannot use the main-isolate singletons,
       // so we create fresh instances that read directly from the device.
-      final events = await _fetchUpcomingEvents(calendarId);
+      final events = await _fetchUpcomingEventsForCalendars(calendarIds);
       if (events.isEmpty) {
         debugPrint('[RsvpMonitor] No upcoming events found');
         return;
@@ -375,13 +379,13 @@ class RsvpMonitor {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      final calendarId = prefs.getString(_calendarIdKey);
-      if (calendarId == null || calendarId.isEmpty) {
+      final calendarIds = _resolveCalendarIds(prefs);
+      if (calendarIds.isEmpty) {
         debugPrint('[RsvpMonitor] No calendar selected — skipping manual check');
         return [];
       }
 
-      final events = await _fetchUpcomingEvents(calendarId);
+      final events = await _fetchUpcomingEventsForCalendars(calendarIds);
       if (events.isEmpty) return [];
 
       final cache = _loadCache(prefs);
@@ -619,6 +623,37 @@ class RsvpMonitor {
       debugPrint('[RsvpMonitor] _fetchUpcomingEvents error: $e');
       return [];
     }
+  }
+
+  /// Resolves every calendar ID that should be scanned: the primary
+  /// calendar plus any linked calendars (spec: multi-calendar account
+  /// linking), deduplicated. Returns an empty list if no primary calendar
+  /// has ever been selected.
+  static List<String> _resolveCalendarIds(SharedPreferences prefs) {
+    final primary = prefs.getString(_calendarIdKey);
+    if (primary == null || primary.isEmpty) return [];
+
+    final linked = prefs.getStringList(_linkedCalendarIdsKey) ?? [];
+    return {primary, ...linked}.toList();
+  }
+
+  /// Like [_fetchUpcomingEvents], but aggregates across every calendar in
+  /// [calendarIds] (spec: multi-calendar account linking), de-duplicated
+  /// by event id.
+  static Future<List<Map<String, dynamic>>> _fetchUpcomingEventsForCalendars(
+    List<String> calendarIds,
+  ) async {
+    final seen = <String>{};
+    final events = <Map<String, dynamic>>[];
+
+    for (final calendarId in calendarIds) {
+      final calendarEvents = await _fetchUpcomingEvents(calendarId);
+      for (final event in calendarEvents) {
+        if (seen.add(event['eventId'] as String)) events.add(event);
+      }
+    }
+
+    return events;
   }
 
   /// Converts an [Attendee]'s platform-specific status to a string.

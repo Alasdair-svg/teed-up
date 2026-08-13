@@ -110,6 +110,7 @@ class AppState extends ChangeNotifier {
         toSave,
         _selectedCalendarId!,
         notifyFamilyMembers: notify ? selectedFamily : null,
+        reminderMinutes: enabledReminderMinutes,
       );
       if (eventId != null) {
         toSave = toSave.copyWith(calendarEventId: eventId);
@@ -235,11 +236,13 @@ class AppState extends ChangeNotifier {
         round,
         diff,
         _selectedCalendarId!,
+        reminderMinutes: enabledReminderMinutes,
       );
     } else {
       final eventId = await calendarService.createGolfEvent(
         round,
         _selectedCalendarId!,
+        reminderMinutes: enabledReminderMinutes,
       );
       if (eventId != null) {
         await updateRound(round.copyWith(calendarEventId: eventId));
@@ -266,6 +269,7 @@ class AppState extends ChangeNotifier {
         diff,
         _selectedCalendarId!,
         notifyFamilyMembers: members,
+        reminderMinutes: enabledReminderMinutes,
       );
       return round;
     }
@@ -273,6 +277,7 @@ class AppState extends ChangeNotifier {
       round,
       _selectedCalendarId!,
       notifyFamilyMembers: members,
+      reminderMinutes: enabledReminderMinutes,
     );
     return eventId != null ? round.copyWith(calendarEventId: eventId) : round;
   }
@@ -413,6 +418,56 @@ class AppState extends ChangeNotifier {
     _declineAlertsEnabled = value;
     notifyListeners();
   }
+
+  // ---------------------------------------------------------------------------
+  // Pre-round Reminder Toggles (spec C5) — gate the 12h/1h calendar-invite
+  // reminders built in CalendarService._buildEvent.
+  // ---------------------------------------------------------------------------
+
+  static const String _reminder12hPrefsKey = 'teed_up_reminder_12h';
+  static const String _reminder1hPrefsKey = 'teed_up_reminder_1h';
+
+  bool _reminder12hEnabled = true;
+  bool _reminder1hEnabled = true;
+
+  /// Whether a 12-hour-before reminder is added to the calendar invite.
+  bool get reminder12hEnabled => _reminder12hEnabled;
+
+  /// Whether a 1-hour-before reminder is added to the calendar invite.
+  bool get reminder1hEnabled => _reminder1hEnabled;
+
+  /// Loads persisted reminder toggle state.
+  Future<void> loadReminderSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    _reminder12hEnabled = prefs.getBool(_reminder12hPrefsKey) ?? true;
+    _reminder1hEnabled = prefs.getBool(_reminder1hPrefsKey) ?? true;
+    notifyListeners();
+  }
+
+  /// Toggles the 12-hour-before reminder and persists it.
+  Future<void> setReminder12h(bool value) async {
+    if (_reminder12hEnabled == value) return;
+    _reminder12hEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_reminder12hPrefsKey, value);
+  }
+
+  /// Toggles the 1-hour-before reminder and persists it.
+  Future<void> setReminder1h(bool value) async {
+    if (_reminder1hEnabled == value) return;
+    _reminder1hEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_reminder1hPrefsKey, value);
+  }
+
+  /// Minutes-before reminder list built from the two toggles, passed straight
+  /// through to [CalendarService].
+  List<int> get enabledReminderMinutes => [
+        if (_reminder1hEnabled) 60,
+        if (_reminder12hEnabled) 720,
+      ];
 
   // ---------------------------------------------------------------------------
   // Onboarding / Purchase Flags

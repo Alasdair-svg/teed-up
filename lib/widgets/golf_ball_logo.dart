@@ -129,17 +129,44 @@ class _GolfBallLogoState extends State<GolfBallLogo>
   @override
   Widget build(BuildContext context) {
     final teeExtra = widget.showTee ? widget.size * 0.28 : 0.0;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) => CustomPaint(
-        size: Size(widget.size, widget.size + teeExtra),
-        painter: _GolfGlobePainter(
-          rotation: _controller.value * math.pi * 2,
-          showTee: widget.showTee,
-          showGlow: widget.showGlow,
-          widgetSize: widget.size,
+    final teeSpace = widget.showTee ? (widget.size / 2 - 2) * 0.2 : 0.0;
+
+    // Ball drop-shadow as a static BoxShadow (painted once by the framework,
+    // not re-blurred on every animation frame inside CustomPainter.paint —
+    // spec C6's performance note: avoid live per-frame blur passes).
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        Positioned(
+          top: teeSpace + 3,
+          child: Container(
+            width: widget.size - 4,
+            height: widget.size - 4,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(3, 4),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => CustomPaint(
+            size: Size(widget.size, widget.size + teeExtra),
+            painter: _GolfGlobePainter(
+              rotation: _controller.value * math.pi * 2,
+              showTee: widget.showTee,
+              showGlow: widget.showGlow,
+              widgetSize: widget.size,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -240,15 +267,9 @@ class _GolfGlobePainter extends CustomPainter {
     // ── Tee ───────────────────────────────────────────────────────────────────
     if (showTee) _drawTee(canvas, center, ballRadius, sc);
 
-    // ── Ball drop-shadow ──────────────────────────────────────────────────────
-    final shadowPaint = Paint()
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
-      ..color = Colors.black.withValues(alpha: 0.15);
-    canvas.drawCircle(
-      center + Offset(3 * sc, 4 * sc),
-      ballRadius,
-      shadowPaint,
-    );
+    // Ball drop-shadow is painted once by the framework as a static BoxShadow
+    // in GolfBallLogo.build — deliberately NOT a MaskFilter.blur here, since
+    // that would re-run the blur on every animation frame (spec C6).
 
     // ── Ball body (white golf-ball gradient) ──────────────────────────────────
     final ballPaint = Paint()
@@ -319,6 +340,31 @@ class _GolfGlobePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.5 * sc.clamp(0.5, 2.0),
     );
+
+    // ── Fresnel rim-light ────────────────────────────────────────────────────
+    // A stroked ring whose gradient is brightest along the illuminated
+    // (top-left) edge and fades elsewhere, approximating the way light grazes
+    // a sphere's silhouette. A single precomputed sweep gradient — no blur.
+    if (widgetSize > 64) {
+      final rimWidth = math.max(1.2, ballRadius * 0.045);
+      final rimPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = rimWidth
+        ..shader = SweepGradient(
+          startAngle: 0,
+          endAngle: math.pi * 2,
+          transform: const GradientRotation(-2.6),
+          colors: [
+            Colors.white.withValues(alpha: 0.55),
+            Colors.white.withValues(alpha: 0.0),
+            Colors.white.withValues(alpha: 0.0),
+            AppColors.primary.withValues(alpha: 0.12),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.22, 0.55, 0.78, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: ballRadius));
+      canvas.drawCircle(center, ballRadius - rimWidth / 2, rimPaint);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -377,7 +423,24 @@ class _GolfGlobePainter extends CustomPainter {
 
   void _drawLandmasses(Canvas canvas, Offset center, double ballRadius) {
     final landPaint = Paint()
-      ..color = AppColors.primary.withValues(alpha: 0.92);
+      ..color = AppColors.primary.withValues(alpha: 0.92)
+      ..isAntiAlias = true;
+
+    // Two-pass shoreline stroke: a wider, softer dark-purple pass underneath
+    // gives the coastline a bit of depth, then a crisp thin purple pass on
+    // top keeps the edge sharp — no blur filter involved (spec C6).
+    final shoreSoft = Paint()
+      ..color = AppColors.deepPurple.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    final shoreCrisp = Paint()
+      ..color = AppColors.deepPurple.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.4
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
 
     for (final continent in _kContinents) {
       final path = Path();
@@ -397,15 +460,8 @@ class _GolfGlobePainter extends CustomPainter {
       }
       path.close();
       canvas.drawPath(path, landPaint);
-
-      // Country border outline
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = AppColors.deepPurple.withValues(alpha: 0.3)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.3,
-      );
+      canvas.drawPath(path, shoreSoft);
+      canvas.drawPath(path, shoreCrisp);
     }
   }
 

@@ -16,6 +16,7 @@
 /// 8. Confirm button → save/update round → navigate to detail
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -56,8 +57,21 @@ class _ScanScreenState extends State<ScanScreen> {
 
   // ── Flow phase ────────────────────────────────────────────────────────────
   _Phase _phase = _Phase.upload;
-  bool _isProcessing = false;
   String? _processingImagePath;
+
+  // ── Processing step indicator (spec C4) ─────────────────────────────────
+  static const List<String> _processingSteps = [
+    'Reading screenshot image…',
+    'Extracting course, date & tee time…',
+    'Matching playing partners…',
+  ];
+  int _processingStep = 0;
+  bool _canCancelToManual = false;
+  Timer? _stepTimer;
+  Timer? _cancelRevealTimer;
+  // Set when the user bails to manual entry mid-scan — the in-flight OCR
+  // future is left to finish in the background but its result is ignored.
+  bool _abandonedProcessing = false;
 
   // ── Review state ──────────────────────────────────────────────────────────
   GolfRound? _matchedRound;          // Existing round from A7 match detection
@@ -83,6 +97,8 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   void dispose() {
+    _stepTimer?.cancel();
+    _cancelRevealTimer?.cancel();
     _deleteTempImage(_processingImagePath);
     super.dispose();
   }
@@ -131,9 +147,29 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _processImage(String imagePath) async {
     _processingImagePath = imagePath;
+    _abandonedProcessing = false;
     setState(() {
       _phase = _Phase.processing;
-      _isProcessing = true;
+      _processingStep = 0;
+      _canCancelToManual = false;
+    });
+
+    // Advance the 3-step status list every ~1.3s — the underlying OCR call
+    // is a single opaque Future, not actually phased, so this is an honest
+    // approximation of progress rather than a literal per-phase callback.
+    _stepTimer?.cancel();
+    _stepTimer = Timer.periodic(const Duration(milliseconds: 1300), (_) {
+      if (!mounted || _abandonedProcessing) return;
+      if (_processingStep < _processingSteps.length - 1) {
+        setState(() => _processingStep++);
+      }
+    });
+
+    // After 5s, reveal the "Cancel & enter manually" escape hatch (spec C4).
+    _cancelRevealTimer?.cancel();
+    _cancelRevealTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted || _abandonedProcessing) return;
+      setState(() => _canCancelToManual = true);
     });
 
     try {
@@ -151,7 +187,10 @@ class _ScanScreenState extends State<ScanScreen> {
         _processingImagePath = null;
       }
 
-      if (!mounted) return;
+      _stepTimer?.cancel();
+      _cancelRevealTimer?.cancel();
+
+      if (!mounted || _abandonedProcessing) return;
 
       if (parsed == null) {
         setState(() => _phase = _Phase.upload);
@@ -196,6 +235,8 @@ class _ScanScreenState extends State<ScanScreen> {
       // ── A9: Pre-select all family members ───────────────────────────
       final familyCount = appState.familyMembers.length;
 
+      if (!mounted || _abandonedProcessing) return;
+
       setState(() {
         _matchedRound = matched;
         _reviewPlayers = players;
@@ -206,16 +247,53 @@ class _ScanScreenState extends State<ScanScreen> {
         _selectedFamilyIndices =
             Set.from(List.generate(familyCount, (i) => i));
         _phase = _Phase.review;
-        _isProcessing = false;
       });
     } catch (e, st) {
       debugPrint('[ScanScreen] processImage error: $e\n$st');
-      if (!mounted) return;
-      setState(() {
-        _phase = _Phase.upload;
-        _isProcessing = false;
-      });
+      _stepTimer?.cancel();
+      _cancelRevealTimer?.cancel();
+      if (!mounted || _abandonedProcessing) return;
+      setState(() => _phase = _Phase.upload);
     }
+  }
+
+  /// Bails out of the processing phase into manual entry (spec C4's 5s
+  /// "Cancel & enter manually" escape hatch). The in-flight OCR future is
+  /// left to run to completion in the background — its result is simply
+  /// ignored via [_abandonedProcessing] once it resolves.
+  void _cancelToManual() {
+    _abandonedProcessing = true;
+    _stepTimer?.cancel();
+    _cancelRevealTimer?.cancel();
+    setState(() => _phase = _Phase.manual);
+  }
+
+  /// Runs the manually-entered booking through the same A7 match-detection
+  /// logic as an OCR'd scan, then lands on the normal review screen.
+  void _finishManualEntry({
+    required String course,
+    required DateTime date,
+    required DateTime teeTime,
+    required List<Player> players,
+  }) {
+    final appState = context.read<AppState>();
+    final matched = appState.findMatchingRound(
+      course: course,
+      date: date,
+      teeTime: teeTime,
+    );
+    final familyCount = appState.familyMembers.length;
+
+    setState(() {
+      _matchedRound = matched;
+      _reviewPlayers = players;
+      _courseReview = course;
+      _dateReview = date;
+      _timeReview = teeTime;
+      _bookingRefReview = null;
+      _selectedFamilyIndices = Set.from(List.generate(familyCount, (i) => i));
+      _phase = _Phase.review;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -284,9 +362,15 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       ),
       body: switch (_phase) {
-        _Phase.upload    => _UploadPhase(onPick: _pickImage),
-        _Phase.processing => _ProcessingPhase(),
-        _Phase.review    => _buildReview(context),
+        _Phase.upload => _UploadPhase(onPick: _pickImage),
+        _Phase.processing => _ProcessingPhase(
+            currentStep: _processingStep,
+            steps: _processingSteps,
+            showCancel: _canCancelToManual,
+            onCancel: _cancelToManual,
+          ),
+        _Phase.manual => _ManualEntryPhase(onContinue: _finishManualEntry),
+        _Phase.review => _buildReview(context),
       },
     );
   }
@@ -402,7 +486,7 @@ class _ScanScreenState extends State<ScanScreen> {
 // Phase enum
 // =============================================================================
 
-enum _Phase { upload, processing, review }
+enum _Phase { upload, processing, manual, review }
 
 // =============================================================================
 // Upload phase (A6)
@@ -502,21 +586,337 @@ class _DashedZone extends StatelessWidget {
 // =============================================================================
 
 class _ProcessingPhase extends StatelessWidget {
+  const _ProcessingPhase({
+    required this.currentStep,
+    required this.steps,
+    required this.showCancel,
+    required this.onCancel,
+  });
+
+  final int currentStep;
+  final List<String> steps;
+  final bool showCancel;
+  final VoidCallback onCancel;
+
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const GolfBallLogo(
+                size: 100, animate: true, showTee: false, showGlow: true),
+            const SizedBox(height: 28),
+            for (var i = 0; i < steps.length; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _ProcessingStepRow(
+                  label: steps[i],
+                  state: i < currentStep
+                      ? _StepState.done
+                      : i == currentStep
+                          ? _StepState.active
+                          : _StepState.pending,
+                ),
+              ),
+            if (showCancel) ...[
+              const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: onCancel,
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: const Text('Cancel & enter manually'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _StepState { pending, active, done }
+
+class _ProcessingStepRow extends StatelessWidget {
+  const _ProcessingStepRow({required this.label, required this.state});
+  final String label;
+  final _StepState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = switch (state) {
+      _StepState.done => AppColors.success,
+      _StepState.active => AppColors.primary,
+      _StepState.pending => AppColors.grey,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 18,
+          height: 18,
+          child: switch (state) {
+            _StepState.done => const Icon(Icons.check_circle_rounded,
+                size: 18, color: AppColors.success),
+            _StepState.active => const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            _StepState.pending => Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.grey,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          },
+        ),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight:
+                state == _StepState.active ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 14,
+            color: state == _StepState.pending
+                ? AppColors.textMuted
+                : dotColor == AppColors.primary
+                    ? AppColors.textDark
+                    : dotColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// Manual entry phase (spec C4) — course/date/time + name+email player form.
+// Feeds the same A7 match/diff pipeline as an OCR'd scan.
+// =============================================================================
+
+class _ManualEntryPhase extends StatefulWidget {
+  const _ManualEntryPhase({required this.onContinue});
+
+  final void Function({
+    required String course,
+    required DateTime date,
+    required DateTime teeTime,
+    required List<Player> players,
+  }) onContinue;
+
+  @override
+  State<_ManualEntryPhase> createState() => _ManualEntryPhaseState();
+}
+
+class _ManualEntryPhaseState extends State<_ManualEntryPhase> {
+  final _courseController = TextEditingController();
+  final _playerNameController = TextEditingController();
+  final _playerEmailController = TextEditingController();
+  DateTime? _date;
+  DateTime? _time;
+  final List<Player> _players = [];
+
+  @override
+  void dispose() {
+    _courseController.dispose();
+    _playerNameController.dispose();
+    _playerEmailController.dispose();
+    super.dispose();
+  }
+
+  bool get _canContinue =>
+      _courseController.text.trim().isNotEmpty && _date != null && _time != null;
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time != null
+          ? TimeOfDay(hour: _time!.hour, minute: _time!.minute)
+          : TimeOfDay.now(),
+    );
+    if (picked != null) {
+      final base = _date ?? DateTime.now();
+      setState(() => _time =
+          DateTime(base.year, base.month, base.day, picked.hour, picked.minute));
+    }
+  }
+
+  void _addPlayer() {
+    final name = _playerNameController.text.trim();
+    if (name.isEmpty) return;
+    final email = _playerEmailController.text.trim();
+    setState(() {
+      _players.add(Player(
+        id: 'manual_${DateTime.now().microsecondsSinceEpoch}',
+        name: name,
+        email: email.isEmpty ? null : email,
+      ));
+      _playerNameController.clear();
+      _playerEmailController.clear();
+    });
+  }
+
+  void _removePlayer(int index) => setState(() => _players.removeAt(index));
+
+  void _continue() {
+    if (!_canContinue) return;
+    final base = _date!;
+    final teeTime = _time ?? base;
+    widget.onContinue(
+      course: _courseController.text.trim(),
+      date: DateTime(base.year, base.month, base.day),
+      teeTime: teeTime,
+      players: _players,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GolfBallLogo(size: 100, animate: true, showTee: false, showGlow: true),
-          SizedBox(height: 24),
           Text(
-            'Squinting at the tee sheet…',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-              color: AppColors.textMuted,
+            'Enter booking details',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No worries — you can add everything by hand instead.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textMuted,
+                ),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _courseController,
+            decoration: const InputDecoration(
+              labelText: 'Course',
+              prefixIcon: Icon(Icons.golf_course_rounded),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                  label: Text(
+                    _date != null
+                        ? DateFormat('EEE, d MMM').format(_date!)
+                        : 'Date',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickTime,
+                  icon: const Icon(Icons.access_time_rounded, size: 16),
+                  label: Text(
+                    _time != null ? DateFormat('HH:mm').format(_time!) : 'Time',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Players',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          for (var i = 0; i < _players.length; i++)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.offWhite,
+                borderRadius: AppRadius.cardBorder,
+                border: Border.all(color: AppColors.grey),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_players[i].name,
+                            style:
+                                Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    )),
+                        if (_players[i].email != null)
+                          Text(_players[i].email!,
+                              style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: AppColors.textMuted,
+                    onPressed: () => _removePlayer(i),
+                  ),
+                ],
+              ),
+            ),
+          TextField(
+            controller: _playerNameController,
+            decoration: const InputDecoration(
+              labelText: 'Player name',
+              prefixIcon: Icon(Icons.person_outline_rounded),
+            ),
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _playerEmailController,
+            decoration: const InputDecoration(
+              labelText: 'Email (optional)',
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _addPlayer,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add player'),
+            ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            height: 56,
+            child: Opacity(
+              opacity: _canContinue ? 1.0 : 0.4,
+              child: ElevatedButton(
+                onPressed: _canContinue ? _continue : null,
+                child: const Text('Continue to review'),
+              ),
             ),
           ),
         ],

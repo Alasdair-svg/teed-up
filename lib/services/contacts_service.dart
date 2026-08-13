@@ -34,6 +34,33 @@ class ContactsService {
 
   final DatabaseHelper _db;
 
+  /// In-memory cache of the device contact list, keyed by app session.
+  ///
+  /// `FlutterContacts.getContacts(withProperties: true)` re-reads and
+  /// re-parses every contact's full property set on each call — on a real
+  /// device this can take multiple seconds. Every search/resolution call
+  /// was hitting that cost on every keystroke-debounced query, which read
+  /// to the user as the app freezing. Fetched once per session and reused;
+  /// call [_invalidateContactsCache] if a caller needs a fresh read (e.g.
+  /// after the user grants contacts permission for the first time).
+  static List<Contact>? _deviceContactsCache;
+
+  Future<List<Contact>> _getDeviceContacts() async {
+    final cached = _deviceContactsCache;
+    if (cached != null) return cached;
+    final contacts = await FlutterContacts.getContacts(
+      withProperties: true,
+      withPhoto: false,
+    );
+    _deviceContactsCache = contacts;
+    return contacts;
+  }
+
+  /// Clears the in-memory device-contacts cache, forcing the next query to
+  /// re-fetch. Call after permission is newly granted, or if a caller needs
+  /// to observe a contact added/edited since the cache was populated.
+  static void invalidateContactsCache() => _deviceContactsCache = null;
+
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
@@ -97,10 +124,7 @@ class ContactsService {
       }
 
       final excludeSet = exclude.map((e) => e.trim().toLowerCase()).toSet();
-      final contacts = await FlutterContacts.getContacts(
-        withProperties: true,
-        withPhoto: false,
-      );
+      final contacts = await _getDeviceContacts();
 
       return contacts
           .where((c) => c.displayName.toLowerCase().contains(q))
@@ -241,10 +265,7 @@ class ContactsService {
     String? refineName,
   }) async {
     try {
-      final contacts = await FlutterContacts.getContacts(
-        withProperties: true,
-        withPhoto: false,
-      );
+      final contacts = await _getDeviceContacts();
 
       // Filter contacts matching the query.
       final matches = contacts.where((c) {

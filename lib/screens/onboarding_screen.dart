@@ -1,11 +1,12 @@
 /// Onboarding screen — shown on first launch.
 ///
-/// ## Flow (4 steps, 2 user-facing "STEP N of 2" labels)
+/// ## Flow (5 pages, 3 user-facing "STEP N of 3" labels)
 ///
 /// 1. **Welcome** — brand logo + headline copy, no step label
-/// 2. **Permissions** — Camera, Calendar, Contacts (STEP 1 OF 2)
-/// 3. **Family setup** — add up to 5 family/friends to notify (STEP 2 OF 2)
-/// 4. **Done** — completion; navigates to [HomeScreen]
+/// 2. **Permissions** — Camera, Calendar, Contacts (STEP 1 OF 3)
+/// 3. **Calendar accounts** — link calendars + pick a primary (STEP 2 OF 3)
+/// 4. **Family setup** — add up to 5 family/friends to notify (STEP 3 OF 3)
+/// 5. **Done** — completion; navigates to [HomeScreen]
 ///
 /// Regulars/players are no longer collected at onboarding — they come from OCR
 /// each time a booking is scanned.
@@ -20,6 +21,7 @@ import '../models/family_member.dart';
 import '../providers/app_state.dart';
 import '../services/device_capability_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/calendar_accounts_section.dart';
 import '../widgets/family_setup_section.dart';
 import '../widgets/golf_ball_logo.dart';
 import 'home_screen.dart';
@@ -44,8 +46,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // 0 = Welcome, 1 = Permissions, 2 = Family, 3 = Done
-  static const int _totalPages = 4;
+  // 0 = Welcome, 1 = Permissions, 2 = Calendar accounts, 3 = Family, 4 = Done
+  static const int _totalPages = 5;
 
   // Family members being added during onboarding (shared with AppState on finish)
   final List<FamilyMember> _familyEntries = [];
@@ -63,6 +65,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _next() {
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
+        duration: kTransitionDuration,
+        curve: kTransitionCurve,
+      );
+    }
+  }
+
+  void _back() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
         duration: kTransitionDuration,
         curve: kTransitionCurve,
       );
@@ -132,6 +143,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // ── Back button (mid-flow steps only) ─────────────────────
+            if (_currentPage >= 1 && _currentPage <= 3)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: _back,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      color: AppColors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+
             // ── PageView ─────────────────────────────────────────────
             Expanded(
               child: PageView(
@@ -141,6 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   _WelcomePage(isTablet: isTablet),
                   _PermissionsPage(isTablet: isTablet),
+                  _CalendarAccountsPage(isTablet: isTablet),
                   _FamilySetupPage(
                     isTablet: isTablet,
                     entries: _familyEntries,
@@ -158,11 +185,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
 
             // ── Step indicator (hidden on Welcome and Done) ───────────
-            if (_currentPage == 1 || _currentPage == 2)
+            if (_currentPage >= 1 && _currentPage <= 3)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  _currentPage == 1 ? 'STEP 1 OF 2' : 'STEP 2 OF 2',
+                  'STEP $_currentPage OF 3',
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w600,
@@ -174,12 +201,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
 
             // ── Page dots (Welcome + Done hidden) ─────────────────────
-            if (_currentPage == 1 || _currentPage == 2)
+            if (_currentPage >= 1 && _currentPage <= 3)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(2, (i) {
+                  children: List.generate(3, (i) {
                     final active = i == _currentPage - 1;
                     return AnimatedContainer(
                       duration: kTransitionDuration,
@@ -226,12 +253,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           label: 'Grant Permissions',
           onPressed: _handlePermissionsNext,
         );
-      case 2: // Family setup
+      case 2: // Calendar accounts
+        return _PrimaryGradientButton(
+          label: 'Continue',
+          onPressed: _next,
+        );
+      case 3: // Family setup
         return _PrimaryGradientButton(
           label: _familyEntries.isEmpty ? 'Skip for now' : 'Continue',
           onPressed: _next,
         );
-      case 3: // Done
+      case 4: // Done
         return _PrimaryGradientButton(
           label: "Let's go!",
           onPressed: _handleFinish,
@@ -412,6 +444,50 @@ class _PermissionCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Calendar accounts (STEP 2 OF 3) — spec C2
+//
+// Lists calendars grouped by device account (Apple iCloud, Google, Outlook/
+// Exchange, other CalDAV) with a link/unlink toggle for each, plus a "Set as
+// primary" pill on linked, non-primary calendars. Backed directly by the
+// AppState.primaryCalendarId / linkedCalendarIds already wired for scanning
+// and RSVP monitoring — this screen just gives it a first-class UI.
+// ---------------------------------------------------------------------------
+
+class _CalendarAccountsPage extends StatelessWidget {
+  const _CalendarAccountsPage({required this.isTablet});
+  final bool isTablet;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        isTablet ? 64 : 24, 32, isTablet ? 64 : 24, 16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Where should tee times land?',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Link the calendars you use, and pick one as primary — '
+            'that’s where invites get written by default.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textMuted,
+                  height: 1.55,
+                ),
+          ),
+          const SizedBox(height: 24),
+          const CalendarAccountsSection(),
         ],
       ),
     );

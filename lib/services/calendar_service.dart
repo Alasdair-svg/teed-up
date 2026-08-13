@@ -173,6 +173,7 @@ class CalendarService {
     bool notifyFamily = false,
     String? familyName,
     String? familyEmail,
+    List<int>? reminderMinutes,
   }) async {
     try {
       if (!await _ensurePermissions()) return null;
@@ -187,6 +188,7 @@ class CalendarService {
         round,
         calendarId,
         notifyFamilyMembers: mergedFamily.isEmpty ? null : mergedFamily,
+        reminderMinutes: reminderMinutes,
       );
       final result = await _plugin.createOrUpdateEvent(event);
 
@@ -314,6 +316,7 @@ class CalendarService {
     PlayerDiff diff,
     String calendarId, {
     List<FamilyMember>? notifyFamilyMembers,
+    List<int>? reminderMinutes,
   }) async {
     try {
       if (!await _ensurePermissions()) return;
@@ -420,6 +423,11 @@ class CalendarService {
           _buildDescription(round, familyNoteLine: familyNoteLine);
       existingEvent.attendees = newAttendees;
       existingEvent.location = round.courseName;
+      if (reminderMinutes != null) {
+        existingEvent.reminders = [
+          for (final minutes in reminderMinutes) Reminder(minutes: minutes),
+        ];
+      }
 
       // 5. Persist the update.
       final result = await _plugin.createOrUpdateEvent(existingEvent);
@@ -593,6 +601,7 @@ class CalendarService {
     GolfRound round,
     String calendarId, {
     List<FamilyMember>? notifyFamilyMembers,
+    List<int>? reminderMinutes,
   }) {
     final localTz = local;
 
@@ -642,9 +651,12 @@ class CalendarService {
       description: _buildDescription(round, familyNoteLine: familyNoteLine),
       attendees: attendees.isNotEmpty ? attendees : null,
       availability: Availability.Busy,
+      // Defaults to both 1h and 12h before (spec A13) when the caller
+      // doesn't specify — callers gate this via AppState.enabledReminderMinutes
+      // (spec C5's Notifications & Reminders toggles).
       reminders: [
-        Reminder(minutes: 60),    // 1 hour before (spec A13)
-        Reminder(minutes: 720),   // 12 hours before (spec A13)
+        for (final minutes in reminderMinutes ?? const [60, 720])
+          Reminder(minutes: minutes),
       ],
     );
   }

@@ -3,16 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_state.dart';
-import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/calendar_accounts_section.dart';
 import '../widgets/family_setup_section.dart';
 
-/// Settings screen with grouped sections for calendar, notifications,
-/// contacts, purchase, and about information.
-///
-/// Features TAG branding footer "Teed Up by The Artesian Group®".
+/// Settings screen — 5 grouped cards (spec C5): Calendars & Accounts,
+/// Notifications & Reminders, Friends & Family, Contacts & Privacy, and
+/// App License & About.
 class SettingsScreen extends StatelessWidget {
   /// Creates a [SettingsScreen].
   const SettingsScreen({super.key});
@@ -31,136 +30,80 @@ class SettingsScreen extends StatelessWidget {
       body: Consumer<AppState>(
         builder: (context, state, _) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 40),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
             children: [
-              // ── CALENDAR ─────────────────────────────────────
-              const _SectionLabel(label: 'CALENDAR'),
-              _SettingsTile(
-                icon: Icons.calendar_month_rounded,
-                title: 'Primary Calendar',
-                subtitle: state.primaryCalendarId ?? 'Not set',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => _showCalendarPicker(context, state),
+              _SettingsCard(
+                emoji: '📅',
+                title: 'Calendars & Accounts',
+                child: const CalendarAccountsSection(),
               ),
-              _SettingsTile(
-                icon: Icons.link_rounded,
-                title: 'Linked Calendars',
-                subtitle: state.linkedCalendarIds.isEmpty
-                    ? 'None — scanning primary calendar only'
-                    : '${state.linkedCalendarIds.length} linked for scanning & alerts',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => _showLinkedCalendarsPicker(context, state),
-              ),
-              const _SettingsDivider(),
-
-              // ── NOTIFICATIONS ────────────────────────────────
-              const _SectionLabel(label: 'NOTIFICATIONS'),
-              _SettingsTile(
-                icon: Icons.notifications_rounded,
-                title: 'Decline Alerts',
-                subtitle: 'Notify when a player declines',
-                trailing: Switch(
-                  value: state.declineAlertsEnabled,
-                  onChanged: (v) => state.setDeclineAlerts(v),
+              const SizedBox(height: 14),
+              _SettingsCard(
+                emoji: '🔔',
+                title: 'Notifications & Reminders',
+                child: Column(
+                  children: [
+                    _ToggleRow(
+                      title: 'Decline alerts',
+                      subtitle: 'Notify when a player declines',
+                      value: state.declineAlertsEnabled,
+                      onChanged: state.setDeclineAlerts,
+                    ),
+                    const Divider(height: 20),
+                    _ToggleRow(
+                      title: '12 hours before',
+                      subtitle: 'Reminder added to the calendar invite',
+                      value: state.reminder12hEnabled,
+                      onChanged: state.setReminder12h,
+                    ),
+                    const Divider(height: 20),
+                    _ToggleRow(
+                      title: '1 hour before',
+                      subtitle: 'Reminder added to the calendar invite',
+                      value: state.reminder1hEnabled,
+                      onChanged: state.setReminder1h,
+                    ),
+                  ],
                 ),
               ),
-              const _SettingsDivider(),
-
-              // ── CONTACTS ─────────────────────────────────────
-              const _SectionLabel(label: 'CONTACTS'),
-              _SettingsTile(
-                icon: Icons.people_rounded,
-                title: 'View Cached Contacts',
-                subtitle: 'See synced contacts used for matching',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => _showCachedContacts(context),
-              ),
-              _SettingsTile(
-                icon: Icons.delete_outline_rounded,
-                title: 'Clear Contact Cache',
-                subtitle: 'Remove all cached contact data',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => _confirmClearCache(context),
-              ),
-              const _SettingsDivider(),
-
-              // ── FRIENDS & FAMILY (A12 — up to 5 members) ─────
-              const _SectionLabel(label: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}  FRIENDS & FAMILY'),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: FamilySetupSection(
-                  entries: state.familyMembers,
-                  onAdd: (name, email) =>
-                      state.addFamilyMember(name: name, email: email),
-                  onRemove: state.removeFamilyMember,
+              const SizedBox(height: 14),
+              _SettingsCard(
+                emoji: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
+                title: 'Friends & Family',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FamilySetupSection(
+                      entries: state.familyMembers,
+                      onAdd: (name, email) =>
+                          state.addFamilyMember(name: name, email: email),
+                      onRemove: state.removeFamilyMember,
+                    ),
+                    if (state.familyMembers.isNotEmpty) ...[
+                      const Divider(height: 28),
+                      _ToggleRow(
+                        title: 'Always notify all members',
+                        subtitle: 'Auto-select on every scan',
+                        value: state.familyAlwaysNotify,
+                        onChanged: state.setFamilyAlwaysNotify,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              if (state.familyMembers.isNotEmpty)
-                _SettingsTile(
-                  icon: Icons.auto_awesome_rounded,
-                  title: 'Always notify all members',
-                  subtitle: 'Auto-select on every scan',
-                  trailing: Switch(
-                    value: state.familyAlwaysNotify,
-                    onChanged: (v) => state.setFamilyAlwaysNotify(v),
-                  ),
-                ),
-              const _SettingsDivider(),
-
-              // ── PURCHASE ─────────────────────────────────────
-              const _SectionLabel(label: 'PURCHASE'),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _restorePurchase(context),
-                    icon: const Icon(Icons.restore_rounded, size: 20),
-                    label: const Text('Restore Purchase'),
-                  ),
-                ),
+              const SizedBox(height: 14),
+              _SettingsCard(
+                emoji: '\u{1F4C7}',
+                title: 'Contacts & Privacy',
+                child: _ContactsPrivacySection(),
               ),
-              const _SettingsDivider(),
-
-              // ── ABOUT ────────────────────────────────────────
-              const _SectionLabel(label: 'ABOUT'),
-              _SettingsTile(
-                icon: Icons.info_outline_rounded,
-                title: 'Version',
-                subtitle: '1.0.0 (1)',
+              const SizedBox(height: 14),
+              _SettingsCard(
+                emoji: '\u{1F4B3}',
+                title: 'App License & About',
+                child: _LicenseAboutSection(isPurchased: state.isPurchased),
               ),
-              _SettingsTile(
-                icon: Icons.shield_outlined,
-                title: 'Privacy Policy',
-                trailing: const Icon(
-                  Icons.open_in_new_rounded,
-                  size: 18,
-                  color: AppColors.textMuted,
-                ),
-                onTap: () => _launchUrl('https://teedup.golf/privacy'),
-              ),
-              _SettingsTile(
-                icon: Icons.email_outlined,
-                title: 'Support',
-                subtitle: 'support@teedup.golf',
-                onTap: () => _launchUrl('mailto:support@teedup.golf'),
-              ),
-
-              // ── TAG Footer ───────────────────────────────────
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
               const _TagFooter(),
             ],
           );
@@ -168,210 +111,248 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  void _showCalendarPicker(BuildContext context, AppState state) async {
-    // Fetch real writable calendars from the device.
-    final calendarService = CalendarService();
-    final calendars = await calendarService.getAvailableCalendars();
+// =============================================================================
+// Card shell
+// =============================================================================
 
-    // Filter to writable calendars only.
-    final writable = calendars
-        .where((c) => !c.isReadOnly! && c.id != null)
-        .toList();
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({
+    required this.emoji,
+    required this.title,
+    required this.child,
+  });
 
-    if (!context.mounted) return;
+  final String emoji;
+  final String title;
+  final Widget child;
 
-    if (writable.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No writable calendars found on this device.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Select Calendar'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < writable.length; i++) ...[
-              if (i > 0) const SizedBox(height: 8),
-              _CalendarOption(
-                name: writable[i].name ?? 'Unnamed Calendar',
-                color: Color(writable[i].color ?? 0xFF1976D2),
-                isSelected: state.defaultCalendarId == writable[i].id,
-                onTap: () {
-                  state.setDefaultCalendar(writable[i].id);
-                  Navigator.of(ctx).pop();
-                },
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.grey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                ),
               ),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
           ),
+          const SizedBox(height: 14),
+          child,
         ],
       ),
     );
   }
+}
 
-  /// Multi-select picker for calendars to scan for RSVP changes / decline
-  /// alerts, in addition to the Primary Calendar (spec: multi-calendar
-  /// account linking). Grouped by account (Google/iCloud/Outlook/etc.).
-  void _showLinkedCalendarsPicker(BuildContext context, AppState state) async {
-    final calendarService = CalendarService();
-    final grouped = await calendarService.getAvailableCalendarsGrouped();
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
 
-    if (!context.mounted) return;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
 
-    if (grouped.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No calendars found on this device.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Linked Calendars'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Consumer<AppState>(
-            builder: (context, liveState, _) => SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final entry in grouped.entries) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                    for (final calendar in entry.value)
-                      if (calendar.id != null)
-                        CheckboxListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(calendar.name ?? 'Unnamed Calendar'),
-                          value: liveState.linkedCalendarIds.contains(calendar.id) ||
-                              liveState.primaryCalendarId == calendar.id,
-                          // The primary calendar is always implicitly
-                          // monitored (see AppState.calendarsToMonitor) —
-                          // show it checked and non-interactive here.
-                          onChanged: liveState.primaryCalendarId == calendar.id
-                              ? null
-                              : (_) => liveState.toggleLinkedCalendar(calendar.id!),
-                        ),
-                  ],
-                ],
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: AppColors.textDark,
+                ),
               ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(value: value, onChanged: onChanged),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// Contacts & Privacy card
+// =============================================================================
+
+class _ContactsPrivacySection extends StatefulWidget {
+  @override
+  State<_ContactsPrivacySection> createState() =>
+      _ContactsPrivacySectionState();
+}
+
+class _ContactsPrivacySectionState extends State<_ContactsPrivacySection> {
+  late Future<int> _cachedCount = _loadCount();
+
+  Future<int> _loadCount() async {
+    final cached = await ContactsService().getCachedEmails();
+    return cached.length;
+  }
+
+  Future<void> _resync() async {
+    await ContactsService().clearCache();
+    setState(() => _cachedCount = _loadCount());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Contacts will be re-synced on your next scan.'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FutureBuilder<int>(
+          future: _cachedCount,
+          builder: (context, snapshot) {
+            final count = snapshot.data;
+            return Row(
+              children: [
+                const Icon(Icons.people_rounded,
+                    size: 18, color: AppColors.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    count == null
+                        ? 'Loading cached contacts…'
+                        : '$count contact${count == 1 ? '' : 's'} cached for matching',
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: OutlinedButton.icon(
+            onPressed: _resync,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Re-sync contacts'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Contacts never leave your device — matching happens entirely '
+          'on-device to find email addresses for your playing partners.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textMuted,
+                height: 1.5,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
+// App License & About card
+// =============================================================================
+
+class _LicenseAboutSection extends StatelessWidget {
+  const _LicenseAboutSection({required this.isPurchased});
+  final bool isPurchased;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isPurchased ? AppColors.success.withValues(alpha: 0.12) : AppColors.primaryPale,
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: Text(
+            isPurchased ? 'Purchased' : 'Free',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              color: isPurchased ? AppColors.success : AppColors.primary,
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Done'),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: OutlinedButton.icon(
+            onPressed: () => _restorePurchase(context),
+            icon: const Icon(Icons.restore_rounded, size: 18),
+            label: const Text('Restore purchases'),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showCachedContacts(BuildContext context) async {
-    final contactsService = ContactsService();
-    final cached = await contactsService.getCachedEmails();
-
-    if (!context.mounted) return;
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cached Contacts'),
-        content: cached.isEmpty
-            ? const Text(
-                'No cached contacts yet. Contacts will be cached '
-                'after your first scan.',
-              )
-            : SizedBox(
-                width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: cached.length,
-                  itemBuilder: (_, i) {
-                    final name = cached.keys.elementAt(i);
-                    final email = cached[name]!;
-                    return ListTile(
-                      dense: true,
-                      title: Text(name),
-                      subtitle: Text(email),
-                      leading: const Icon(Icons.person_rounded, size: 20),
-                    );
-                  },
-                ),
-              ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmClearCache(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear Contact Cache?'),
-        content: const Text(
-          'This will remove all cached contact data. '
-          'Contacts will be re-synced on your next scan.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await ContactsService().clearCache();
-              if (!context.mounted) return;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Contact cache cleared'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
+        const SizedBox(height: 14),
+        _AboutRow(
+          icon: Icons.info_outline_rounded,
+          title: 'Version',
+          subtitle: '1.1.0',
+        ),
+        _AboutRow(
+          icon: Icons.shield_outlined,
+          title: 'Privacy Policy',
+          onTap: () => _launchUrl('https://teedup.golf/privacy'),
+        ),
+        _AboutRow(
+          icon: Icons.email_outlined,
+          title: 'Support',
+          subtitle: 'support@teedup.golf',
+          onTap: () => _launchUrl('mailto:support@teedup.golf'),
+        ),
+      ],
     );
   }
 
@@ -405,181 +386,59 @@ class SettingsScreen extends StatelessWidget {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
-
-  void _confirmClearFamily(BuildContext context, AppState state) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear Family Contact?'),
-        content: const Text(
-          'This will remove the configured family contact. '
-          'They will no longer receive calendar invites.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await state.clearFamilyContact();
-              if (!context.mounted) return;
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Family contact cleared'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-/// Section label in uppercase muted text.
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-          color: AppColors.textMuted,
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-}
-
-/// A single settings row with icon, title, subtitle, and trailing widget.
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({
+class _AboutRow extends StatelessWidget {
+  const _AboutRow({
     required this.icon,
     required this.title,
     this.subtitle,
-    this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppColors.primaryPale,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 18, color: AppColors.primary),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w500,
-          fontSize: 15,
-          color: AppColors.textDark,
-        ),
-      ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 13,
-                color: AppColors.textMuted,
-              ),
-            )
-          : null,
-      trailing: trailing,
+    return InkWell(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-    );
-  }
-}
-
-/// Thin divider between settings sections.
-class _SettingsDivider extends StatelessWidget {
-  const _SettingsDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20),
-      child: Divider(height: 1),
-    );
-  }
-}
-
-/// Calendar option row in the picker dialog.
-class _CalendarOption extends StatelessWidget {
-  const _CalendarOption({
-    required this.name,
-    required this.color,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String name;
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryPale : AppColors.greyLight,
-          borderRadius: AppRadius.buttonBorder,
-          border: isSelected
-              ? Border.all(color: AppColors.primary, width: 2)
-              : null,
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 12),
+            Icon(icon, size: 18, color: AppColors.textMuted),
+            const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                name,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 14,
-                  color: AppColors.textDark,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (isSelected)
-              const Icon(Icons.check_rounded, color: AppColors.primary, size: 20),
+            if (onTap != null)
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -595,14 +454,11 @@ class _TagFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Divider
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 60),
           child: Divider(),
         ),
         const SizedBox(height: 16),
-
-        // TAG wordmark
         const Text(
           'All Teed Up',
           style: TextStyle(
@@ -623,8 +479,6 @@ class _TagFooter extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-
-        // Tagline
         Text(
           '"It\'s In The Calendar"',
           style: TextStyle(
