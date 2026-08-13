@@ -124,6 +124,27 @@ class CalendarService {
     }
   }
 
+  /// Returns [getAvailableCalendars] grouped by account (spec: multi-calendar
+  /// account linking) — e.g. all calendars under a single Google or iCloud
+  /// account grouped together, keyed by `"{accountName} ({accountType})"`.
+  ///
+  /// Calendars with no account info are grouped under `"Other"`.
+  Future<Map<String, List<Calendar>>> getAvailableCalendarsGrouped() async {
+    final calendars = await getAvailableCalendars();
+    final grouped = <String, List<Calendar>>{};
+
+    for (final calendar in calendars) {
+      final name = calendar.accountName?.trim();
+      final type = calendar.accountType?.trim();
+      final key = (name == null || name.isEmpty)
+          ? 'Other'
+          : (type == null || type.isEmpty ? name : '$name ($type)');
+      grouped.putIfAbsent(key, () => []).add(calendar);
+    }
+
+    return grouped;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Create event
   // ─────────────────────────────────────────────────────────────────────────
@@ -254,6 +275,21 @@ class CalendarService {
       debugPrint('[CalendarService] findExistingEvent error: $e\n$st');
       return null;
     }
+  }
+
+  /// Like [findExistingEvent], but searches every calendar in [calendarIds]
+  /// (spec: multi-calendar account linking) and returns the first match.
+  Future<GolfRound?> findExistingEventAcrossCalendars(
+    String course,
+    String date,
+    String teeTime,
+    List<String> calendarIds,
+  ) async {
+    for (final calendarId in calendarIds) {
+      final match = await findExistingEvent(course, date, teeTime, calendarId);
+      if (match != null) return match;
+    }
+    return null;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -447,6 +483,27 @@ class CalendarService {
       debugPrint('[CalendarService] getUpcomingRounds error: $e\n$st');
       return [];
     }
+  }
+
+  /// Like [getUpcomingRounds], but aggregates across every calendar in
+  /// [calendarIds] (spec: multi-calendar account linking), de-duplicated
+  /// by event id and sorted by date ascending.
+  Future<List<GolfRound>> getUpcomingRoundsForCalendars(
+    List<String> calendarIds, {
+    int days = 60,
+  }) async {
+    final seen = <String>{};
+    final rounds = <GolfRound>[];
+
+    for (final calendarId in calendarIds) {
+      final calendarRounds = await getUpcomingRounds(calendarId, days: days);
+      for (final round in calendarRounds) {
+        if (seen.add(round.id)) rounds.add(round);
+      }
+    }
+
+    rounds.sort((a, b) => a.date.compareTo(b.date));
+    return rounds;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

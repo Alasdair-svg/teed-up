@@ -7,6 +7,7 @@
 /// All processing runs on-device — no cloud calls, no API keys required.
 library;
 
+import 'dart:async' show TimeoutException;
 import 'dart:typed_data' show Uint8List;
 import 'dart:ui' show Size;
 
@@ -178,10 +179,25 @@ class ScanService {
     }
   }
 
+  /// Maximum time to wait for on-device text recognition before giving up
+  /// (spec: OCR must never hang the scan flow indefinitely).
+  static const Duration _ocrTimeout = Duration(seconds: 8);
+
   /// Processes an [InputImage] through the recogniser and returns the
   /// concatenated text, preserving line breaks between text blocks.
+  ///
+  /// Throws [ScanException] if recognition doesn't complete within
+  /// [_ocrTimeout] — callers should treat this the same as any other OCR
+  /// failure (fall back to the upload screen with a clear error).
   Future<String> _processImage(InputImage inputImage) async {
-    final recognised = await _recognizer.processImage(inputImage);
+    final RecognizedText recognised;
+    try {
+      recognised = await _recognizer.processImage(inputImage).timeout(_ocrTimeout);
+    } on TimeoutException {
+      throw const ScanException(
+        "Couldn't auto-detect booking details — that took too long.",
+      );
+    }
 
     final buffer = StringBuffer();
     for (final block in recognised.blocks) {

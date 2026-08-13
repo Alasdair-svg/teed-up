@@ -110,6 +110,7 @@ Future<void> _loadPersistedState(AppState state) async {
     state.setDeclineAlerts(prefs.getBool(_kDeclineAlertsKey) ?? true);
     await state.loadFamilyMembers();
     await state.loadFamilySettings();
+    await state.loadLinkedCalendarIds();
 
     // -- Rounds (JSON in SharedPreferences) --
     final roundsJson = prefs.getString(_kRoundsKey);

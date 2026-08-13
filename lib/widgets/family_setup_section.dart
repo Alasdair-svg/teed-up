@@ -6,6 +6,8 @@
 /// autocomplete as they type a name.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/family_member.dart';
@@ -44,24 +46,50 @@ class _FamilySetupSectionState extends State<FamilySetupSection> {
   final _nameFocus = FocusNode();
   List<ContactSuggestion> _suggestions = [];
 
+  Timer? _debounce;
+  // Bumped on every keystroke so a slow, stale search response can't
+  // overwrite a newer one (results arriving out of order).
+  int _searchGeneration = 0;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _nameFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _onNameChanged(String value) async {
+  void _onNameChanged(String value) {
+    _debounce?.cancel();
     if (value.length < 2) {
       setState(() => _suggestions = []);
       return;
     }
-    final results = await ContactsService.instance.searchByName(
-      value,
-      exclude: widget.entries.map((e) => e.name).toList(),
-    );
-    if (mounted) setState(() => _suggestions = results.take(4).toList());
+    // Debounce (300ms) so device-contact queries only fire once the user
+    // pauses typing, rather than on every keystroke.
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _runSearch(value);
+    });
+  }
+
+  Future<void> _runSearch(String value) async {
+    final generation = ++_searchGeneration;
+    try {
+      final results = await ContactsService.instance.searchByName(
+        value,
+        exclude: widget.entries.map((e) => e.name).toList(),
+      );
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() => _suggestions = results.take(4).toList());
+    } catch (e) {
+      // Contacts permission can be denied/restricted mid-session (device
+      // policy, user revokes it in Settings) — fail quietly rather than
+      // freezing the field or throwing past the widget tree.
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _suggestions = []);
+      }
+    }
   }
 
   void _selectSuggestion(ContactSuggestion s) {

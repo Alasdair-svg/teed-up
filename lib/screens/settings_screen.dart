@@ -37,13 +37,25 @@ class SettingsScreen extends StatelessWidget {
               const _SectionLabel(label: 'CALENDAR'),
               _SettingsTile(
                 icon: Icons.calendar_month_rounded,
-                title: 'Default Calendar',
-                subtitle: state.defaultCalendarId ?? 'Not set',
+                title: 'Primary Calendar',
+                subtitle: state.primaryCalendarId ?? 'Not set',
                 trailing: const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textMuted,
                 ),
                 onTap: () => _showCalendarPicker(context, state),
+              ),
+              _SettingsTile(
+                icon: Icons.link_rounded,
+                title: 'Linked Calendars',
+                subtitle: state.linkedCalendarIds.isEmpty
+                    ? 'None — scanning primary calendar only'
+                    : '${state.linkedCalendarIds.length} linked for scanning & alerts',
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textMuted,
+                ),
+                onTap: () => _showLinkedCalendarsPicker(context, state),
               ),
               const _SettingsDivider(),
 
@@ -204,6 +216,83 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Multi-select picker for calendars to scan for RSVP changes / decline
+  /// alerts, in addition to the Primary Calendar (spec: multi-calendar
+  /// account linking). Grouped by account (Google/iCloud/Outlook/etc.).
+  void _showLinkedCalendarsPicker(BuildContext context, AppState state) async {
+    final calendarService = CalendarService();
+    final grouped = await calendarService.getAvailableCalendarsGrouped();
+
+    if (!context.mounted) return;
+
+    if (grouped.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No calendars found on this device.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Linked Calendars'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Consumer<AppState>(
+            builder: (context, liveState, _) => SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final entry in grouped.entries) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    for (final calendar in entry.value)
+                      if (calendar.id != null)
+                        CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(calendar.name ?? 'Unnamed Calendar'),
+                          value: liveState.linkedCalendarIds.contains(calendar.id) ||
+                              liveState.primaryCalendarId == calendar.id,
+                          // The primary calendar is always implicitly
+                          // monitored (see AppState.calendarsToMonitor) —
+                          // show it checked and non-interactive here.
+                          onChanged: liveState.primaryCalendarId == calendar.id
+                              ? null
+                              : (_) => liveState.toggleLinkedCalendar(calendar.id!),
+                        ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Done'),
           ),
         ],
       ),

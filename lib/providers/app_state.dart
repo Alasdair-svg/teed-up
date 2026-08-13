@@ -346,6 +346,58 @@ class AppState extends ChangeNotifier {
   /// Alias used by the settings screen.
   void setDefaultCalendar(String? id) => setSelectedCalendarId(id);
 
+  /// The calendar new golf events are written to (spec: multi-calendar
+  /// account linking — this is the "Primary Calendar"). Alias for
+  /// [selectedCalendarId] so existing create/update-event call sites don't
+  /// need to change.
+  String? get primaryCalendarId => _selectedCalendarId;
+
+  /// Sets the primary calendar. Alias for [setSelectedCalendarId].
+  void setPrimaryCalendarId(String? id) => setSelectedCalendarId(id);
+
+  // ---------------------------------------------------------------------------
+  // Linked Calendars (spec: multi-calendar account linking)
+  // ---------------------------------------------------------------------------
+
+  static const String _linkedCalendarIdsPrefsKey = 'teed_up_linked_calendar_ids';
+
+  List<String> _linkedCalendarIds = [];
+
+  /// Calendars enabled for event scanning / RSVP monitoring, in addition
+  /// to [primaryCalendarId] (where new events are actually created).
+  List<String> get linkedCalendarIds => List.unmodifiable(_linkedCalendarIds);
+
+  /// Loads the persisted linked-calendars list from SharedPreferences.
+  Future<void> loadLinkedCalendarIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    _linkedCalendarIds = prefs.getStringList(_linkedCalendarIdsPrefsKey) ?? [];
+    notifyListeners();
+  }
+
+  Future<void> _persistLinkedCalendarIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_linkedCalendarIdsPrefsKey, _linkedCalendarIds);
+  }
+
+  /// Toggles whether [calendarId] is linked for scanning/monitoring.
+  void toggleLinkedCalendar(String calendarId) {
+    if (_linkedCalendarIds.contains(calendarId)) {
+      _linkedCalendarIds = List.of(_linkedCalendarIds)..remove(calendarId);
+    } else {
+      _linkedCalendarIds = List.of(_linkedCalendarIds)..add(calendarId);
+    }
+    notifyListeners();
+    _persistLinkedCalendarIds();
+  }
+
+  /// All calendars that should be scanned/monitored: the linked list plus
+  /// the primary calendar (always implicitly included, deduplicated).
+  List<String> get calendarsToMonitor {
+    final ids = {..._linkedCalendarIds};
+    if (_selectedCalendarId != null) ids.add(_selectedCalendarId!);
+    return ids.toList();
+  }
+
   // ---------------------------------------------------------------------------
   // Decline Alerts Toggle
   // ---------------------------------------------------------------------------
@@ -639,6 +691,7 @@ class AppState extends ChangeNotifier {
     _alerts = [];
     _familyMembers = [];
     _selectedCalendarId = null;
+    _linkedCalendarIds = [];
     _declineAlertsEnabled = true;
     _isOnboarded = false;
     _isPurchased = false;

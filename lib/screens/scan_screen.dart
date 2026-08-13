@@ -139,10 +139,12 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       final scanService = ScanService();
       GolfRound? parsed;
+      String? failureMessage;
       try {
         parsed = await scanService.parseScreenshotFromFile(imagePath);
       } on ScanException catch (e) {
         debugPrint('[ScanScreen] OCR failed: $e');
+        failureMessage = e.message;
       } finally {
         await scanService.dispose();
         await _deleteTempImage(imagePath);
@@ -153,8 +155,10 @@ class _ScanScreenState extends State<ScanScreen> {
 
       if (parsed == null) {
         setState(() => _phase = _Phase.upload);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text("Couldn't read the booking — try a clearer photo."),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            failureMessage ?? "Couldn't read the booking — try a clearer photo.",
+          ),
           backgroundColor: AppColors.error,
         ));
         return;
