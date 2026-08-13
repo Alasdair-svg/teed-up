@@ -14,6 +14,7 @@ import 'providers/app_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/scan_screen.dart';
+import 'services/contacts_service.dart';
 import 'services/notification_service.dart';
 import 'services/purchase_service.dart';
 import 'services/rsvp_monitor.dart';
@@ -167,6 +168,11 @@ Future<void> _saveRounds(AppState state) async {
 /// Initializes non-critical services. Errors are fully caught so they can
 /// never crash the app. Each service is optional — the app works without them.
 Future<void> _initializeServices(AppState appState) async {
+  // Warm the contacts cache for returning users who already granted
+  // permission in a prior session — avoids paying the fetch cost on the
+  // user's first search of this session.
+  ContactsService.prefetch();
+
   // Notification service.
   try {
     await NotificationService.instance.initialize();

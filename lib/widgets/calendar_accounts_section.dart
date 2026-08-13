@@ -28,6 +28,33 @@ class CalendarAccountsSection extends StatefulWidget {
 class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
   late final Future<Map<String, List<Calendar>>> _grouped =
       CalendarService().getAvailableCalendarsGrouped();
+  bool _autoLinkAttempted = false;
+
+  /// Defaults every discovered calendar to linked (opt-out, not opt-in) the
+  /// first time this screen sees them with nothing configured yet — a fresh
+  /// install previously started with everything toggled OFF, so unless the
+  /// user noticed and manually flipped every switch, nothing ever actually
+  /// synced. Runs once; never overrides a choice the user already made.
+  void _autoLinkIfNeeded(Map<String, List<Calendar>> grouped, AppState state) {
+    if (_autoLinkAttempted) return;
+    if (state.primaryCalendarId != null || state.linkedCalendarIds.isNotEmpty) {
+      _autoLinkAttempted = true;
+      return;
+    }
+    final all = grouped.values.expand((c) => c).where((c) => c.id != null).toList();
+    if (all.isEmpty) return;
+    _autoLinkAttempted = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final writable = all.where((c) => c.isReadOnly != true).toList();
+      final primary = writable.isNotEmpty ? writable.first : all.first;
+      state.setPrimaryCalendarId(primary.id);
+      for (final c in all) {
+        if (c.id != primary.id) state.toggleLinkedCalendar(c.id!);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +85,9 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
           );
         }
         return Consumer<AppState>(
-          builder: (context, state, _) => Column(
+          builder: (context, state, _) {
+            _autoLinkIfNeeded(grouped, state);
+            return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (final entry in grouped.entries) ...[
@@ -88,7 +117,8 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                 const SizedBox(height: 8),
               ],
             ],
-          ),
+            );
+          },
         );
       },
     );

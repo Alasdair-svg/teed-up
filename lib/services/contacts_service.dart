@@ -34,32 +34,64 @@ class ContactsService {
 
   final DatabaseHelper _db;
 
-  /// In-memory cache of the device contact list, keyed by app session.
-  ///
-  /// `FlutterContacts.getContacts(withProperties: true)` re-reads and
-  /// re-parses every contact's full property set on each call — on a real
-  /// device this can take multiple seconds. Every search/resolution call
-  /// was hitting that cost on every keystroke-debounced query, which read
-  /// to the user as the app freezing. Fetched once per session and reused;
-  /// call [_invalidateContactsCache] if a caller needs a fresh read (e.g.
-  /// after the user grants contacts permission for the first time).
-  static List<Contact>? _deviceContactsCache;
+  /// In-memory cache of the device contact list — **names only**, no
+  /// properties (emails/phones/etc). `FlutterContacts.getContacts(
+  /// withProperties: true)` fetches every property for every contact and can
+  /// take many seconds on a real address book; fetching without properties
+  /// is a much cheaper single query and is fast even with thousands of
+  /// contacts. Emails are hydrated afterwards, only for the handful of
+  /// contacts that actually match a query — see [_hydrateEmails].
+  static List<Contact>? _deviceContactsLightCache;
+  static Future<List<Contact>>? _prefetchInFlight;
 
-  Future<List<Contact>> _getDeviceContacts() async {
-    final cached = _deviceContactsCache;
+  Future<List<Contact>> _getDeviceContactsLight() async {
+    final cached = _deviceContactsLightCache;
     if (cached != null) return cached;
-    final contacts = await FlutterContacts.getContacts(
-      withProperties: true,
+    // Coalesce concurrent callers onto the same in-flight fetch instead of
+    // each kicking off a separate platform-channel call.
+    final future = _prefetchInFlight ??= FlutterContacts.getContacts(
+      withProperties: false,
       withPhoto: false,
+      withThumbnail: false,
     );
-    _deviceContactsCache = contacts;
-    return contacts;
+    try {
+      final contacts = await future;
+      _deviceContactsLightCache = contacts;
+      return contacts;
+    } finally {
+      _prefetchInFlight = null;
+    }
+  }
+
+  /// Warms the light contacts cache in the background. Call this as soon as
+  /// contacts permission is granted (onboarding) or at app start if
+  /// permission was already granted in a prior session, so the first real
+  /// search doesn't pay the fetch cost while the user is waiting on it.
+  static void prefetch() {
+    // Fire-and-forget — errors are swallowed, a real search will just
+    // fetch (and cache) normally if this fails.
+    instance._getDeviceContactsLight().catchError((_) => <Contact>[]);
   }
 
   /// Clears the in-memory device-contacts cache, forcing the next query to
   /// re-fetch. Call after permission is newly granted, or if a caller needs
   /// to observe a contact added/edited since the cache was populated.
-  static void invalidateContactsCache() => _deviceContactsCache = null;
+  static void invalidateContactsCache() => _deviceContactsLightCache = null;
+
+  /// Hydrates full properties (email, etc.) for a short list of contact
+  /// [stubs] in parallel — cheap because it's bounded to just the matches
+  /// actually being shown/used, not the whole address book.
+  Future<List<Contact>> _hydrateEmails(List<Contact> stubs) async {
+    final hydrated = await Future.wait(stubs.map(
+      (c) => FlutterContacts.getContact(
+        c.id,
+        withProperties: true,
+        withPhoto: false,
+        withThumbnail: false,
+      ),
+    ));
+    return hydrated.whereType<Contact>().toList();
+  }
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -124,11 +156,18 @@ class ContactsService {
       }
 
       final excludeSet = exclude.map((e) => e.trim().toLowerCase()).toSet();
-      final contacts = await _getDeviceContacts();
+      final light = await _getDeviceContactsLight();
 
-      return contacts
+      final nameMatches = light
           .where((c) => c.displayName.toLowerCase().contains(q))
           .where((c) => !excludeSet.contains(c.displayName.trim().toLowerCase()))
+          .take(10) // over-fetch a little — some matches may lack an email
+          .toList();
+      if (nameMatches.isEmpty) return [];
+
+      final hydrated = await _hydrateEmails(nameMatches);
+
+      return hydrated
           .map((c) => ContactSuggestion(
                 name: c.displayName,
                 email: _pickBestEmail(c),
@@ -257,6 +296,10 @@ class ContactsService {
 
   /// Queries device contacts for [query] and returns the best email.
   ///
+  /// Matches against the cheap, properties-free contact list first, then
+  /// hydrates email data only for the shortlisted matches — not the whole
+  /// address book.
+  ///
   /// When [refineName] is provided the result list is further filtered to
   /// contacts whose display name contains **all** parts of [refineName],
   /// preventing false positives from broad single-word queries.
@@ -265,10 +308,10 @@ class ContactsService {
     String? refineName,
   }) async {
     try {
-      final contacts = await _getDeviceContacts();
+      final light = await _getDeviceContactsLight();
 
       // Filter contacts matching the query.
-      final matches = contacts.where((c) {
+      final nameMatches = light.where((c) {
         final displayName = c.displayName.toLowerCase();
         final q = query.toLowerCase();
 
@@ -285,16 +328,24 @@ class ContactsService {
         return true;
       }).toList();
 
-      if (matches.isEmpty) return null;
+      if (nameMatches.isEmpty) return null;
 
-      // Prefer exact full-name matches over partial ones.
-      final exactMatch = matches.cast<Contact?>().firstWhere(
-            (c) => c!.displayName.toLowerCase() == (refineName ?? query).toLowerCase(),
+      // Prefer an exact full-name match if present, otherwise hydrate just
+      // the first handful of candidates (bounded — a common first/last name
+      // query shouldn't hydrate hundreds of contacts).
+      final target = (refineName ?? query).toLowerCase();
+      final exactStub = nameMatches.cast<Contact?>().firstWhere(
+            (c) => c!.displayName.toLowerCase() == target,
             orElse: () => null,
           );
 
-      final bestMatch = exactMatch ?? matches.first;
-      return _pickBestEmail(bestMatch);
+      final toHydrate = exactStub != null
+          ? [exactStub]
+          : nameMatches.take(5).toList();
+      final hydrated = await _hydrateEmails(toHydrate);
+      if (hydrated.isEmpty) return null;
+
+      return _pickBestEmail(hydrated.first);
     } catch (e, st) {
       debugPrint('ContactsService: contact query "$query" failed: $e\n$st');
       return null;

@@ -203,6 +203,26 @@ class _ScanScreenState extends State<ScanScreen> {
         return;
       }
 
+      // ── Low-confidence parse: OCR found text, but none of it matched a
+      // known booking format (no course, no players). Previously this fell
+      // through to a review screen with everything defaulted/empty and no
+      // way to add players — a silent, confusing dead end. Route to Manual
+      // Entry instead, which supports adding players from scratch.
+      final lowConfidence =
+          parsed.courseName == 'Unknown Course' && parsed.players.isEmpty;
+      if (lowConfidence) {
+        if (!mounted) return;
+        setState(() => _phase = _Phase.manual);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            "Couldn't confidently read the course, time, or players from "
+            "that screenshot — enter the details manually instead.",
+          ),
+          backgroundColor: AppColors.warning,
+        ));
+        return;
+      }
+
       // ── Auto-resolve emails from contacts ───────────────────────────
       List<Player> players = parsed.players;
       try {

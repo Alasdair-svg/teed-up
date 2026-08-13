@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 
 import '../models/family_member.dart';
 import '../providers/app_state.dart';
+import '../services/contacts_service.dart';
 import '../services/device_capability_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_accounts_section.dart';
@@ -87,6 +88,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       Permission.contacts,
       Permission.camera,
     ].request();
+
+    // Warm the contacts cache in the background now that permission is
+    // granted, so the Family setup step's first search isn't the one
+    // paying the device-contacts fetch cost.
+    ContactsService.prefetch();
 
     if (!mounted) return;
 
