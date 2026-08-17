@@ -168,10 +168,17 @@ Future<void> _saveRounds(AppState state) async {
 /// Initializes non-critical services. Errors are fully caught so they can
 /// never crash the app. Each service is optional — the app works without them.
 Future<void> _initializeServices(AppState appState) async {
-  // Warm the contacts cache for returning users who already granted
-  // permission in a prior session — avoids paying the fetch cost on the
-  // user's first search of this session.
-  ContactsService.prefetch();
+  // Warm the contacts cache for returning users only — i.e. users who have
+  // already been through onboarding's Permissions step at least once, so
+  // contacts authorization is already decided one way or another. On a
+  // fresh install (onboarding not yet complete), iOS's contacts API
+  // auto-prompts for permission the moment it's touched at all, even just
+  // to enumerate — calling this unconditionally at startup was firing that
+  // native permission dialog before the user ever saw the in-app Welcome
+  // screen or the Permissions step's rationale.
+  if (appState.onboardingComplete) {
+    ContactsService.prefetch();
+  }
 
   // Notification service.
   try {
