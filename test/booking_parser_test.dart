@@ -750,5 +750,96 @@ Name: Michael Chen
       expect(round.bookingRef, 'CV1-7890');
 
     });
+
+    test('Viya app (real, unlabelled card layout) — no colons anywhere', () {
+      // Approximates actual on-device Viya OCR output: "Player N" and its
+      // name are on separate lines (no colon), date+time share a line, and
+      // a "Booking made on ... at HH:MM" footer timestamp must not be
+      // mistaken for the tee time.
+      const text = '''
+Back
+Tee Time Booking
+
+Fire Course
+19 Aug 2026, 06:25
+Booking Confirmed
+4 Player(s)
+18 Holes
+
+Player Details
+
+Player 1
+Alasdair Kilgour
+Homeowner Single
+AED 0.00
+
+Player 2
+Marc McStay
+JGE Member
+AED 0.00
+
+Player 3
+Guy Parsonage
+JGE Member
+AED 0.00
+
+Player 4
+TBC TBC
+Homeowner Single
+AED 0.00
+
+Share Booking
+
+Total
+AED 0.00
+
+Booking made on 29 Jul 2026 at 06:04
+
+Cancel
+Modify
+Edit
+Card
+Rewards
+Partners
+My Viya
+''';
+      final round = BookingParser.parseBookingText(text);
+      expect(round.courseName, 'Fire Course');
+      expect(round.date, DateTime(2026, 8, 19));
+      // Must be the actual tee time (06:25), not the "booking made on ...
+      // at 06:04" footer timestamp.
+      expect(round.teeTime, DateTime(2026, 8, 19, 6, 25));
+      expect(round.players, hasLength(3));
+      expect(round.players.map((p) => p.name), [
+        'Alasdair Kilgour',
+        'Marc McStay',
+        'Guy Parsonage',
+      ]);
+    });
+
+    test('non-golf activity (padel) — no golf keywords anywhere', () {
+      // Proves the extraction is genuinely activity-agnostic, not just
+      // Viya-specific: no "golf"/"course"/"club"/"tee" wording at all.
+      const text = '''
+Padel Court Booking
+
+Riverside Padel Center
+22 Sep 2026, 18:00
+Confirmed
+
+Player 1
+Sam Rivera
+
+Player 2
+Dana Cole
+
+Booking made on 10 Sep 2026 at 09:12
+''';
+      final round = BookingParser.parseBookingText(text);
+      expect(round.courseName, 'Riverside Padel Center');
+      expect(round.date, DateTime(2026, 9, 22));
+      expect(round.teeTime, DateTime(2026, 9, 22, 18, 0));
+      expect(round.players.map((p) => p.name), ['Sam Rivera', 'Dana Cole']);
+    });
   });
 }

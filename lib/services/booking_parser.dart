@@ -338,6 +338,15 @@ class BookingParser {
   // Tee time extraction
   // ---------------------------------------------------------------------------
 
+  /// Matches "made on"/"booked on"/etc footer timestamps (e.g. "Booking made
+  /// on 29 Jul 2026 at 06:04") — a near-universal receipt footer across many
+  /// booking/order formats that must never be mistaken for the actual
+  /// event's date/time.
+  static final RegExp _metadataFooterPrefix = RegExp(
+    r'\b(?:made|booked|created|placed|purchased|ordered|generated)\s+on\b',
+    caseSensitive: false,
+  );
+
   /// Extracts a tee time from [text].
   ///
   /// Returns a normalised time string (e.g. `"6:10 AM"`, `"14:30"`) or `null`.
@@ -345,9 +354,27 @@ class BookingParser {
   /// Recognised patterns:
   /// - `Tee Time: 06:10`, `Start: 2:30 PM`
   /// - `Time: 14:30`, `Tee-off: 7:00am`
+  /// - A time on the same line as a recognisable date (e.g.
+  ///   `"19 Aug 2026, 06:25"`) — common in card/list-style booking UIs that
+  ///   don't label fields at all.
   /// - Standalone `HH:MM AM/PM` or 24-hour `HH:MM`
   static String? extractTeeTime(String text) {
-    // --- Labelled patterns (highest priority) ---
+    // --- Time on the same line as a date (highest priority) ---
+    // Checked first so it can't be shadowed by an unrelated "made on ... at
+    // HH:MM" footer timestamp appearing later in the text. Skips lines that
+    // are themselves that kind of footer.
+    for (final line in text.split('\n')) {
+      if (_metadataFooterPrefix.hasMatch(line)) continue;
+      if (extractDate(line) == null) continue;
+      final onDateLine = RegExp(
+        r'(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)?',
+      ).firstMatch(line);
+      if (onDateLine != null) {
+        return _formatTime(onDateLine.group(1)!, onDateLine.group(2));
+      }
+    }
+
+    // --- Labelled patterns ---
     final labelled = RegExp(
       r'(?:tee\s*time|tee[\s\-]*off|start\s*time|time|starts?)\s*[:]\s*'
       r'(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)?',
@@ -358,13 +385,19 @@ class BookingParser {
       return _formatTime(labelledMatch.group(1)!, labelledMatch.group(2));
     }
 
-    // --- "at HH:MM AM/PM" ---
+    // --- "at HH:MM AM/PM" (skipping "made/booked/created on ... at" footers) ---
     final atTime = RegExp(
       r'\bat\s+(\d{1,2}:\d{2})\s*(am|pm|AM|PM|a\.m\.|p\.m\.)?',
       caseSensitive: false,
     );
-    final atMatch = atTime.firstMatch(text);
-    if (atMatch != null) {
+    for (final atMatch in atTime.allMatches(text)) {
+      final lineStart = text.lastIndexOf('\n', atMatch.start) + 1;
+      final lineEnd = text.indexOf('\n', atMatch.end);
+      final line = text.substring(
+        lineStart,
+        lineEnd == -1 ? text.length : lineEnd,
+      );
+      if (_metadataFooterPrefix.hasMatch(line)) continue;
       return _formatTime(atMatch.group(1)!, atMatch.group(2));
     }
 
@@ -450,7 +483,37 @@ class BookingParser {
       }
     }
 
+    // --- Last resort: first heading-like line, for venues/activities that
+    // don't use "Golf"/"Club"/"Course" wording at all (e.g. a padel or
+    // tennis booking) — not just golf-specific formats. ---
+    for (final line in text.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      if (RegExp(r'\d').hasMatch(trimmed)) continue; // dates/times/prices/counts
+      final words = trimmed.split(RegExp(r'\s+'));
+      if (words.length < 2 || words.length > 6) continue;
+      if (!words.every((w) => RegExp(r'^[A-Z]').hasMatch(w))) continue;
+      if (_looksLikeScreenChrome(trimmed)) continue;
+      final name = _cleanCourseName(trimmed);
+      if (name.isNotEmpty) return name;
+    }
+
     return null;
+  }
+
+  /// Whether [line] reads as a screen title / status / nav chrome rather
+  /// than a venue name — matched by *containing* any of these marker words
+  /// (not an exact-phrase list) so it generalises across apps regardless of
+  /// exact wording ("Padel Court Booking", "Tee Time Booking", "Order
+  /// Confirmation Details" all get caught the same way).
+  static bool _looksLikeScreenChrome(String line) {
+    const markers = {
+      'booking', 'confirmation', 'confirmed', 'receipt', 'summary',
+      'details', 'reservation', 'welcome', 'thank', 'share', 'back',
+      'home', 'total', 'checkout', 'itinerary',
+    };
+    final words = line.toLowerCase().split(RegExp(r'\s+'));
+    return words.any(markers.contains);
   }
 
   /// Trims and cleans a raw course name string.
@@ -468,24 +531,49 @@ class BookingParser {
   /// Extracts player names from [text].
   ///
   /// Tries (in order):
-  /// 1. Lines under a "Players" / "Golfers" / "Group" heading.
-  /// 2. Numbered list items (e.g. "1. John Smith").
+  /// 1. "Player N" pattern — same-line "Player N: Name" / "Player N Name",
+  ///    or "Player N" alone on its line with the name on the following
+  ///    non-blank line (common in card/list-UI layouts with no colon
+  ///    separator at all, e.g. Viya's actual app format).
+  /// 2. Lines under a "Players" / "Golfers" / "Group" heading.
   /// 3. Comma-separated names after a label (e.g. "Players: A, B, C").
-  /// 4. "Player N: Name" pattern (common in booking platforms).
-  /// 5. Heuristic: lines that look like "First Last" name patterns.
+  /// 4. Numbered list items (e.g. "1. John Smith").
+  /// 5. "Name:" / "Golfer:" pattern used by some platforms.
+  /// 6. Last resort: any line elsewhere that looks like a real person's
+  ///    name, for formats none of the above recognise at all.
+  ///
+  /// Placeholder names ("TBC", "TBC TBC") are treated as unfilled slots,
+  /// not players — [ScanService] pads the remainder with TBC players based
+  /// on [extractOpenSlots].
   ///
   /// Results are de-duplicated and capped at 8 (two groups max).
   static List<String> extractPlayers(String text) {
     final Set<String> found = {};
 
-    // --- 1) "Player N:" pattern (e.g. "Player 1: John Smith") ---
-    final playerN = RegExp(
-      r'player\s*\d+\s*[:]\s*(.+)',
-      caseSensitive: false,
-    );
-    for (final m in playerN.allMatches(text)) {
-      final name = _cleanPlayerName(m.group(1)!);
-      if (_isValidName(name)) found.add(name);
+    // --- 1) "Player N" — same line, or name on the next non-blank line ---
+    final lines = text.split('\n');
+    final playerLine = RegExp(r'^\s*player\s*\d+\s*[:.]?\s*(.*)$', caseSensitive: false);
+    for (var i = 0; i < lines.length; i++) {
+      final m = playerLine.firstMatch(lines[i]);
+      if (m == null) continue;
+
+      final sameLine = _cleanPlayerName(m.group(1) ?? '');
+      if (sameLine.isNotEmpty) {
+        if (_isValidName(sameLine) && !_isTbcPlaceholder(sameLine)) {
+          found.add(sameLine);
+        }
+        continue;
+      }
+
+      // "Player N" alone on its line — the name is the next non-blank line.
+      for (var j = i + 1; j < lines.length && j < i + 3; j++) {
+        final candidate = _cleanPlayerName(lines[j]);
+        if (candidate.isEmpty) continue;
+        if (_isValidName(candidate) && !_isTbcPlaceholder(candidate)) {
+          found.add(candidate);
+        }
+        break; // only the first non-blank line after the marker counts
+      }
     }
     if (found.isNotEmpty) return found.take(8).toList();
 
@@ -546,7 +634,21 @@ class BookingParser {
     );
     for (final m in nameColon.allMatches(text)) {
       final name = _cleanPlayerName(m.group(1)!);
-      if (_isValidName(name)) found.add(name);
+      if (_isValidName(name) && !_isTbcPlaceholder(name)) found.add(name);
+    }
+    if (found.isNotEmpty) return found.take(8).toList();
+
+    // --- 6) Last resort: any line that looks like a real person's name,
+    // for layouts none of the labelled/structured strategies above
+    // recognise at all. Deliberately conservative — [_isValidName] already
+    // filters length/word-count/blacklist, and a full-line match (not just
+    // a substring) avoids grabbing partial phrases out of longer sentences.
+    for (final line in lines) {
+      final candidate = _cleanPlayerName(line);
+      if (candidate.isEmpty || candidate != line.trim()) continue;
+      if (_isValidName(candidate) && !_isTbcPlaceholder(candidate)) {
+        found.add(candidate);
+      }
     }
 
     return found.take(8).toList();
@@ -560,9 +662,18 @@ class BookingParser {
         .trim();
   }
 
+  /// Whether [name] is a "to be confirmed" placeholder (e.g. "TBC", "TBC
+  /// TBC") rather than a real player — these should become an open/TBC
+  /// slot (see [extractOpenSlots]), not a named player.
+  static bool _isTbcPlaceholder(String name) {
+    final compact = name.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
+    return compact == 'TBC' || compact == 'TBC TBC';
+  }
+
   /// Heuristic: a "valid" player name has 2–5 words, each starting
   /// with an uppercase letter, total length 3–60 characters, and doesn't
-  /// contain golf-specific non-name keywords.
+  /// contain non-name keywords generic across booking/reservation apps
+  /// (golf-specific, UI chrome, or otherwise).
   static bool _isValidName(String name) {
     if (name.length < 3 || name.length > 60) return false;
 
@@ -571,11 +682,18 @@ class BookingParser {
 
     // Reject common false positives from booking text.
     final blacklist = {
-      'golf', 'club', 'course', 'booking', 'confirmation', 'reference',
-      'tee', 'time', 'date', 'player', 'slot', 'group', 'total', 'amount',
-      'payment', 'receipt', 'invoice', 'holes', 'round', 'buggy', 'cart',
-      'caddy', 'green', 'fee', 'rate', 'price', 'open', 'available',
-      'booked', 'reserved', 'unknown', //
+      // Golf-specific.
+      'golf', 'club', 'course', 'tee', 'holes', 'round', 'buggy', 'cart',
+      'caddy', 'green', 'fee',
+      // Generic booking/receipt vocabulary.
+      'booking', 'confirmation', 'reference', 'time', 'date', 'player',
+      'players', 'slot', 'group', 'total', 'amount', 'payment', 'receipt',
+      'invoice', 'rate', 'price', 'open', 'available', 'booked', 'reserved',
+      'unknown', 'details', 'summary', 'order', 'reservation', 'venue',
+      'location', 'member', 'members', 'single', 'homeowner', 'guest',
+      // Generic app chrome (nav bars, buttons, headers).
+      'back', 'home', 'share', 'cancel', 'modify', 'edit', 'rewards',
+      'partners', 'card', 'confirmed', 'pending', 'welcome', 'my',
     };
     for (final word in words) {
       if (blacklist.contains(word.toLowerCase())) return false;
