@@ -1,0 +1,101 @@
+name: Sync Store Listings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/fastlane/metadata/**'
+      - 'android/fastlane/metadata/android/en-US/title.txt'
+      - 'android/fastlane/metadata/android/en-US/short_description.txt'
+      - 'android/fastlane/metadata/android/en-US/full_description.txt'
+  workflow_dispatch:
+
+jobs:
+  ios-metadata:
+    name: Sync App Store Connect listing
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Write ASC API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p /tmp/asc_keys
+          echo "$ASC_API_KEY_P8" > /tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "ASC_KEY_PATH=/tmp/asc_keys/AuthKey_${ASC_KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: Sync metadata via Fastlane
+        working-directory: ios
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/Gemfile
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: bundle exec fastlane metadata
+
+  android-metadata:
+    name: Sync Google Play listing
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Play Store listing
+        run: |
+          pip install --quiet google-auth google-auth-httplib2 google-api-python-client
+          python3 - << 'PYEOF'
+          import os
+          from google.oauth2.credentials import Credentials
+          from googleapiclient.discovery import build
+
+          PACKAGE_NAME = 'com.teedup.golf'
+
+          def read(path):
+              with open(path, encoding='utf-8') as f:
+                  return f.read().strip()
+
+          title = read('android/fastlane/metadata/android/en-US/title.txt')
+          short_desc = read('android/fastlane/metadata/android/en-US/short_description.txt')
+          full_desc = read('android/fastlane/metadata/android/en-US/full_description.txt')
+
+          creds = Credentials(
+              token=None,
+              refresh_token=os.environ['PLAY_REFRESH_TOKEN'],
+              token_uri='https://oauth2.googleapis.com/token',
+              client_id=os.environ['PLAY_CLIENT_ID'],
+              client_secret=os.environ['PLAY_CLIENT_SECRET'],
+              scopes=['https://www.googleapis.com/auth/androidpublisher'],
+          )
+          service = build('androidpublisher', 'v3', credentials=creds)
+
+          edit = service.edits().insert(packageName=PACKAGE_NAME, body={}).execute()
+          edit_id = edit['id']
+          print(f'Edit: {edit_id}')
+
+          service.edits().listings().update(
+              packageName=PACKAGE_NAME,
+              editId=edit_id,
+              language='en-US',
+              body={
+                  'language': 'en-US',
+                  'title': title,
+                  'shortDescription': short_desc,
+                  'fullDescription': full_desc,
+              },
+          ).execute()
+          print('Listing updated')
+
+          service.edits().commit(packageName=PACKAGE_NAME, editId=edit_id).execute()
+          print(f'SUCCESS: Play Store listing title is now "{title}"')
+          PYEOF
+        env:
+          PLAY_CLIENT_ID: ${{ secrets.PLAY_CLIENT_ID }}
+          PLAY_CLIENT_SECRET: ${{ secrets.PLAY_CLIENT_SECRET }}
+          PLAY_REFRESH_TOKEN: ${{ secrets.PLAY_REFRESH_TOKEN }}
