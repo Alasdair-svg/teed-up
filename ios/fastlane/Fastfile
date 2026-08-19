@@ -84,7 +84,12 @@ platform :ios do
       skip_screenshots: true,
       skip_app_version_update: false,
       force: true,
-      submit_for_review: false
+      submit_for_review: false,
+      # We never submit for review from this lane, so App Store guideline
+      # precheck is irrelevant — and it can't inspect in-app purchases when
+      # authenticated via API key (only Apple ID login supports that),
+      # which errors out on this app's IAP otherwise.
+      run_precheck_before_submit: false
     )
   end
 end
