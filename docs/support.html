@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — All Teed Up by The Artesian Group</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design tokens ────────────────────────────────────── */
+    :root {
+      --purple:       #7B2D8E;
+      --purple-deep:  #5C1D6E;
+      --purple-soft:  #9B4DB8;
+      --purple-pale:  #F3EAF6;
+      --text-dark:    #1E1E2E;
+      --text-body:    #4A4A5E;
+      --text-muted:   #8888A0;
+      --white:        #FFFFFF;
+      --off-white:    #FAFAFE;
+      --grey:         #E8E8EE;
+      --grey-light:   #F4F4F8;
+      --radius-card:  12px;
+      --radius-sm:    8px;
+      --shadow:       0 4px 24px rgba(123, 45, 142, 0.12);
+      --transition:   300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Base ─────────────────────────────────────────────── */
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-body);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .wrapper {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--grey);
+    }
+    .header__badge {
+      display: inline-block;
+      background: var(--purple-pale);
+      color: var(--purple);
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--text-dark);
+      margin-bottom: 8px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    /* ── Sections ─────────────────────────────────────────── */
+    section {
+      margin-bottom: 40px;
+    }
+    section h2 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--text-dark);
+      margin-bottom: 16px;
+      padding-left: 16px;
+      border-left: 3px solid var(--purple);
+    }
+    section h3 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--text-dark);
+      margin: 20px 0 8px;
+    }
+    section p {
+      margin-bottom: 12px;
+    }
+
+    /* ── Lists ────────────────────────────────────────────── */
+    ul, ol {
+      padding-left: 24px;
+      margin-bottom: 12px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    li::marker {
+      color: var(--purple-soft);
+    }
+
+    /* ── Highlight card ───────────────────────────────────── */
+    .highlight {
+      background: var(--purple-pale);
+      border-radius: var(--radius-card);
+      padding: 20px 24px;
+      margin: 24px 0;
+      border: 1px solid rgba(123, 45, 142, 0.08);
+    }
+    .highlight p {
+      margin-bottom: 0;
+      color: var(--purple-deep);
+      font-weight: 500;
+    }
+
+    /* ── FAQ ──────────────────────────────────────────────── */
+    .faq-item {
+      margin-bottom: 20px;
+    }
+    .faq-item h3 {
+      margin-top: 0;
+    }
+
+    /* ── Strong / emphasis ────────────────────────────────── */
+    strong {
+      color: var(--text-dark);
+      font-weight: 500;
+    }
+
+    /* ── Links ────────────────────────────────────────────── */
+    a {
+      color: var(--purple);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color var(--transition);
+    }
+    a:hover, a:focus-visible {
+      color: var(--purple-deep);
+      border-bottom-color: var(--purple-deep);
+    }
+
+    /* ── Contact card ─────────────────────────────────────── */
+    .contact-card {
+      background: var(--grey-light);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      text-align: center;
+    }
+    .contact-card a {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 18px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    .footer {
+      margin-top: 56px;
+      padding-top: 24px;
+      border-top: 1px solid var(--grey);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .footer span {
+      color: var(--purple);
+    }
+    .footer a {
+      color: var(--text-muted);
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .wrapper { padding: 32px 16px 56px; }
+      .header h1 { font-size: 28px; }
+      section h2 { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- ── Header ─────────────────────────────────────── -->
+    <header class="header">
+      <div class="header__badge">All Teed Up</div>
+      <h1>Support</h1>
+      <p>Snap your booking. Your group never misses a tee time.</p>
+    </header>
+
+    <!-- ── What the app does ──────────────────────────── -->
+    <section>
+      <h2>What All Teed Up Does</h2>
+      <p>
+        All Teed Up turns a screenshot of your golf booking confirmation
+        into a shared calendar event — automatically. Snap or import a
+        screenshot, and the App reads the course, date, tee time, and
+        player names on your device, then builds the round for you with
+        reminders and RSVP tracking.
+      </p>
+      <div class="highlight">
+        <p>
+          Everything runs on your phone — no accounts, no sign-up, no
+          cloud backend.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── FAQ ─────────────────────────────────────────── -->
+    <section>
+      <h2>Frequently Asked Questions</h2>
+
+      <div class="faq-item">
+        <h3>Why does the App need Camera / Photos access?</h3>
+        <p>
+          To scan the screenshot of your booking confirmation. Text
+          recognition runs entirely on-device — the image is never
+          uploaded anywhere.
+        </p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Why does the App need Contacts access?</h3>
+        <p>
+          To match player names on your booking to their email addresses,
+          so calendar invites can be addressed correctly. This lookup
+          happens entirely on-device.
+        </p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Why does the App need Calendar access?</h3>
+        <p>
+          To create the round as an event in your device's native
+          calendar (iCloud, Google, Outlook, or Exchange) and keep
+          reminders and RSVPs in sync.
+        </p>
+      </div>
+
+      <div class="faq-item">
+        <h3>The scan didn't pick up the right details — what do I do?</h3>
+        <p>
+          Booking screenshots come in a lot of formats. If a course,
+          time, or player is missed or wrong, you can correct it
+          directly on the review screen before the round is saved —
+          nothing is created until you confirm.
+        </p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do I remove my data?</h3>
+        <p>
+          Uninstalling the App deletes everything stored on your device.
+          Calendar events already created remain in your device calendar
+          unless you delete them separately, since they're managed by
+          your calendar provider, not the App.
+        </p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Where's the Privacy Policy?</h3>
+        <p>
+          <a href="privacy.html">Read the full Privacy Policy here</a>.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Contact ─────────────────────────────────────── -->
+    <section>
+      <h2>Still Need Help?</h2>
+      <div class="contact-card">
+        <p style="margin-bottom: 12px;">Get in touch and we'll help you out.</p>
+        <a href="mailto:Alasdair@theartesiangroup.com">Alasdair@theartesiangroup.com</a>
+      </div>
+    </section>
+
+    <!-- ── Footer ─────────────────────────────────────── -->
+    <footer class="footer">
+      <p>
+        &copy; 2026 <span>The Artesian Group</span>. All rights reserved.
+        &middot; <a href="privacy.html">Privacy Policy</a>
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
