@@ -66,6 +66,19 @@ platform :ios do
       in_house: false
     )
 
+    # Works around fastlane/fastlane#20538: on an app's very first App Store
+    # version, fetch_app_store_review_detail raises "No data" because Apple
+    # hasn't materialized a review-detail resource yet. We never set
+    # app_review_attachment_file, so this step is a no-op for us regardless —
+    # skip it rather than let an unrelated Apple API quirk fail a run that
+    # already successfully pushed name/subtitle/description/keywords.
+    require 'deliver/upload_metadata'
+    Deliver::UploadMetadata.class_eval do
+      def review_attachment_file(version)
+        UI.message("Skipping review attachment sync (not used)")
+      end
+    end
+
     upload_to_app_store(
       skip_binary_upload: true,
       skip_screenshots: true,
