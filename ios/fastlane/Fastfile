@@ -81,6 +81,15 @@ platform :ios do
 
     upload_to_app_store(
       skip_binary_upload: true,
+      # KNOWN ISSUE: fastlane's screenshot upload verification step can
+      # declare uploads "missing" while Apple is still processing them, then
+      # retries a full re-upload — producing genuine duplicates (confirmed:
+      # a clean 5-file run landed as 10 in App Store Connect on 2026-08-21,
+      # reproducibly, even with overwrite_screenshots below). If you push a
+      # screenshots change and later spot doubles in App Store Connect's
+      # Media Manager, that's this — Delete All for the affected locale and
+      # re-upload the 5 files directly via the ASC web UI rather than
+      # re-running this lane again.
       skip_screenshots: false,
       overwrite_screenshots: true,
       skip_app_version_update: false,
