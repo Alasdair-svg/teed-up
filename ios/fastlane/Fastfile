@@ -52,7 +52,7 @@ platform :ios do
     )
   end
 
-  desc 'Sync App Store Connect listing text and age rating — no binary, no screenshots (existing screenshots are stale, see repo history)'
+  desc 'Sync App Store Connect listing text, screenshots, and age rating — no binary upload'
   lane :metadata do
     key_id = ENV['ASC_KEY_ID'] || "98UDF59KU7"
     issuer_id = ENV['ASC_ISSUER_ID'] || "32df2f83-b463-468f-95aa-f43b10192828"
@@ -81,7 +81,7 @@ platform :ios do
 
     upload_to_app_store(
       skip_binary_upload: true,
-      skip_screenshots: true,
+      skip_screenshots: false,
       skip_app_version_update: false,
       force: true,
       submit_for_review: false,
