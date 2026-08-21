@@ -133,6 +133,20 @@ class CalendarService {
     final calendars = await getAvailableCalendars();
     final grouped = <String, List<Calendar>>{};
 
+    // TODO(diagnostic): remove once we've confirmed what device_calendar
+    // actually reports for accountName/accountType on real multi-account
+    // Android devices — reported grouping everything under "Other" even
+    // with multiple Google accounts present, which the plugin's fields
+    // shouldn't cause. Check via `adb logcat | grep CalendarService`.
+    for (final calendar in calendars) {
+      debugPrint(
+        '[CalendarService] raw calendar: id=${calendar.id} '
+        'name=${calendar.name} accountName=${calendar.accountName} '
+        'accountType=${calendar.accountType} '
+        'isReadOnly=${calendar.isReadOnly} isDefault=${calendar.isDefault}',
+      );
+    }
+
     for (final calendar in calendars) {
       final name = calendar.accountName?.trim();
       final type = calendar.accountType?.trim();
