@@ -1,0 +1,24 @@
+Snap your booking. Your group never misses a tee time.
+
+All Teed Up turns a screenshot of your golf booking confirmation into a shared calendar event in seconds — no typing, no manual entry.
+
+HOW IT WORKS
+Snap or import a screenshot of your tee time confirmation (from Viya, your club's app, WhatsApp — any format). All Teed Up reads the course, date, tee time, and player names on your device and builds the round for you.
+
+STAY IN SYNC
+Every player gets added to your device calendar automatically, with reminders before the round. RSVP status updates for the whole group so you always know who's actually showing up.
+
+LET FRIENDS AND FAMILY KNOW
+Add your regular playing partners once, then notify them with a tap — they get the details without needing the app themselves.
+
+PRIVATE BY DESIGN
+All Teed Up runs entirely on your phone. Text recognition happens on-device — no accounts, no cloud, no servers. The only thing that ever leaves your phone is the calendar invite you choose to send.
+
+FEATURES
+• On-device screenshot scanning — works with any booking format
+• Automatic calendar sync with reminders
+• Player RSVP tracking (confirmed, pending, declined)
+• Friends & family notifications
+• No sign-up, no account, no ads
+
+Built for golfers who'd rather be on the course than juggling group chats and calendar invites.
