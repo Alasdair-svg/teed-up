@@ -85,6 +85,12 @@ platform :ios do
       skip_app_version_update: false,
       force: true,
       submit_for_review: false,
+      # Age Rating (App Store Connect's Age Rating Declaration) uploads via
+      # the same JWT-authenticated Connect API as the rest of this lane —
+      # unlike the App Privacy "nutrition label", which fastlane's
+      # upload_app_privacy_details_to_app_store only supports via legacy
+      # interactive Apple ID login and can't run here.
+      app_rating_config_path: File.expand_path("age_rating_config.json", __dir__),
       # We never submit for review from this lane, so App Store guideline
       # precheck is irrelevant — and it can't inspect in-app purchases when
       # authenticated via API key (only Apple ID login supports that),
