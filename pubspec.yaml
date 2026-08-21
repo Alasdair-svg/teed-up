@@ -1,7 +1,7 @@
 name: teed_up
 description: "Teed Up — Snap your golf booking. Your group is sorted."
 publish_to: 'none'
-version: 1.2.3+16
+version: 1.2.4+17
 
 environment:
   sdk: ^3.5.0

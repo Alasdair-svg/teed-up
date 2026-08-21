@@ -4,7 +4,6 @@
 ///   - TAG-purple landmass silhouettes (simplified continent outlines)
 ///   - 392-dimple Fibonacci distribution with concave gradient + specular highlight
 ///   - Equator and meridian seam lines
-///   - "TAG 4" text that rotates with the globe (Atlantic-area anchor)
 ///   - Wooden tee (warm brown gradient) below the ball
 ///
 /// Usage:
@@ -285,18 +284,16 @@ class _GolfGlobePainter extends CustomPainter {
   // Projection helpers (orthographic, Y-axis rotation)
   // ---------------------------------------------------------------------------
 
+  // Fixed axial tilt applied on top of the animated spin, matching the TAG
+  // brand globe's orientation (its D3 rotation is [lambda, phi, 0] with
+  // phi=-15deg fixed while lambda spins) so the ball reads as a globe on a
+  // tilted axis rather than spinning flat.
+  static const double _axialTilt = -18 * math.pi / 180;
+
   /// Projects [lon]/[lat] (degrees) to screen [Offset] given ball [center] and
   /// [radius]. Returns null if the point is on the back face.
   Offset? _project(double lon, double lat, Offset center, double radius) {
-    final lonR = lon * math.pi / 180;
-    final latR = lat * math.pi / 180;
-
-    // Rotate longitude by current animation rotation
-    final rotLon = lonR + rotation;
-
-    final x = math.cos(latR) * math.cos(rotLon);
-    final y = math.sin(latR);
-    final z = math.cos(latR) * math.sin(rotLon);
+    final (x, y, z) = _rotatedPoint(lon, lat);
 
     if (z < -0.05) return null; // back-facing — cull
 
@@ -308,10 +305,24 @@ class _GolfGlobePainter extends CustomPainter {
 
   /// Returns how "front-facing" a point is: 1.0 = dead-centre, 0.0 = edge.
   double _frontFactor(double lon, double lat) {
+    final (_, _, z) = _rotatedPoint(lon, lat);
+    return z.clamp(0.0, 1.0);
+  }
+
+  /// Sphere point for [lon]/[lat] after the animated spin and fixed tilt.
+  (double, double, double) _rotatedPoint(double lon, double lat) {
     final lonR = lon * math.pi / 180;
     final latR = lat * math.pi / 180;
     final rotLon = lonR + rotation;
-    return (math.cos(latR) * math.sin(rotLon)).clamp(0.0, 1.0);
+
+    final x = math.cos(latR) * math.cos(rotLon);
+    final y = math.sin(latR);
+    final z = math.cos(latR) * math.sin(rotLon);
+
+    final tiltedY = y * math.cos(_axialTilt) - z * math.sin(_axialTilt);
+    final tiltedZ = y * math.sin(_axialTilt) + z * math.cos(_axialTilt);
+
+    return (x, tiltedY, tiltedZ);
   }
 
   // ---------------------------------------------------------------------------
@@ -377,9 +388,6 @@ class _GolfGlobePainter extends CustomPainter {
 
     // ── Dimples ───────────────────────────────────────────────────────────────
     _drawDimples(canvas, center, ballRadius, sc);
-
-    // ── "TAG 4" globe label ───────────────────────────────────────────────────
-    if (widgetSize >= 100) _drawTag4(canvas, center, ballRadius, sc);
 
     // ── Matte white ocean overlay ─────────────────────────────────────────────
     canvas.drawCircle(
@@ -659,61 +667,6 @@ class _GolfGlobePainter extends CustomPainter {
         );
       }
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // "TAG 4" label — rotates with the globe (Atlantic anchor lon=-160, lat=0)
-  // ---------------------------------------------------------------------------
-
-  void _drawTag4(Canvas canvas, Offset center, double ballRadius, double sc) {
-    const anchorLon = -160.0;
-    const anchorLat = 0.0;
-
-    final projected = _project(anchorLon, anchorLat, center, ballRadius * 0.75);
-    if (projected == null) return;
-
-    final ff = _frontFactor(anchorLon, anchorLat);
-    if (ff < 0.25) return;
-
-    final tagFontSize = math.max(8.0, widgetSize * 0.09 * ff);
-    final numFontSize = math.max(10.0, widgetSize * 0.14 * ff);
-
-    // "TAG" in primary purple
-    final tagPainter = TextPainter(
-      text: TextSpan(
-        text: 'TAG',
-        style: TextStyle(
-          fontFamily: 'Outfit',
-          fontWeight: FontWeight.w700,
-          fontSize: tagFontSize,
-          color: AppColors.primary.withValues(alpha: 0.85 * ff),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    // "4" in dark
-    final numPainter = TextPainter(
-      text: TextSpan(
-        text: '4',
-        style: TextStyle(
-          fontFamily: 'Outfit',
-          fontWeight: FontWeight.w700,
-          fontSize: numFontSize,
-          color: AppColors.textDark.withValues(alpha: 0.85 * ff),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    canvas.save();
-    canvas.translate(projected.dx, projected.dy);
-    canvas.scale(math.max(0.3, ff), 1.0); // perspective squish
-
-    tagPainter.paint(canvas, Offset(-tagPainter.width / 2, -tagPainter.height - 1));
-    numPainter.paint(canvas, Offset(-numPainter.width / 2, 1));
-
-    canvas.restore();
   }
 
   @override
