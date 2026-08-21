@@ -10,8 +10,8 @@
 library;
 
 import 'package:device_calendar/device_calendar.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// The result of a full device capability check.
 ///
@@ -117,13 +117,15 @@ class DeviceCapabilityService {
     }
   }
 
-  /// Returns `true` if the contacts provider responds without error.
+  /// Returns `true` if contacts permission is granted.
+  ///
+  /// Checks permission status only — permission was already requested
+  /// moments earlier in onboarding, so re-fetching the entire device
+  /// contact list here (as this used to do) was a redundant, slow
+  /// round-trip on devices with large address books.
   static Future<bool> _checkContacts() async {
     try {
-      // Request minimal properties — just check the provider is reachable.
-      // An empty list is still a working contacts provider.
-      await FlutterContacts.getContacts();
-      return true;
+      return await Permission.contacts.status.isGranted;
     } catch (_) {
       return false;
     }
@@ -154,7 +156,12 @@ class DeviceCapabilityService {
   /// there is no redundant initialisation.
   static Future<bool> _checkPlayServices() async {
     try {
-      return await InAppPurchase.instance.isAvailable();
+      // A real billing-service handshake can hang for several seconds on
+      // a store listing that isn't fully published yet — bound it so a
+      // slow connection can't stall the whole onboarding flow.
+      return await InAppPurchase.instance
+          .isAvailable()
+          .timeout(const Duration(seconds: 3), onTimeout: () => false);
     } catch (_) {
       // If the check itself throws, Play Services are not available.
       return false;

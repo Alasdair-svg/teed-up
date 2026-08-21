@@ -320,7 +320,49 @@ class _ScanScreenState extends State<ScanScreen> {
   // Confirm & save
   // ---------------------------------------------------------------------------
 
+  /// True if the reviewed date + tee time together fall before now — the
+  /// combination that actually matters, since a stale default date paired
+  /// with a fresh-looking time (or vice versa) would otherwise slip past a
+  /// naive same-field check.
+  bool get _isPastTeeTime {
+    final date = _dateReview;
+    final time = _timeReview;
+    if (date == null || time == null) return false;
+    final combined = DateTime(
+      date.year, date.month, date.day, time.hour, time.minute,
+    );
+    return combined.isBefore(DateTime.now());
+  }
+
+  Future<bool> _confirmPastTeeTime() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('This tee time has already passed'),
+        content: const Text(
+          'The date and time on this booking are in the past. Saving it '
+          'will still notify any selected players and family by calendar '
+          'invite — continue anyway?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Go back'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Save anyway'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   Future<void> _confirm() async {
+    if (_isPastTeeTime && !await _confirmPastTeeTime()) return;
+    if (!mounted) return;
+
     final appState = context.read<AppState>();
     final now = DateTime.now();
 

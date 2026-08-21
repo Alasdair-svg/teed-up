@@ -87,9 +87,29 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
         return Consumer<AppState>(
           builder: (context, state, _) {
             _autoLinkIfNeeded(grouped, state);
+            // "Other" means the device didn't report an account name for
+            // any calendar found — usually a phone with only a local
+            // calendar and no Google/iCloud/Exchange account signed in at
+            // the OS level. There's nothing more to show until an account
+            // with calendar sync is added in the phone's own Settings app.
+            final onlyUnnamedAccount =
+                grouped.length == 1 && grouped.containsKey('Other');
             return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (onlyUnnamedAccount)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Only one calendar found, with no linked account. To see '
+                    'more options here, add a Google, iCloud, or Exchange '
+                    'account with calendar sync on in your phone’s '
+                    'Settings app.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                  ),
+                ),
               for (final entry in grouped.entries) ...[
                 _CalendarAccountGroupLabel(accountKey: entry.key),
                 const SizedBox(height: 8),

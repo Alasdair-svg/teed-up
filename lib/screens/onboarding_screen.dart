@@ -53,6 +53,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Family members being added during onboarding (shared with AppState on finish)
   final List<FamilyMember> _familyEntries = [];
 
+  // True while permissions + device-capability checks are in flight, so the
+  // "Grant Permissions" button can show a spinner instead of appearing to
+  // sit on the same page twice.
+  bool _requestingPermissions = false;
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -82,33 +87,38 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handlePermissionsNext() async {
-    await [
-      Permission.calendarWriteOnly,
-      Permission.calendarFullAccess,
-      Permission.contacts,
-      Permission.camera,
-    ].request();
+    setState(() => _requestingPermissions = true);
+    try {
+      await [
+        Permission.calendarWriteOnly,
+        Permission.calendarFullAccess,
+        Permission.contacts,
+        Permission.camera,
+      ].request();
 
-    // Warm the contacts cache in the background now that permission is
-    // granted, so the Family setup step's first search isn't the one
-    // paying the device-contacts fetch cost.
-    ContactsService.prefetch();
+      // Warm the contacts cache in the background now that permission is
+      // granted, so the Family setup step's first search isn't the one
+      // paying the device-contacts fetch cost.
+      ContactsService.prefetch();
 
-    if (!mounted) return;
-
-    final capability = await DeviceCapabilityService.check();
-    if (!mounted) return;
-
-    if (capability.hasIssues) {
-      final ok = await _showIncompatibilitySheet(capability);
       if (!mounted) return;
-      if (!ok) {
-        await SystemNavigator.pop();
-        return;
-      }
-    }
 
-    _next();
+      final capability = await DeviceCapabilityService.check();
+      if (!mounted) return;
+
+      if (capability.hasIssues) {
+        final ok = await _showIncompatibilitySheet(capability);
+        if (!mounted) return;
+        if (!ok) {
+          await SystemNavigator.pop();
+          return;
+        }
+      }
+
+      _next();
+    } finally {
+      if (mounted) setState(() => _requestingPermissions = false);
+    }
   }
 
   Future<void> _handleFinish() async {
@@ -258,6 +268,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return _PrimaryGradientButton(
           label: 'Grant Permissions',
           onPressed: _handlePermissionsNext,
+          loading: _requestingPermissions,
         );
       case 2: // Calendar accounts
         return _PrimaryGradientButton(
@@ -621,10 +632,12 @@ class _PrimaryGradientButton extends StatelessWidget {
   const _PrimaryGradientButton({
     required this.label,
     required this.onPressed,
+    this.loading = false,
   });
 
   final String label;
   final VoidCallback onPressed;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -641,21 +654,31 @@ class _PrimaryGradientButton extends StatelessWidget {
         ],
       ),
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: AppColors.white,
-          ),
-        ),
+        child: loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation(AppColors.white),
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                  color: AppColors.white,
+                ),
+              ),
       ),
     );
   }
