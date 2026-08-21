@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'ios/fastlane/metadata/**'
+      - 'ios/fastlane/screenshots/**'
       - 'ios/fastlane/age_rating_config.json'
       - 'android/fastlane/metadata/android/en-US/title.txt'
       - 'android/fastlane/metadata/android/en-US/short_description.txt'
