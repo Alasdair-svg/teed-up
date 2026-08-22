@@ -283,6 +283,36 @@ class AppState extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Self identity (Creator/Recipient permission model)
+  // ---------------------------------------------------------------------------
+
+  Set<String> _ownAccountEmails = {};
+
+  /// Loads this device's own calendar account emails, used to work out
+  /// which player in a round is "you". Safe to call once at startup; the
+  /// result is cached in memory for [selfPlayerIn]'s synchronous lookups.
+  Future<void> loadOwnAccountEmails() async {
+    _ownAccountEmails = await CalendarService().getOwnAccountEmails();
+  }
+
+  /// Returns whichever player in [round] matches one of this device's own
+  /// calendar account emails, or `null` if none does.
+  ///
+  /// `null` is a normal, expected outcome — not every round will have a
+  /// player whose email matches an account on this device (e.g. a Creator
+  /// whose own name/email never appeared in the scanned booking text).
+  /// Callers must treat a `null` result as "self-RSVP unavailable for this
+  /// round", never as permission to fall back to editing someone else's.
+  Player? selfPlayerIn(GolfRound round) {
+    if (_ownAccountEmails.isEmpty) return null;
+    for (final player in round.players) {
+      final email = player.email?.trim().toLowerCase();
+      if (email != null && _ownAccountEmails.contains(email)) return player;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
   // RSVP Alerts
   // ---------------------------------------------------------------------------
 

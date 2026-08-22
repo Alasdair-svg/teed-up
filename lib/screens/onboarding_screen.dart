@@ -12,6 +12,8 @@
 /// each time a booking is scanned.
 library;
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:permission_handler/permission_handler.dart';
@@ -129,6 +131,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       appState.addFamilyMember(name: entry.name, email: entry.email);
     }
     appState.completeOnboarding();
+    // Fire-and-forget — enriches self-identity resolution once calendar
+    // permission has just been granted, but shouldn't add latency to
+    // finishing onboarding (see the earlier fix for slow-feeling permission
+    // steps). A missed result here just means selfPlayerIn returns null
+    // until the next launch picks it up in main.dart.
+    unawaited(appState.loadOwnAccountEmails());
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
     );

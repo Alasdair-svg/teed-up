@@ -101,7 +101,8 @@ Future<void> _loadPersistedState(AppState state) async {
     final prefs = await SharedPreferences.getInstance();
 
     // -- Flags --
-    if (prefs.getBool(_kOnboardedKey) == true) {
+    final alreadyOnboarded = prefs.getBool(_kOnboardedKey) == true;
+    if (alreadyOnboarded) {
       state.completeOnboarding();
     }
     if (prefs.getBool(_kPurchasedKey) == true) {
@@ -113,6 +114,12 @@ Future<void> _loadPersistedState(AppState state) async {
     await state.loadFamilySettings();
     await state.loadLinkedCalendarIds();
     await state.loadReminderSettings();
+    // Only for returning users — calendar permission has already been asked
+    // (or declined) during onboarding by this point, so this can't surface
+    // a surprise permission prompt before onboarding's own explained one.
+    if (alreadyOnboarded) {
+      await state.loadOwnAccountEmails();
+    }
 
     // -- Rounds (JSON in SharedPreferences) --
     final roundsJson = prefs.getString(_kRoundsKey);

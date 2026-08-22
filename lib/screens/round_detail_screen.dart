@@ -36,6 +36,7 @@ class RoundDetailScreen extends StatelessWidget {
     return Consumer<AppState>(
       builder: (context, state, _) {
         final round = state.getRound(roundId);
+        final selfPlayer = round == null ? null : state.selfPlayerIn(round);
 
         if (round == null) {
           return Scaffold(
@@ -70,49 +71,63 @@ class RoundDetailScreen extends StatelessWidget {
                     _SectionTitle(title: 'Players'),
                     const SizedBox(height: 12),
                     ...round.players.map(
-                      (p) => _PlayerTile(
-                        player: p,
-                        onRsvpCycle: () {
-                          // Cycle: tbc → confirmed → pending → declined → tbc
-                          final next = _nextRsvp(p.rsvpStatus);
-                          state.updatePlayerRsvp(
-                            roundId: round.id,
-                            playerId: p.id,
-                            newStatus: next,
-                          );
-                        },
-                      ),
+                      (p) {
+                        // Creators can cycle anyone. A Recipient can only
+                        // cycle their own tile, and never out of declined —
+                        // that's terminal for self-service; getting back on
+                        // requires the Creator re-booking with the club and
+                        // re-scanning, not a tap in this app. See the
+                        // Creator/Recipient permission model.
+                        final isSelf = selfPlayer?.id == p.id;
+                        final canCycle = round.isCreator ||
+                            (isSelf && p.rsvpStatus != RsvpStatus.declined);
+                        return _PlayerTile(
+                          player: p,
+                          onRsvpCycle: !canCycle
+                              ? null
+                              : () {
+                                  final next = _nextRsvp(p.rsvpStatus);
+                                  state.updatePlayerRsvp(
+                                    roundId: round.id,
+                                    playerId: p.id,
+                                    newStatus: next,
+                                  );
+                                },
+                        );
+                      },
                     ),
                     const SizedBox(height: 28),
 
-                    // ── Let friends and family know (A10) ──────────
-                    _FamilyNotifyButton(
-                      round: round,
-                      onNotify: () async {
-                        await state.notifyFamily(roundId: round.id);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Send Invite (always shown) ─────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await state.sendCalendarInvite(roundId: round.id);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Calendar invite sent'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
+                    if (round.isCreator) ...[
+                      // ── Let friends and family know (A10) ──────────
+                      _FamilyNotifyButton(
+                        round: round,
+                        onNotify: () async {
+                          await state.notifyFamily(roundId: round.id);
                         },
-                        icon: const Icon(Icons.calendar_today_rounded),
-                        label: const Text('Send invite'),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+
+                      // ── Send Invite (organizer action) ─────────────
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await state.sendCalendarInvite(roundId: round.id);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Calendar invite sent'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.calendar_today_rounded),
+                          label: const Text('Send invite'),
+                        ),
+                      ),
+                    ],
 
                     // ── Done (scan-flow only) ─────────────────────
                     if (fromScan) ...[
@@ -134,8 +149,11 @@ class RoundDetailScreen extends StatelessWidget {
 
                     const SizedBox(height: 28),
 
-                    // ── Amend ─────────────────────────────────────
-                    _ActionButtons(round: round),
+                    // ── Amend / Cancel (Creator) or Remove (Recipient) ──
+                    if (round.isCreator)
+                      _ActionButtons(round: round)
+                    else
+                      _RemoveFromListButton(round: round),
                   ]),
                 ),
               ),
@@ -327,7 +345,7 @@ class _PlayerTile extends StatelessWidget {
   const _PlayerTile({required this.player, required this.onRsvpCycle});
 
   final Player player;
-  final VoidCallback onRsvpCycle;
+  final VoidCallback? onRsvpCycle;
 
   @override
   Widget build(BuildContext context) {
@@ -404,31 +422,36 @@ class _PlayerTile extends StatelessWidget {
                 ],
               ),
             ),
-            // Tappable RSVP badge — cycles through states
-            GestureDetector(
-              onTap: onRsvpCycle,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 14, color: statusColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                        color: statusColor,
+            // Tappable RSVP badge — cycles through states. Dimmed when
+            // this device has no permission to cycle it (see the
+            // Creator/Recipient permission model).
+            Opacity(
+              opacity: onRsvpCycle == null ? 0.5 : 1.0,
+              child: GestureDetector(
+                onTap: onRsvpCycle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 14, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                          color: statusColor,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -636,6 +659,60 @@ class _TimelineEntry extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Recipient-only affordance: removes the round from this device's own
+/// list without touching the Creator's calendar event or the shared round
+/// object — a Recipient never has authority to cancel for everyone.
+class _RemoveFromListButton extends StatelessWidget {
+  const _RemoveFromListButton({required this.round});
+
+  final GolfRound round;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: () => _confirmRemove(context),
+        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+        label: const Text('Remove from my list'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textMuted,
+          side: const BorderSide(color: AppColors.grey),
+        ),
+      ),
+    );
+  }
+
+  void _confirmRemove(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove round?'),
+        content: Text(
+          'This removes the round at ${round.courseName} from your list. '
+          "It won't cancel the round or notify the organiser — the "
+          'calendar invite stays exactly as they sent it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<AppState>().removeRound(round.id);
+              Navigator.of(ctx).pop(); // Close dialog
+              Navigator.of(context).pop(); // Go back to home
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Remove'),
           ),
         ],
       ),

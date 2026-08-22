@@ -159,6 +159,31 @@ class CalendarService {
     return grouped;
   }
 
+  /// Returns the set of email addresses this device's own calendar accounts
+  /// are signed in under (lowercased), derived from each [Calendar]'s
+  /// `accountName` — for Google and Exchange accounts this is the login
+  /// email directly; other providers may not populate it usefully.
+  ///
+  /// Used to work out which player in a round's roster is "you" (Creator/
+  /// Recipient self-identity) by matching against [Player.email]. Returns
+  /// an empty set on permission failure or if no account looks like an
+  /// email — callers should treat that as "can't determine self," not an
+  /// error, and degrade gracefully rather than block on it.
+  ///
+  /// Known caveat: `accountName` has been observed not reporting reliably
+  /// on some real multi-Google-account Android devices (see the diagnostic
+  /// logging in [getAvailableCalendarsGrouped]) — this method inherits that
+  /// same data-reliability risk.
+  Future<Set<String>> getOwnAccountEmails() async {
+    final calendars = await getAvailableCalendars();
+    final emails = <String>{};
+    for (final calendar in calendars) {
+      final name = calendar.accountName?.trim().toLowerCase();
+      if (name != null && name.contains('@')) emails.add(name);
+    }
+    return emails;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Create event
   // ─────────────────────────────────────────────────────────────────────────
