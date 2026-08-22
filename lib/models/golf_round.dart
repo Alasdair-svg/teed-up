@@ -12,6 +12,7 @@ class GolfRound {
     this.bookingRef,
     this.calendarEventId,
     this.familyNotified = false,
+    this.isCreator = true,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -39,6 +40,16 @@ class GolfRound {
   /// Whether friends & family have been informed about this round.
   final bool familyNotified;
 
+  /// Whether this device created/organized the round (scanned the booking),
+  /// as opposed to being auto-imported from a calendar invite someone else
+  /// sent. Gates every write action except cycling your own RSVP — see the
+  /// Creator/Recipient permission model.
+  ///
+  /// Defaults to `true`: every round built via the existing scan flow is
+  /// self-created. Only the calendar auto-import path constructs a round
+  /// with this `false`.
+  final bool isCreator;
+
   /// When this round was created in the app.
   final DateTime createdAt;
 
@@ -65,6 +76,10 @@ class GolfRound {
       bookingRef: json['bookingRef'] as String?,
       calendarEventId: json['calendarEventId'] as String?,
       familyNotified: json['familyNotified'] == true,
+      // Absent on any round persisted before this field existed — those are
+      // all self-created rounds from the pre-auto-import app, so default
+      // true rather than reading a missing key as false.
+      isCreator: json['isCreator'] == null ? true : json['isCreator'] == true,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
@@ -81,6 +96,7 @@ class GolfRound {
         'bookingRef': bookingRef,
         'calendarEventId': calendarEventId,
         'familyNotified': familyNotified,
+        'isCreator': isCreator,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -94,6 +110,7 @@ class GolfRound {
     String? bookingRef,
     String? calendarEventId,
     bool? familyNotified,
+    bool? isCreator,
     DateTime? createdAt,
   }) {
     return GolfRound(
@@ -105,6 +122,7 @@ class GolfRound {
       bookingRef: bookingRef ?? this.bookingRef,
       calendarEventId: calendarEventId ?? this.calendarEventId,
       familyNotified: familyNotified ?? this.familyNotified,
+      isCreator: isCreator ?? this.isCreator,
       createdAt: createdAt ?? this.createdAt,
     );
   }
