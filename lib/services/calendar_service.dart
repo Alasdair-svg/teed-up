@@ -73,6 +73,20 @@ class CalendarService {
   /// Default golf round duration in minutes (4.5 hours = 270 minutes).
   static const int _roundDurationMinutes = 270;
 
+  /// Store links for the growth-loop invite footer (see "The Growth Loop"
+  /// design doc, Section 01). No link is ever placed inline in the invite
+  /// title or as a tappable button — on-device testing confirmed neither
+  /// custom URL schemes nor Android `intent://` links render as tappable
+  /// in any calendar app's event view, so a plain `https://` line is the
+  /// only reliably-tappable form available at all.
+  ///
+  /// TODO(store-listing): [_appStoreUrl] is a placeholder — swap in the
+  /// real numeric Apple ID from App Store Connect → App Information once
+  /// "All Teed Up" has a live listing.
+  static const String _appStoreUrl = 'https://apps.apple.com/app/id0000000000';
+  static const String _playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.teedup.golf';
+
   // ─────────────────────────────────────────────────────────────────────────
   // Permissions
   // ─────────────────────────────────────────────────────────────────────────
@@ -736,12 +750,21 @@ class CalendarService {
 
   /// Builds the event title/summary in the standard format.
   ///
-  /// Format: `⛳ Course Name | 07:30 | Player 1, Player 2`
+  /// Format: `⛳ Course Name | 07:30 | Player 1, Player 2 | All Teed Up`
+  ///
+  /// The trailing brand segment (Growth Loop Section 01) is a free
+  /// impression in every notification banner and month view a recipient
+  /// sees, tapped or not — it costs nothing to keep on every event this
+  /// app creates. It's its own pipe segment rather than appended after the
+  /// player list so [_eventToGolfRound]'s comma-split player parsing (used
+  /// when an event has no attendees to read RSVP status from) can't pick
+  /// up "All Teed Up" as a fourth player name.
   String _buildSummary(GolfRound round) {
     final playerNames = round.players.map((p) => p.name).join(', ');
     return '$eventPrefix ${round.courseName} '
         '| ${round.formattedTeeTime} '
-        '| $playerNames';
+        '| $playerNames '
+        '| All Teed Up';
   }
 
   /// Builds the event description with booking details (spec A13 — TAG Nexus format).
@@ -794,10 +817,29 @@ class CalendarService {
     }
 
     buffer.writeln();
-    buffer.writeln('Created by All Teed Up');
+    buffer.write(_growthLoopFooter);
 
     return buffer.toString();
   }
+
+  /// The growth-loop signature (Growth Loop Section 01) appended to every
+  /// invite — no data, no deep link, nothing to tap for someone who
+  /// already has the app (it finds the round on its own via
+  /// [RsvpMonitor]'s reconciliation pass, not a link). A plain
+  /// `https://` line is the only link form confirmed to render as
+  /// tappable in a calendar event view at all, so that's what the
+  /// "new here" store links use.
+  ///
+  /// Reused verbatim for the "Let friends and family know" share-sheet
+  /// message once that's rebuilt per Section 01c.
+  static const String _growthLoopFooter = '──────────\n'
+      '📲 Already have All Teed Up?\n'
+      "Open it — this round's waiting for you.\n"
+      '\n'
+      'New here? Never miss a tee time again.\n'
+      'All Teed Up — AED 99 once, no subscription.\n'
+      '🍎 iPhone → $_appStoreUrl\n'
+      '🤖 Android → $_playStoreUrl';
 
   /// Converts a [Player] to a device_calendar [Attendee].
   Attendee _playerToAttendee(Player player) {
