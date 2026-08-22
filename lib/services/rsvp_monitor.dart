@@ -49,6 +49,8 @@ import 'package:workmanager/workmanager.dart';
 
 import '../models/player.dart';
 import '../models/rsvp_change.dart';
+import '../providers/app_state.dart';
+import 'calendar_service.dart';
 import 'notification_service.dart';
 
 // =============================================================================
@@ -450,6 +452,61 @@ class RsvpMonitor {
       debugPrint('[RsvpMonitor] Manual check failed: $e');
       debugPrint('$stack');
       return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auto-import reconciliation (growth loop — spec Growth Loop 01a)
+  // ---------------------------------------------------------------------------
+
+  /// Reconciles the device calendar against [appState]'s known rounds: any
+  /// ⛳-prefixed calendar event not already tracked there (by
+  /// [GolfRound.calendarEventId]) is imported as a Recipient round —
+  /// [GolfRound.isCreator] `false`, since it wasn't created via this
+  /// device's own scan flow.
+  ///
+  /// This is the whole growth-loop mechanism: a round someone else created
+  /// and invited this device to just appears next time the app looks at
+  /// the calendar. No link, deep link, or hosted page involved — the
+  /// calendar itself is the data channel.
+  ///
+  /// Runs in the **main isolate only** (it needs the live [AppState], so
+  /// it's called from app startup, right after onboarding, and on every
+  /// app-resume — never from the Workmanager background callback, which
+  /// only has isolate-safe persistent storage to work with).
+  ///
+  /// Safe to call repeatedly — already-known events are skipped by id.
+  /// Returns the number of newly-imported rounds.
+  Future<int> reconcileWithCalendar(AppState appState) async {
+    try {
+      final calendarIds = appState.calendarsToMonitor;
+      if (calendarIds.isEmpty) return 0;
+
+      final calendarRounds =
+          await CalendarService().getUpcomingRoundsForCalendars(calendarIds);
+
+      final knownEventIds = appState.upcomingRounds
+          .map((r) => r.calendarEventId)
+          .whereType<String>()
+          .toSet();
+
+      var imported = 0;
+      for (final round in calendarRounds) {
+        final eventId = round.calendarEventId;
+        if (eventId == null || knownEventIds.contains(eventId)) continue;
+        appState.addRound(round.copyWith(isCreator: false));
+        imported++;
+      }
+
+      if (imported > 0) {
+        debugPrint(
+          '[RsvpMonitor] Reconciliation imported $imported round(s)',
+        );
+      }
+      return imported;
+    } catch (e, st) {
+      debugPrint('[RsvpMonitor] reconcileWithCalendar error: $e\n$st');
+      return 0;
     }
   }
 

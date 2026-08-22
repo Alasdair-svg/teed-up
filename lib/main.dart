@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -226,8 +227,11 @@ RsvpStatus _parseStatus(String? status) {
 /// Root widget for the Teed Up application.
 ///
 /// Provides [AppState] via [ChangeNotifierProvider] and applies the
-/// TAG-branded light theme throughout the widget tree.
-class TeedUpApp extends StatelessWidget {
+/// TAG-branded light theme throughout the widget tree. Also owns the
+/// app-lifecycle observer that drives [RsvpMonitor]'s foreground polling
+/// and calendar auto-import reconciliation (growth loop) — see
+/// [_TeedUpAppState.didChangeAppLifecycleState].
+class TeedUpApp extends StatefulWidget {
   /// Creates the [TeedUpApp].
   const TeedUpApp({super.key, required this.appState});
 
@@ -235,9 +239,52 @@ class TeedUpApp extends StatelessWidget {
   final AppState appState;
 
   @override
+  State<TeedUpApp> createState() => _TeedUpAppState();
+}
+
+class _TeedUpAppState extends State<TeedUpApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Cold-start reconciliation for returning users only — a fresh install
+    // hasn't been through onboarding's calendar-permission step yet, so
+    // there's nothing to scan. Onboarding fires its own reconciliation
+    // pass once permission is actually granted (see onboarding_screen.dart).
+    if (widget.appState.onboardingComplete) {
+      RsvpMonitor.instance.startForegroundPolling();
+      unawaited(
+        RsvpMonitor.instance.reconcileWithCalendar(widget.appState),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!widget.appState.onboardingComplete) return;
+      RsvpMonitor.instance.startForegroundPolling();
+      unawaited(
+        RsvpMonitor.instance.reconcileWithCalendar(widget.appState),
+      );
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      RsvpMonitor.instance.stopForegroundPolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    RsvpMonitor.instance.stopForegroundPolling();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-      value: appState,
+      value: widget.appState,
       child: Consumer<AppState>(
         builder: (context, state, _) {
           return MaterialApp(

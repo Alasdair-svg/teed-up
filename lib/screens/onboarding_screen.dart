@@ -23,6 +23,7 @@ import '../models/family_member.dart';
 import '../providers/app_state.dart';
 import '../services/contacts_service.dart';
 import '../services/device_capability_service.dart';
+import '../services/rsvp_monitor.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_accounts_section.dart';
 import '../widgets/family_setup_section.dart';
@@ -137,6 +138,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // steps). A missed result here just means selfPlayerIn returns null
     // until the next launch picks it up in main.dart.
     unawaited(appState.loadOwnAccountEmails());
+    // Same reasoning — the first calendar scan for the growth loop's
+    // auto-import shouldn't block finishing onboarding. If a round was
+    // already sitting in the newly-linked calendar (someone invited this
+    // user before they'd even installed the app), it appears on Home a
+    // moment after landing there rather than holding up this transition.
+    unawaited(RsvpMonitor.instance.reconcileWithCalendar(appState));
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
     );
