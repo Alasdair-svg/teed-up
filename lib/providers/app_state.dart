@@ -161,7 +161,12 @@ class AppState extends ChangeNotifier {
   /// (spec A7 — booking-match detection on rescan).
   ///
   /// Match is exact on course name (case-insensitive), calendar day, and
-  /// tee-time hour/minute.
+  /// tee-time hour/minute. Only matches against rounds this device
+  /// organizes ([GolfRound.isCreator]) — re-scanning to amend a booking is
+  /// inherently a Creator action (see the Creator/Recipient permission
+  /// model), and matching against a Recipient's imported round here would
+  /// silently let a fresh scan "amend" a round that isn't theirs to amend,
+  /// flipping it to Creator status in the process.
   GolfRound? findMatchingRound({
     required String course,
     required DateTime date,
@@ -169,6 +174,7 @@ class AppState extends ChangeNotifier {
   }) {
     final courseNorm = course.trim().toLowerCase();
     for (final r in _upcomingRounds) {
+      if (!r.isCreator) continue;
       final sameCourse = r.courseName.trim().toLowerCase() == courseNorm;
       final sameDay = r.date.year == date.year &&
           r.date.month == date.month &&
@@ -185,6 +191,13 @@ class AppState extends ChangeNotifier {
   ///
   /// Declining automatically raises an alert, mirroring the prototype's
   /// auto-alert-on-decline behaviour.
+  ///
+  /// Enforces the Creator/Recipient permission model here, not just in the
+  /// UI that calls it: a Recipient may only cycle their own tile, and
+  /// never out of `declined` (terminal for self-service — see the Viya
+  /// booking-authority design note). Hiding a disabled button is a UI
+  /// nicety; the actual boundary has to live where the write happens, so
+  /// no future call site can reopen it by skipping the UI gate.
   Future<void> updatePlayerRsvp({
     required String roundId,
     required String playerId,
@@ -192,6 +205,26 @@ class AppState extends ChangeNotifier {
   }) async {
     final round = getRound(roundId);
     if (round == null) return;
+
+    if (!round.isCreator) {
+      Player? target;
+      for (final p in round.players) {
+        if (p.id == playerId) {
+          target = p;
+          break;
+        }
+      }
+      final self = selfPlayerIn(round);
+      final isOwnTile = target != null && self?.id == target.id;
+      final reversingDecline = target?.rsvpStatus == RsvpStatus.declined;
+      if (!isOwnTile || reversingDecline) {
+        debugPrint(
+          '[AppState] Blocked updatePlayerRsvp — Recipient has no '
+          'permission to change player "$playerId" on round "$roundId"',
+        );
+        return;
+      }
+    }
 
     Player? changedPlayer;
     final players = round.players.map((p) {

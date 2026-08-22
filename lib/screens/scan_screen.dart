@@ -376,6 +376,10 @@ class _ScanScreenState extends State<ScanScreen> {
       players: _reviewPlayers,
       bookingRef: _bookingRefReview,
       familyNotified: _selectedFamilyIndices.isNotEmpty,
+      // findMatchingRound only ever matches Creator-owned rounds, so this
+      // is always true in practice — set explicitly rather than relying
+      // on that invariant holding at a distance.
+      isCreator: _matchedRound?.isCreator ?? true,
     );
 
     // Selected family members for notify
