@@ -120,10 +120,32 @@ class AppState extends ChangeNotifier {
     addRound(toSave);
   }
 
-  /// Removes a round by its [id].
+  /// Removes a round by its [id] from this device's own list only — never
+  /// touches the underlying calendar event. Correct for a Recipient
+  /// dropping a round they don't organize (see [cancelRound] for the
+  /// Creator's "actually cancel it for everyone" action).
   void removeRound(String id) {
     _upcomingRounds.removeWhere((r) => r.id == id);
     notifyListeners();
+  }
+
+  /// Cancels a round the Creator organizes: deletes its calendar event (so
+  /// every attendee gets a cancellation notice from the calendar provider)
+  /// before removing it from local state.
+  ///
+  /// If the event can't be deleted (permissions, no [selectedCalendarId],
+  /// already gone) the round is still removed locally — a dangling
+  /// calendar event with no matching app round is recoverable by the user
+  /// deleting it themselves; a round the app refuses to let go of is not.
+  Future<void> cancelRound(String id) async {
+    final round = getRound(id);
+    if (round?.calendarEventId != null && _selectedCalendarId != null) {
+      await CalendarService().deleteEvent(
+        _selectedCalendarId!,
+        round!.calendarEventId!,
+      );
+    }
+    removeRound(id);
   }
 
   /// Returns the round matching [id], or `null` if not found.

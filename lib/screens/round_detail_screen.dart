@@ -778,9 +778,11 @@ class _ActionButtons extends StatelessWidget {
             child: const Text('Keep'),
           ),
           TextButton(
-            onPressed: () {
-              context.read<AppState>().removeRound(round.id);
+            onPressed: () async {
+              await context.read<AppState>().cancelRound(round.id);
+              if (!ctx.mounted) return;
               Navigator.of(ctx).pop(); // Close dialog
+              if (!context.mounted) return;
               Navigator.of(context).pop(); // Go back to home
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),

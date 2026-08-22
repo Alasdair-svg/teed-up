@@ -251,6 +251,40 @@ class CalendarService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Delete event
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Deletes the calendar event [eventId] from [calendarId].
+  ///
+  /// This is what actually cancels a round for every player — the
+  /// calendar provider sends each attendee a cancellation notice. Returns
+  /// `true` on success. Like every other method here, failures are caught
+  /// and logged rather than thrown — callers should still remove the round
+  /// from local state even if this returns `false`, since a dangling
+  /// calendar event with no matching app round is a lesser problem than a
+  /// round the app can't get rid of at all.
+  Future<bool> deleteEvent(String calendarId, String eventId) async {
+    try {
+      if (!await _ensurePermissions()) return false;
+
+      final result = await _plugin.deleteEvent(calendarId, eventId);
+      if (result.isSuccess && result.data == true) {
+        debugPrint('[CalendarService] Deleted event "$eventId"');
+        return true;
+      }
+
+      debugPrint(
+        '[CalendarService] Failed to delete event "$eventId": '
+        '${result.errors.map((e) => e.errorMessage).join(', ')}',
+      );
+      return false;
+    } catch (e, st) {
+      debugPrint('[CalendarService] deleteEvent error: $e\n$st');
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Find existing event
   // ─────────────────────────────────────────────────────────────────────────
 
