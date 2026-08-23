@@ -84,10 +84,12 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 
-	<!-- Background Task Identifiers -->
+	<!-- Background Task Identifiers — must match RsvpMonitor.taskName in
+	     lib/services/rsvp_monitor.dart exactly, or BGTaskScheduler silently
+	     refuses to register the task at all. -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.teedup.golf.rsvpMonitor</string>
+		<string>com.teedup.rsvp_monitor</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
