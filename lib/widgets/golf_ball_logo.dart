@@ -320,7 +320,13 @@ class _GolfGlobePainter extends CustomPainter {
   (double, double, double) _rotatedPoint(double lon, double lat) {
     final lonR = lon * math.pi / 180;
     final latR = lat * math.pi / 180;
-    final rotLon = lonR + rotation;
+    // Real Earth rotates eastward — counterclockwise viewed from above the
+    // North Pole — which makes its near side drift left-to-right for an
+    // external, north-up viewer (a point at front-centre moves toward
+    // +x/screen-right; new terrain emerges from the left edge). Subtracting
+    // `rotation` here (not adding) reproduces that: `+rotation` was
+    // spinning the globe backwards, right-to-left.
+    final rotLon = lonR - rotation;
 
     final x = math.cos(latR) * math.cos(rotLon);
     final y = math.sin(latR);
