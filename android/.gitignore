@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Google Play service account key (fastlane supply/upload_to_play_store) —
+# never publicly share this either.
+fastlane-service-account.json
