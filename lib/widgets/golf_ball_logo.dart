@@ -230,15 +230,22 @@ class _GolfBallLogoState extends State<GolfBallLogo>
             ),
           ),
         ),
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) => CustomPaint(
-            size: Size(widget.size, widget.size + teeExtra),
-            painter: _GolfGlobePainter(
-              rotation: _controller.value * math.pi * 2,
-              showTee: widget.showTee,
-              showGlow: widget.showGlow,
-              widgetSize: widget.size,
+        // Isolates the continuously-animating painter into its own
+        // compositor layer so a repaint here never forces the rest of the
+        // screen (or sibling widgets in this Stack) to repaint alongside
+        // it — the standard fix for a CustomPaint driven by an
+        // AnimationController ticking every frame.
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => CustomPaint(
+              size: Size(widget.size, widget.size + teeExtra),
+              painter: _GolfGlobePainter(
+                rotation: _controller.value * math.pi * 2,
+                showTee: widget.showTee,
+                showGlow: widget.showGlow,
+                widgetSize: widget.size,
+              ),
             ),
           ),
         ),
@@ -600,22 +607,65 @@ class _GolfGlobePainter extends CustomPainter {
   // Dimples
   // ---------------------------------------------------------------------------
 
+  /// Number of front-facing "depth" buckets the concave-gradient shader is
+  /// pre-built for (see below) — 12 steps is visually indistinguishable
+  /// from the old continuous per-dimple alpha on a shadow this subtle, at
+  /// the sizes this ever renders at.
+  static const int _dimpleShaderBuckets = 12;
+
   void _drawDimples(Canvas canvas, Offset center, double ballRadius, double sc) {
-    for (final dimple in _dimples) {
-      final projected = _project(dimple.lon, dimple.lat, center, ballRadius * 0.97);
-      if (projected == null) continue;
+    final dimpleR = widgetSize <= 64
+        ? 1.4
+        : widgetSize <= 150
+            ? 2.6
+            : 4.5 * sc * 1.2;
 
-      final depth = _frontFactor(dimple.lon, dimple.lat);
-      final dimpleR = widgetSize <= 64
-          ? 1.4
-          : widgetSize <= 150
-              ? 2.6
-              : 4.5 * sc * 1.2;
+    if (widgetSize <= 64) {
+      // Small sizes — flat dots, already just two solid-color circles per
+      // dimple with no shader involved, so nothing to cache here.
+      final dotPaint = Paint()..color = Colors.black.withValues(alpha: 0.14);
+      final dotHlPaint = Paint()..color = Colors.white.withValues(alpha: 0.12);
+      for (final dimple in _dimples) {
+        final projected =
+            _project(dimple.lon, dimple.lat, center, ballRadius * 0.97);
+        if (projected == null) continue;
+        canvas.drawCircle(projected, dimpleR, dotPaint);
+        canvas.drawCircle(
+          Offset(projected.dx - dimpleR * 0.2, projected.dy - dimpleR * 0.2),
+          dimpleR * 0.35,
+          dotHlPaint,
+        );
+      }
+      return;
+    }
 
-      if (widgetSize > 64) {
-        // Concave gradient
+    // Larger sizes — concave gradient + specular highlight per dimple.
+    //
+    // This used to call RadialGradient.createShader once (twice when the
+    // highlight applied) for EVERY one of the 392 dimples, on EVERY
+    // animation frame — up to ~700 shader compilations/frame, which is
+    // what actually made the spin look janky/"flaky" rather than smooth,
+    // especially on the Simulator's software renderer and mid-range
+    // Android devices. A gradient shader's appearance only depends on
+    // `depth` (quantized here into buckets) and stays position-independent
+    // if built against a rect centered on the origin — Skia composes a
+    // shader with whatever canvas transform is active at draw time, so
+    // translating the canvas to each dimple's projected position and
+    // drawing at Offset.zero reuses the same handful of pre-built shaders
+    // for all 392 dimples instead of rebuilding one per dimple.
+    final hlR = dimpleR * (widgetSize >= 150 ? 0.55 : 0.45);
+    final hlCenter = Offset(-dimpleR * 0.25, -dimpleR * 0.25);
+    final localRect = Rect.fromCircle(center: Offset.zero, radius: dimpleR);
+    final hlRect = Rect.fromCircle(center: hlCenter, radius: hlR);
+
+    final bodyShaders = List<Shader?>.filled(_dimpleShaderBuckets, null);
+    final hlShaders = List<Shader?>.filled(_dimpleShaderBuckets, null);
+
+    Shader bodyShaderForBucket(int bucket) {
+      return bodyShaders[bucket] ??= () {
+        final depth = bucket / (_dimpleShaderBuckets - 1);
         final baseAlpha = 0.12 + depth * 0.18;
-        final dGrad = RadialGradient(
+        return RadialGradient(
           center: const Alignment(0.15, 0.15),
           radius: 1.0,
           colors: [
@@ -627,45 +677,48 @@ class _GolfGlobePainter extends CustomPainter {
             Colors.black.withValues(alpha: baseAlpha * 0.1),
           ],
           stops: const [0.0, 0.35, 0.55, 0.75, 0.9, 1.0],
-        ).createShader(Rect.fromCircle(center: projected, radius: dimpleR));
+        ).createShader(localRect);
+      }();
+    }
 
-        canvas.drawCircle(
-          projected,
-          dimpleR,
-          Paint()..shader = dGrad,
-        );
+    Shader hlShaderForBucket(int bucket) {
+      return hlShaders[bucket] ??= () {
+        final depth = bucket / (_dimpleShaderBuckets - 1);
+        final hlAlpha = (0.18 + depth * 0.25).clamp(0.0, 0.45);
+        return RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: hlAlpha),
+            Colors.white.withValues(alpha: hlAlpha * 0.4),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+        ).createShader(hlRect);
+      }();
+    }
 
-        // Specular highlight (white crescent upper-left)
-        if (depth > 0.15) {
-          final hlR = dimpleR * (widgetSize >= 150 ? 0.55 : 0.45);
-          final hlCenter = Offset(projected.dx - dimpleR * 0.25, projected.dy - dimpleR * 0.25);
-          final hlAlpha = (0.18 + depth * 0.25).clamp(0.0, 0.45);
-          canvas.drawCircle(
-            hlCenter,
-            hlR,
-            Paint()
-              ..shader = RadialGradient(
-                colors: [
-                  Colors.white.withValues(alpha: hlAlpha),
-                  Colors.white.withValues(alpha: hlAlpha * 0.4),
-                  Colors.white.withValues(alpha: 0.0),
-                ],
-              ).createShader(Rect.fromCircle(center: hlCenter, radius: hlR)),
-          );
-        }
-      } else {
-        // Small sizes — simple dots
-        canvas.drawCircle(
-          projected,
-          dimpleR,
-          Paint()..color = Colors.black.withValues(alpha: 0.14),
-        );
-        canvas.drawCircle(
-          Offset(projected.dx - dimpleR * 0.2, projected.dy - dimpleR * 0.2),
-          dimpleR * 0.35,
-          Paint()..color = Colors.white.withValues(alpha: 0.12),
-        );
+    final bodyPaint = Paint();
+    final hlPaint = Paint();
+
+    for (final dimple in _dimples) {
+      final projected = _project(dimple.lon, dimple.lat, center, ballRadius * 0.97);
+      if (projected == null) continue;
+
+      final depth = _frontFactor(dimple.lon, dimple.lat);
+      final bucket = (depth * (_dimpleShaderBuckets - 1))
+          .round()
+          .clamp(0, _dimpleShaderBuckets - 1);
+
+      canvas.save();
+      canvas.translate(projected.dx, projected.dy);
+
+      bodyPaint.shader = bodyShaderForBucket(bucket);
+      canvas.drawCircle(Offset.zero, dimpleR, bodyPaint);
+
+      if (depth > 0.15) {
+        hlPaint.shader = hlShaderForBucket(bucket);
+        canvas.drawCircle(hlCenter, hlR, hlPaint);
       }
+
+      canvas.restore();
     }
   }
 
