@@ -108,4 +108,39 @@ platform :ios do
       run_precheck_before_submit: false
     )
   end
+
+  desc 'One-time bootstrap: create/install a Distribution certificate + private key in this Mac keychain via the ASC API key (no interactive Apple ID login)'
+  lane :bootstrap_cert do
+    key_path = File.expand_path("keys/AuthKey_98UDF59KU7.p8", __dir__)
+
+    app_store_connect_api_key(
+      key_id: "98UDF59KU7",
+      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
+      key_filepath: key_path,
+      duration: 1200,
+      in_house: false
+    )
+
+    get_certificates(
+      output_path: File.expand_path("certs", __dir__)
+    )
+
+    # The existing named profiles were bound to whatever certificate they
+    # were created with — now gone from this keychain. Regenerate both so
+    # they include the certificate get_certificates just installed, rather
+    # than relying on -allowProvisioningUpdates (its auto-repair behavior
+    # applies to Automatic signing; both targets here use Manual).
+    get_provisioning_profile(
+      app_identifier: "com.teedup.golf",
+      provisioning_name: "All Teed Up AppStore Profile",
+      filename: "AllTeedUp_AppStore.mobileprovision",
+      force: true
+    )
+    get_provisioning_profile(
+      app_identifier: "com.teedup.golf.ShareExtension",
+      provisioning_name: "All Teed Up ShareExtension AppStore Profile",
+      filename: "AllTeedUpShareExtension_AppStore.mobileprovision",
+      force: true
+    )
+  end
 end

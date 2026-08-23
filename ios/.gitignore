@@ -35,3 +35,9 @@ Runner/GeneratedPluginRegistrant.*
 
 # Fastlane
 fastlane/keys/
+fastlane/certs/
+fastlane/report.xml
+fastlane/README.md
+*.mobileprovision
+*.ipa
+*.dSYM.zip
