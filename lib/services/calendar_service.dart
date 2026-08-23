@@ -817,7 +817,7 @@ class CalendarService {
     }
 
     buffer.writeln();
-    buffer.write(growthLoopFooter);
+    buffer.write(_growthLoopFooter);
 
     return buffer.toString();
   }
@@ -829,11 +829,7 @@ class CalendarService {
   /// `https://` line is the only link form confirmed to render as
   /// tappable in a calendar event view at all, so that's what the
   /// "new here" store links use.
-  ///
-  /// Public — reused verbatim by [FamilyShareService] for the "Let
-  /// friends and family know" share-sheet message (Section 01c), so the
-  /// same pitch appears everywhere this app ever reaches a non-user.
-  static const String growthLoopFooter = '──────────\n'
+  static const String _growthLoopFooter = '──────────\n'
       '📲 Already have All Teed Up?\n'
       "Open it — this round's waiting for you.\n"
       '\n'

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../config/feature_flags.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
@@ -98,19 +99,22 @@ class RoundDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    // ── Let friends and family know (Growth Loop 01c) ──
-                    // Allowed for both Creator and Recipient — it's a
-                    // share-sheet message, not a calendar write, so there's
-                    // nothing here that belongs to only one role.
-                    _FamilyNotifyButton(
-                      round: round,
-                      onNotify: () async {
-                        await state.notifyFamily(roundId: round.id);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
                     if (round.isCreator) ...[
+                      // ── Let friends and family know (A10) ──────────
+                      // Pulled from the general product for now — see
+                      // kEnableFamilyCalendarInvite. Adding family as
+                      // calendar attendees only makes sense for the round's
+                      // own organizer in the first place.
+                      if (kEnableFamilyCalendarInvite) ...[
+                        _FamilyNotifyButton(
+                          round: round,
+                          onNotify: () async {
+                            await state.notifyFamily(roundId: round.id);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // ── Send Invite (organizer action) ─────────────
                       SizedBox(
                         width: double.infinity,
@@ -465,14 +469,13 @@ class _PlayerTile extends StatelessWidget {
   }
 }
 
-/// "Let friends and family know" action (Growth Loop 01c).
+/// "Let friends and family know" action (spec A10).
 ///
-/// A share-sheet message, not a calendar write — repeatable by design
-/// (sharing again, or a different player separately telling the same
-/// contact, is normal, not a duplicate to guard against), so unlike the
-/// old calendar-attendee version this never disables itself. Once
-/// [GolfRound.familyNotified] has been set at least once, a small
-/// acknowledgement line appears below without touching the button itself.
+/// Adds the round's configured family members as Optional calendar
+/// attendees — a real calendar write, so unlike a share-sheet message
+/// this is a one-shot: once [GolfRound.familyNotified] is set, the button
+/// becomes an inert "✓ Family notified" pill so it can't fire twice.
+/// Gated behind [kEnableFamilyCalendarInvite] at the call site.
 class _FamilyNotifyButton extends StatelessWidget {
   const _FamilyNotifyButton({required this.round, required this.onNotify});
 
@@ -481,6 +484,7 @@ class _FamilyNotifyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final notified = round.familyNotified;
     return Column(
       children: [
         SizedBox(
@@ -488,32 +492,34 @@ class _FamilyNotifyButton extends StatelessWidget {
           height: 52,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
+              gradient: notified ? null : AppColors.primaryGradient,
+              color: notified ? AppColors.palePurple : null,
               borderRadius: AppRadius.buttonBorder,
             ),
-            child: ElevatedButton.icon(
-              onPressed: onNotify,
+            child: ElevatedButton(
+              onPressed: notified ? null : onNotify,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
+                disabledBackgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.buttonBorder),
               ),
-              icon: const Icon(Icons.ios_share_rounded,
-                  size: 18, color: AppColors.white),
-              label: const Text(
-                'Let friends and family know',
+              child: Text(
+                notified
+                    ? '✓ Family notified'
+                    : 'Let friends and family know',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
-                  color: AppColors.white,
+                  color: notified ? AppColors.primary : AppColors.white,
                 ),
               ),
             ),
           ),
         ),
-        if (round.familyNotified)
+        if (notified)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
