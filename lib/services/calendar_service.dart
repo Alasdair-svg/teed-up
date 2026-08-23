@@ -817,7 +817,7 @@ class CalendarService {
     }
 
     buffer.writeln();
-    buffer.write(_growthLoopFooter);
+    buffer.write(growthLoopFooter);
 
     return buffer.toString();
   }
@@ -830,9 +830,10 @@ class CalendarService {
   /// tappable in a calendar event view at all, so that's what the
   /// "new here" store links use.
   ///
-  /// Reused verbatim for the "Let friends and family know" share-sheet
-  /// message once that's rebuilt per Section 01c.
-  static const String _growthLoopFooter = '──────────\n'
+  /// Public — reused verbatim by [FamilyShareService] for the "Let
+  /// friends and family know" share-sheet message (Section 01c), so the
+  /// same pitch appears everywhere this app ever reaches a non-user.
+  static const String growthLoopFooter = '──────────\n'
       '📲 Already have All Teed Up?\n'
       "Open it — this round's waiting for you.\n"
       '\n'

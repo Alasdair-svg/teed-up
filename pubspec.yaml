@@ -28,6 +28,10 @@ dependencies:
   # Package Manager + Xcode 15+, which isn't available in this environment.
   receive_sharing_intent: 1.8.1
 
+  # === OS Share-sheet integration (outbound — Growth Loop 01c's "let
+  # friends and family know" message + .ics attachment) ===
+  share_plus: ^10.1.4
+
   # === Local Database ===
   sqflite: ^2.3.3+2
   path: ^1.9.0

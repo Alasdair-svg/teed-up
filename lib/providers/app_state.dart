@@ -16,6 +16,7 @@ import '../models/player.dart';
 import '../models/player_diff.dart';
 import '../models/rsvp_change.dart';
 import '../services/calendar_service.dart';
+import '../services/family_share_service.dart';
 
 /// Central [ChangeNotifier] that holds the app's reactive state.
 ///
@@ -248,29 +249,30 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Informs friends & family about [roundId] (spec A10 — "Let friends and
-  /// family know").
+  /// Informs friends & family about [roundId] (Growth Loop 01c — "Let
+  /// friends and family know").
   ///
-  /// Adds every configured [familyMembers] entry as an informational
-  /// (Optional) calendar attendee on the round's event — creating the
-  /// event first if it doesn't exist yet — then marks the round notified.
-  /// No-ops if already notified.
+  /// A message, not a meeting: builds a short FYI (course, date, tee time,
+  /// whichever player this device is) and hands it to the native OS share
+  /// sheet with a standalone `.ics` attachment, via [FamilyShareService].
+  /// Never touches the device calendar or the shared round object — safe
+  /// for a Creator or a Recipient alike, and repeatable (sharing again, or
+  /// two players separately telling the same contact, isn't an error
+  /// case, so this doesn't gate on [GolfRound.familyNotified] the way the
+  /// old calendar-attendee version had to).
   Future<void> notifyFamily({required String roundId}) async {
     final round = getRound(roundId);
-    if (round == null || round.familyNotified) return;
+    if (round == null) return;
 
-    var toSave = round.copyWith(familyNotified: true);
-    if (_familyMembers.isNotEmpty && _selectedCalendarId != null) {
-      toSave = await _pushFamilyToCalendar(toSave, _familyMembers);
-    }
+    await FamilyShareService.share(round, selfPlayer: selfPlayerIn(round));
 
-    final index = _upcomingRounds.indexWhere((r) => r.id == toSave.id);
-    if (index >= 0) {
-      _upcomingRounds[index] = toSave;
-    } else {
-      _upcomingRounds.add(toSave);
+    if (!round.familyNotified) {
+      final index = _upcomingRounds.indexWhere((r) => r.id == round.id);
+      if (index >= 0) {
+        _upcomingRounds[index] = round.copyWith(familyNotified: true);
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
   /// Sends (creates or refreshes) the calendar invite for a round's

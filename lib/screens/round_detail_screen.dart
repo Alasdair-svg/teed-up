@@ -98,16 +98,19 @@ class RoundDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    if (round.isCreator) ...[
-                      // ── Let friends and family know (A10) ──────────
-                      _FamilyNotifyButton(
-                        round: round,
-                        onNotify: () async {
-                          await state.notifyFamily(roundId: round.id);
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                    // ── Let friends and family know (Growth Loop 01c) ──
+                    // Allowed for both Creator and Recipient — it's a
+                    // share-sheet message, not a calendar write, so there's
+                    // nothing here that belongs to only one role.
+                    _FamilyNotifyButton(
+                      round: round,
+                      onNotify: () async {
+                        await state.notifyFamily(roundId: round.id);
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
+                    if (round.isCreator) ...[
                       // ── Send Invite (organizer action) ─────────────
                       SizedBox(
                         width: double.infinity,
@@ -462,11 +465,14 @@ class _PlayerTile extends StatelessWidget {
   }
 }
 
-/// "Let friends and family know" action (spec A10).
+/// "Let friends and family know" action (Growth Loop 01c).
 ///
-/// Shows an active gradient button until the round is marked
-/// [GolfRound.familyNotified], then becomes an inert "✓ Family notified"
-/// pill so it can't be triggered twice.
+/// A share-sheet message, not a calendar write — repeatable by design
+/// (sharing again, or a different player separately telling the same
+/// contact, is normal, not a duplicate to guard against), so unlike the
+/// old calendar-attendee version this never disables itself. Once
+/// [GolfRound.familyNotified] has been set at least once, a small
+/// acknowledgement line appears below without touching the button itself.
 class _FamilyNotifyButton extends StatelessWidget {
   const _FamilyNotifyButton({required this.round, required this.onNotify});
 
@@ -475,7 +481,6 @@ class _FamilyNotifyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notified = round.familyNotified;
     return Column(
       children: [
         SizedBox(
@@ -483,34 +488,32 @@ class _FamilyNotifyButton extends StatelessWidget {
           height: 52,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: notified ? null : AppColors.primaryGradient,
-              color: notified ? AppColors.palePurple : null,
+              gradient: AppColors.primaryGradient,
               borderRadius: AppRadius.buttonBorder,
             ),
-            child: ElevatedButton(
-              onPressed: notified ? null : onNotify,
+            child: ElevatedButton.icon(
+              onPressed: onNotify,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.buttonBorder),
               ),
-              child: Text(
-                notified
-                    ? '✓ Family notified'
-                    : 'Let friends and family know',
+              icon: const Icon(Icons.ios_share_rounded,
+                  size: 18, color: AppColors.white),
+              label: const Text(
+                'Let friends and family know',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
-                  color: notified ? AppColors.primary : AppColors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
           ),
         ),
-        if (notified)
+        if (round.familyNotified)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
