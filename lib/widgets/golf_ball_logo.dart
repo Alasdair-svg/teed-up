@@ -179,9 +179,14 @@ class _GolfBallLogoState extends State<GolfBallLogo>
   @override
   void initState() {
     super.initState();
+    // Matches golf-globe-brand.js's actual pace (0.15deg/frame at ~60fps =
+    // 9deg/s = 40s/revolution), not an arbitrary guess. At the old 12s/
+    // revolution (30deg/s), any dropped frame skips 3x the angle it does
+    // here — the same frame-rate variance that was barely visible on the
+    // web reference read as a jarring flip-book jump at the faster pace.
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 12),
+      duration: const Duration(seconds: 40),
     );
     if (widget.animate) _controller.repeat();
   }
@@ -271,8 +276,22 @@ class _GolfGlobePainter extends CustomPainter {
   final bool showGlow;
   final double widgetSize;
 
-  // Pre-computed Fibonacci dimple distribution (392 points)
-  static final List<_LatLon> _dimples = _buildDimples(392);
+  // Pre-computed Fibonacci dimple distributions, tiered by render size —
+  // matching golf-globe-brand.js's DIMPLES_FULL/MED/SMALL exactly. Full
+  // detail only earns its cost at large sizes; halving the point count at
+  // the ~100-160px this widget is actually shown at in-app roughly halves
+  // the dominant per-frame cost (each dimple is a canvas.save/translate/
+  // restore plus 1-2 drawCircle calls) for no visible loss of detail at
+  // that size.
+  static final List<_LatLon> _dimplesFull = _buildDimples(392);
+  static final List<_LatLon> _dimplesMed = _buildDimples(180);
+  static final List<_LatLon> _dimplesSmall = _buildDimples(80);
+
+  List<_LatLon> get _dimples {
+    if (widgetSize <= 64) return _dimplesSmall;
+    if (widgetSize <= 150) return _dimplesMed;
+    return _dimplesFull;
+  }
 
   static List<_LatLon> _buildDimples(int count) {
     final pts = <_LatLon>[];
