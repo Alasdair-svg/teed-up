@@ -446,28 +446,111 @@ class _GolfGlobePainter extends CustomPainter {
 
     final r = ballRadius * 0.995;
     for (final ring in polys) {
-      final path = Path();
-      var started = false;
-      var drew = false;
-      for (final pt in ring) {
-        final p = _project(pt[0], pt[1], center, r);
-        if (p == null) {
-          started = false; // crossed the limb — break the subpath
-          continue;
-        }
-        if (!started) {
-          path.moveTo(p.dx, p.dy);
-          started = true;
-        } else {
-          path.lineTo(p.dx, p.dy);
-        }
-        drew = true;
-      }
-      if (!drew) continue;
-      path.close();
+      final path = _clipRingToPath(ring, center, r);
+      if (path == null) continue;
       canvas.drawPath(path, landPaint);
       if (widgetSize > 64) canvas.drawPath(path, shorePaint);
     }
+  }
+
+  /// Where segment a->b crosses the limb (z = 0), pushed back onto the
+  /// unit sphere so the point sits exactly on the visible edge.
+  (double, double) _limbCrossing(
+      (double, double, double) a, (double, double, double) b) {
+    final t = a.$3 / (a.$3 - b.$3);
+    var x = a.$1 + (b.$1 - a.$1) * t;
+    var y = a.$2 + (b.$2 - a.$2) * t;
+    final m = math.sqrt(x * x + y * y);
+    if (m > 1e-9) {
+      x /= m;
+      y /= m;
+    }
+    return (x, y);
+  }
+
+  /// Clips a lon/lat ring to the visible hemisphere, returning a closed
+  /// screen-space path — or null if nothing of it is front-facing.
+  ///
+  /// Naively skipping back-facing points (what this used to do) is wrong in
+  /// two ways that together made landmasses render flaky: it splits a ring
+  /// straddling the horizon into disconnected subpaths, so `close()` only
+  /// seals the last one and the fill comes out as ragged fragments; and it
+  /// jumps straight from the last visible vertex to the next, cutting a
+  /// chord and popping as vertices cross the threshold during rotation.
+  ///
+  /// This instead does Sutherland–Hodgman clipping against the z >= 0
+  /// half-space, interpolating the exact point each edge crosses the limb,
+  /// then walks along the limb arc between an exit and the following entry
+  /// so the filled shape hugs the horizon — the same result
+  /// d3.geoOrthographic's clipAngle(90) produces in the reference.
+  Path? _clipRingToPath(List<List<double>> ring, Offset center, double r) {
+    final n = ring.length;
+    if (n < 3) return null;
+
+    final v = List<(double, double, double)>.generate(
+        n, (i) => _rotatedPoint(ring[i][0], ring[i][1]));
+
+    var anyVisible = false;
+    for (final p in v) {
+      if (p.$3 >= 0) {
+        anyVisible = true;
+        break;
+      }
+    }
+    if (!anyVisible) return null;
+
+    Offset toScreen(double x, double y) =>
+        Offset(center.dx + x * r, center.dy - y * r);
+
+    final pts = <Offset>[];
+    final onLimb = <bool>[];
+    for (var i = 0; i < n; i++) {
+      final a = v[i];
+      final b = v[(i + 1) % n];
+      final aIn = a.$3 >= 0;
+      final bIn = b.$3 >= 0;
+      if (aIn) {
+        pts.add(toScreen(a.$1, a.$2));
+        onLimb.add(false);
+        if (!bIn) {
+          final c = _limbCrossing(a, b);
+          pts.add(toScreen(c.$1, c.$2));
+          onLimb.add(true);
+        }
+      } else if (bIn) {
+        final c = _limbCrossing(a, b);
+        pts.add(toScreen(c.$1, c.$2));
+        onLimb.add(true);
+      }
+    }
+    if (pts.length < 3) return null;
+
+    final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+    for (var i = 0; i < pts.length; i++) {
+      final j = (i + 1) % pts.length;
+      // Between an exit point and the next entry point, follow the limb
+      // instead of cutting a chord across the visible face.
+      if (onLimb[i] && onLimb[j]) {
+        final a0 = math.atan2(-(pts[i].dy - center.dy), pts[i].dx - center.dx);
+        final a1 = math.atan2(-(pts[j].dy - center.dy), pts[j].dx - center.dx);
+        var d = a1 - a0;
+        while (d > math.pi) {
+          d -= 2 * math.pi;
+        }
+        while (d < -math.pi) {
+          d += 2 * math.pi;
+        }
+        final steps = math.max(2, (d.abs() / 0.12).ceil());
+        for (var k = 1; k < steps; k++) {
+          final ang = a0 + d * k / steps;
+          path.lineTo(
+              center.dx + math.cos(ang) * r, center.dy - math.sin(ang) * r);
+        }
+      }
+      if (j != 0) path.lineTo(pts[j].dx, pts[j].dy);
+    }
+    path.close();
+    return path;
   }
 
   // ── Country borders (internal, deduplicated) ──────────────────────────────
@@ -488,19 +571,35 @@ class _GolfGlobePainter extends CustomPainter {
     final r = ballRadius * 0.995;
     final path = Path();
     for (final arc in arcsData) {
+      // Strokes (unlike fills) SHOULD break at the horizon rather than
+      // wrap around it — but the break must land exactly on the limb, not
+      // at the last vertex that happened to be front-facing, or the ends
+      // stop short and fray as the globe turns.
       var started = false;
+      (double, double, double)? prev;
       for (final pt in arc) {
-        final p = _project(pt[0], pt[1], center, r);
-        if (p == null) {
+        final cur = _rotatedPoint(pt[0], pt[1]);
+        final visible = cur.$3 >= 0;
+        if (visible) {
+          if (!started && prev != null) {
+            // Entering view — begin exactly at the limb crossing.
+            final c = _limbCrossing(prev, cur);
+            path.moveTo(center.dx + c.$1 * r, center.dy - c.$2 * r);
+            path.lineTo(center.dx + cur.$1 * r, center.dy - cur.$2 * r);
+            started = true;
+          } else if (!started) {
+            path.moveTo(center.dx + cur.$1 * r, center.dy - cur.$2 * r);
+            started = true;
+          } else {
+            path.lineTo(center.dx + cur.$1 * r, center.dy - cur.$2 * r);
+          }
+        } else if (started && prev != null) {
+          // Leaving view — end exactly at the limb crossing.
+          final c = _limbCrossing(prev, cur);
+          path.lineTo(center.dx + c.$1 * r, center.dy - c.$2 * r);
           started = false;
-          continue;
         }
-        if (!started) {
-          path.moveTo(p.dx, p.dy);
-          started = true;
-        } else {
-          path.lineTo(p.dx, p.dy);
-        }
+        prev = cur;
       }
     }
     canvas.drawPath(path, paint);
