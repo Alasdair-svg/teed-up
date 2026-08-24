@@ -1,7 +1,7 @@
 name: teed_up
 description: "Teed Up — Snap your golf booking. Your group is sorted."
 publish_to: 'none'
-version: 1.2.5+19
+version: 1.2.5+20
 
 environment:
   sdk: ^3.5.0
@@ -69,8 +69,8 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/images/golf_ball_frames/
     - assets/icons/
+    - assets/data/
 
   fonts:
     - family: Outfit
