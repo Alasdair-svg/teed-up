@@ -69,6 +69,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/golf_ball_frames/
     - assets/icons/
 
   fonts:
