@@ -52,19 +52,33 @@ import '../theme/app_theme.dart';
 
 /// Real coastline polygons as [[lon,lat], ...] rings, loaded once.
 List<List<List<double>>>? _landPolygons;
-Future<void>? _landLoad;
+
+/// Internal country borders (deduplicated arcs — the topojson "mesh"), so
+/// shared borders stroke once rather than twice. The reference draws these
+/// and they're a visible part of its texture.
+List<List<List<double>>>? _borderArcs;
+
+Future<void>? _geoLoad;
+
+List<List<List<double>>> _parseRings(String s) {
+  final raw = jsonDecode(s) as List<dynamic>;
+  return raw
+      .map<List<List<double>>>((ring) => (ring as List<dynamic>)
+          .map<List<double>>((p) => <double>[
+                (p as List<dynamic>)[0].toDouble(),
+                p[1].toDouble(),
+              ])
+          .toList(growable: false))
+      .toList(growable: false);
+}
 
 Future<void> _ensureLandLoaded() {
-  return _landLoad ??= rootBundle.loadString('assets/data/land.json').then((s) {
-    final raw = jsonDecode(s) as List<dynamic>;
-    _landPolygons = raw
-        .map<List<List<double>>>((ring) => (ring as List<dynamic>)
-            .map<List<double>>((p) => <double>[
-                  (p as List<dynamic>)[0].toDouble(),
-                  p[1].toDouble(),
-                ])
-            .toList(growable: false))
-        .toList(growable: false);
+  return _geoLoad ??= Future.wait([
+    rootBundle.loadString('assets/data/land.json'),
+    rootBundle.loadString('assets/data/borders.json'),
+  ]).then((r) {
+    _landPolygons = _parseRings(r[0]);
+    _borderArcs = _parseRings(r[1]);
   });
 }
 
@@ -316,10 +330,13 @@ class _GolfGlobePainter extends CustomPainter {
     canvas.clipPath(Path()
       ..addOval(Rect.fromCircle(center: center, radius: ballRadius)));
 
+    // Draw order matters and matches the reference exactly. The matte
+    // white wash goes UNDER the seams and dimples — painting it over them
+    // (as an earlier version did) washes the dimples out by 15% and is
+    // what made this read flat next to the reference.
     _drawGraticule(canvas, center, ballRadius, sc);
     _drawLandmasses(canvas, center, ballRadius, sc);
-    _drawSeams(canvas, center, ballRadius, sc);
-    _drawDimples(canvas, center, ballRadius, sc);
+    _drawBorders(canvas, center, ballRadius, sc);
 
     // Matte white ocean overlay — urethane golf-ball surface.
     canvas.drawCircle(
@@ -327,6 +344,9 @@ class _GolfGlobePainter extends CustomPainter {
       ballRadius,
       Paint()..color = const Color(0x26FFFFFF),
     );
+
+    _drawSeams(canvas, center, ballRadius, sc);
+    _drawDimples(canvas, center, ballRadius, sc);
 
     canvas.restore();
 
@@ -448,6 +468,42 @@ class _GolfGlobePainter extends CustomPainter {
       canvas.drawPath(path, landPaint);
       if (widgetSize > 64) canvas.drawPath(path, shorePaint);
     }
+  }
+
+  // ── Country borders (internal, deduplicated) ──────────────────────────────
+
+  void _drawBorders(
+      Canvas canvas, Offset center, double ballRadius, double sc) {
+    final arcsData = _borderArcs;
+    if (arcsData == null || widgetSize <= 100) return;
+
+    final b = _hairline(0.3 * sc, 0.30);
+    final paint = Paint()
+      ..color = AppColors.deepPurple.withValues(alpha: b.alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = b.width
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+
+    final r = ballRadius * 0.995;
+    final path = Path();
+    for (final arc in arcsData) {
+      var started = false;
+      for (final pt in arc) {
+        final p = _project(pt[0], pt[1], center, r);
+        if (p == null) {
+          started = false;
+          continue;
+        }
+        if (!started) {
+          path.moveTo(p.dx, p.dy);
+          started = true;
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+    }
+    canvas.drawPath(path, paint);
   }
 
   // ── Graticule ─────────────────────────────────────────────────────────────
