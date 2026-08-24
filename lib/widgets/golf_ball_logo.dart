@@ -314,7 +314,12 @@ class _GolfGlobePainter extends CustomPainter {
     final ballPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.25, -0.25),
-        radius: 1.0,
+        // Flutter's radius is a fraction of the box's SHORTEST SIDE. The
+        // paint box here is 2*ballRadius across, so 0.5 lands the final
+        // stop exactly on the ball's edge. 1.0 (what this was) ran the
+        // ramp to 2*ballRadius, so the rim never darkened and the ball
+        // rendered flat instead of round.
+        radius: 0.5,
         colors: const [
           Color(0xFFFFFFFF),
           Color(0xFFF8F8FA),
@@ -358,7 +363,9 @@ class _GolfGlobePainter extends CustomPainter {
         Paint()
           ..shader = RadialGradient(
             center: const Alignment(-0.35, -0.35),
-            radius: 0.55,
+            // Reference highlight reaches ballRadius*0.55; box is
+            // 2*ballRadius, so halve it.
+            radius: 0.275,
             colors: [
               Colors.white.withValues(alpha: 0.30),
               Colors.white.withValues(alpha: 0.06),
@@ -713,7 +720,10 @@ class _GolfGlobePainter extends CustomPainter {
           final a = 0.12 + depth * 0.18;
           return RadialGradient(
             center: const Alignment(0.15, 0.15),
-            radius: 1.0,
+            // Same shortest-side rule: 0.5 ends the ramp on the dimple's
+            // rim. At 1.0 the dark rim never arrived and dimples read as
+            // soft smudges rather than defined concave circles.
+            radius: 0.5,
             colors: [
               Colors.black.withValues(alpha: a * 0.08),
               Colors.black.withValues(alpha: a * 0.2),
