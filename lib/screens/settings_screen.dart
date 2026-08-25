@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_state.dart';
@@ -344,11 +345,27 @@ class _LicenseAboutSection extends StatelessWidget {
         // made it impossible for either side to tell which build a bug
         // report referred to.
         const _VersionRow(),
-        // Privacy Policy and Support rows are deliberately absent until
-        // there is a real destination for them. They previously pointed at
-        // teedup.golf/privacy and support@teedup.golf, neither of which
-        // exists — a dead support address is worse than none, because a
-        // user who writes to it believes they have asked for help.
+        // Both destinations below are live and verified. The earlier
+        // versions of these rows pointed at teedup.golf/privacy and
+        // support@teedup.golf, neither of which existed — a dead support
+        // address is worse than none, because a user who writes to it
+        // believes they have asked for help.
+        _AboutRow(
+          icon: Icons.shield_outlined,
+          title: 'Privacy Policy',
+          onTap: () => _launchUrl(_privacyUrl),
+        ),
+        _AboutRow(
+          icon: Icons.help_outline_rounded,
+          title: 'Help & Support',
+          onTap: () => _launchUrl(_supportUrl),
+        ),
+        _AboutRow(
+          icon: Icons.email_outlined,
+          title: 'Email us',
+          subtitle: _supportEmail,
+          onTap: () => _launchUrl('mailto:$_supportEmail'),
+        ),
       ],
     );
   }
@@ -378,12 +395,32 @@ class _LicenseAboutSection extends StatelessWidget {
   }
 }
 
+/// Live support and privacy destinations. Verified reachable — see the
+/// commit that introduced them. Keep these as the single source of truth;
+/// the same URLs are filed in the iOS App Store Connect metadata.
+const String _privacyUrl =
+    'https://alasdair-svg.github.io/teed-up/privacy.html';
+const String _supportUrl =
+    'https://alasdair-svg.github.io/teed-up/support.html';
+const String _supportEmail = 'allteedup.support@gmail.com';
+
+Future<void> _launchUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
 class _AboutRow extends StatelessWidget {
   const _AboutRow({
     required this.icon,
     required this.title,
     this.subtitle,
+    this.onTap,
   });
+
+  /// Tapping opens the destination. Rows without one are informational.
+  final VoidCallback? onTap;
 
   final IconData icon;
   final String title;
@@ -392,6 +429,7 @@ class _AboutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -423,6 +461,9 @@ class _AboutRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (onTap != null)
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.textMuted),
           ],
         ),
       ),
