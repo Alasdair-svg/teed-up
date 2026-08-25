@@ -80,10 +80,10 @@ class CalendarService {
   /// in any calendar app's event view, so a plain `https://` line is the
   /// only reliably-tappable form available at all.
   ///
-  /// TODO(store-listing): [_appStoreUrl] is a placeholder — swap in the
-  /// real numeric Apple ID from App Store Connect → App Information once
-  /// "All Teed Up" has a live listing.
-  static const String _appStoreUrl = 'https://apps.apple.com/app/id0000000000';
+  /// Apple ID 6780447827, confirmed against App Store Connect. This was
+  /// previously a literal `id0000000000` placeholder, so every invite the
+  /// app has ever sent carried a link to a dead App Store page.
+  static const String _appStoreUrl = 'https://apps.apple.com/app/id6780447827';
   static const String _playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.teedup.golf';
 
@@ -386,7 +386,7 @@ class CalendarService {
   ///
   /// [findExistingEvent] deliberately requires the ⛳ prefix because it's for
   /// re-finding *this app's own* events. That makes it useless for duplicate
-  /// detection: a round already in the calendar from another source — the TAG
+  /// detection: a round already in the calendar from another source — a
   /// CoPilot bot, a club's own invite, a manually-added entry — has no ⛳ and
   /// was therefore invisible, so the app would happily create a second event
   /// for a tee time already in the calendar. This matches on time overlap
@@ -819,7 +819,7 @@ class CalendarService {
         '| All Teed Up';
   }
 
-  /// Builds the event description with booking details (spec A13 — TAG Nexus format).
+  /// Builds the event description with booking details (spec A13).
   ///
   /// Sections:
   /// - 🏌️ Players list with email addresses

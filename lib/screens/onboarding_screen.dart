@@ -207,8 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         FamilyMember(name: name, email: email),
                       ),
                     ),
-                    onRemove: (i) =>
-                        setState(() => _familyEntries.removeAt(i)),
+                    onRemove: (i) => setState(() => _familyEntries.removeAt(i)),
                   ),
                   _DonePage(isTablet: isTablet),
                 ],
@@ -257,7 +256,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // ── CTA button ───────────────────────────────────────────
             Padding(
               padding: EdgeInsets.fromLTRB(
-                24, 0, 24,
+                24,
+                0,
+                24,
                 MediaQuery.paddingOf(context).bottom + 24,
               ),
               child: SizedBox(
@@ -284,6 +285,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           label: 'Grant Permissions',
           onPressed: _handlePermissionsNext,
           loading: _requestingPermissions,
+          loadingLabel: 'Setting up…',
         );
       case 2: // Calendar accounts
         return _PrimaryGradientButton(
@@ -374,7 +376,10 @@ class _PermissionsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
-        isTablet ? 64 : 24, 32, isTablet ? 64 : 24, 16,
+        isTablet ? 64 : 24,
+        32,
+        isTablet ? 64 : 24,
+        16,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,7 +505,10 @@ class _CalendarAccountsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
-        isTablet ? 64 : 24, 32, isTablet ? 64 : 24, 16,
+        isTablet ? 64 : 24,
+        32,
+        isTablet ? 64 : 24,
+        16,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -551,7 +559,10 @@ class _FamilySetupPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
-        isTablet ? 64 : 24, 32, isTablet ? 64 : 24, 16,
+        isTablet ? 64 : 24,
+        32,
+        isTablet ? 64 : 24,
+        16,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,7 +581,8 @@ class _FamilySetupPage extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 24),
-          FamilySetupSection(entries: entries, onAdd: onAdd, onRemove: onRemove),
+          FamilySetupSection(
+              entries: entries, onAdd: onAdd, onRemove: onRemove),
         ],
       ),
     );
@@ -642,17 +654,23 @@ class _DonePage extends StatelessWidget {
 // Shared UI helpers
 // =============================================================================
 
-/// A button with the TAG brand gradient background.
+/// A button with the brand gradient background.
 class _PrimaryGradientButton extends StatelessWidget {
   const _PrimaryGradientButton({
     required this.label,
     required this.onPressed,
     this.loading = false,
+    this.loadingLabel = 'Working…',
   });
 
   final String label;
   final VoidCallback onPressed;
   final bool loading;
+
+  /// Shown beside the spinner while [loading]. A bare spinner with no words
+  /// reads as a stuck button over a long wait — the permission sweep can
+  /// take several seconds, and users reported the app looking frozen.
+  final String loadingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -677,13 +695,28 @@ class _PrimaryGradientButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
         ),
         child: loading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation(AppColors.white),
-                ),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      valueColor: AlwaysStoppedAnimation(AppColors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    loadingLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: AppColors.white,
+                    ),
+                  ),
+                ],
               )
             : Text(
                 label,
@@ -712,7 +745,10 @@ class _DeviceCompatibilitySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        24, 24, 24, MediaQuery.paddingOf(context).bottom + 24,
+        24,
+        24,
+        24,
+        MediaQuery.paddingOf(context).bottom + 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -754,19 +790,26 @@ class _DeviceCompatibilitySheet extends StatelessWidget {
           const SizedBox(height: 20),
           const Divider(height: 1),
           const SizedBox(height: 16),
-          _CapRow(label: 'Camera / Photo Library',
-              description: 'Required to photograph or import your booking confirmation.',
+          _CapRow(
+              label: 'Camera / Photo Library',
+              description:
+                  'Required to photograph or import your booking confirmation.',
               available: result.hasCameraOrGallery),
           const SizedBox(height: 12),
-          _CapRow(label: 'Calendar',
-              description: 'Required to create tee time events and send invitations.',
+          _CapRow(
+              label: 'Calendar',
+              description:
+                  'Required to create tee time events and send invitations.',
               available: result.hasCalendar),
           const SizedBox(height: 12),
-          _CapRow(label: 'Contacts',
-              description: 'Used to match player names to email addresses automatically.',
+          _CapRow(
+              label: 'Contacts',
+              description:
+                  'Used to match player names to email addresses automatically.',
               available: result.hasContacts),
           const SizedBox(height: 12),
-          _CapRow(label: 'Google Play Services',
+          _CapRow(
+              label: 'Google Play Services',
               description: 'Required to complete the one-time in-app purchase.',
               available: result.hasPlayServices),
           const SizedBox(height: 20),

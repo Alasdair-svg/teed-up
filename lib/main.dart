@@ -227,7 +227,7 @@ RsvpStatus _parseStatus(String? status) {
 /// Root widget for the Teed Up application.
 ///
 /// Provides [AppState] via [ChangeNotifierProvider] and applies the
-/// TAG-branded light theme throughout the widget tree. Also owns the
+/// Light theme throughout the widget tree. Also owns the
 /// app-lifecycle observer that drives [RsvpMonitor]'s foreground polling
 /// and calendar auto-import reconciliation (growth loop) — see
 /// [_TeedUpAppState.didChangeAppLifecycleState].

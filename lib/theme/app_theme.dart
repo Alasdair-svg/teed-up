@@ -1,6 +1,6 @@
-/// TAG-branded theme for the Teed Up golf booking app.
+/// Theme for the All Teed Up golf booking app.
 ///
-/// Implements The Artesian Group design tokens as a complete Flutter
+/// Implements the All Teed Up design tokens as a complete Flutter
 /// [ThemeData]. **Light theme only** — no dark mode.
 library;
 
@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 // Design Tokens
 // =============================================================================
 
-/// The Artesian Group brand colours.
+/// All Teed Up brand colours.
 abstract final class AppColors {
   /// Primary brand purple — #7B2D8E.
   static const Color primary = Color(0xFF7B2D8E);
@@ -93,7 +93,7 @@ abstract final class AppRadius {
   static final BorderRadius buttonBorder = BorderRadius.circular(button);
 }
 
-/// Standard box shadow matching the TAG spec.
+/// Standard box shadow matching the design spec.
 final List<BoxShadow> appCardShadow = [
   BoxShadow(
     color: AppColors.primary.withValues(alpha: 0.12),
@@ -127,7 +127,7 @@ abstract final class AppMotion {
 // Theme Builder
 // =============================================================================
 
-/// Builds the app-wide [ThemeData] using TAG brand tokens.
+/// Builds the app-wide [ThemeData] using the brand tokens.
 ///
 /// Usage in `MaterialApp`:
 /// ```dart

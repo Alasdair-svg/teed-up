@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_state.dart';
 import '../services/contacts_service.dart';
@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
                 child: _LicenseAboutSection(isPurchased: state.isPurchased),
               ),
               const SizedBox(height: 24),
-              const _TagFooter(),
+              const _AppFooter(),
             ],
           );
         },
@@ -312,7 +312,9 @@ class _LicenseAboutSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: isPurchased ? AppColors.success.withValues(alpha: 0.12) : AppColors.primaryPale,
+            color: isPurchased
+                ? AppColors.success.withValues(alpha: 0.12)
+                : AppColors.primaryPale,
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
@@ -336,22 +338,17 @@ class _LicenseAboutSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        _AboutRow(
-          icon: Icons.info_outline_rounded,
-          title: 'Version',
-          subtitle: '1.1.0',
-        ),
-        _AboutRow(
-          icon: Icons.shield_outlined,
-          title: 'Privacy Policy',
-          onTap: () => _launchUrl('https://teedup.golf/privacy'),
-        ),
-        _AboutRow(
-          icon: Icons.email_outlined,
-          title: 'Support',
-          subtitle: 'support@teedup.golf',
-          onTap: () => _launchUrl('mailto:support@teedup.golf'),
-        ),
+        // Read from the actual bundle rather than a literal. This was
+        // hardcoded to '1.1.0' and stayed there across every release, so the
+        // About screen reported a version the user was not running — which
+        // made it impossible for either side to tell which build a bug
+        // report referred to.
+        const _VersionRow(),
+        // Privacy Policy and Support rows are deliberately absent until
+        // there is a real destination for them. They previously pointed at
+        // teedup.golf/privacy and support@teedup.golf, neither of which
+        // exists — a dead support address is worse than none, because a
+        // user who writes to it believes they have asked for help.
       ],
     );
   }
@@ -379,13 +376,6 @@ class _LicenseAboutSection extends StatelessWidget {
       );
     }
   }
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
 }
 
 class _AboutRow extends StatelessWidget {
@@ -393,18 +383,15 @@ class _AboutRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
-    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -436,9 +423,6 @@ class _AboutRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (onTap != null)
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppColors.textMuted),
           ],
         ),
       ),
@@ -446,9 +430,9 @@ class _AboutRow extends StatelessWidget {
   }
 }
 
-/// TAG branded footer at the bottom of the settings screen.
-class _TagFooter extends StatelessWidget {
-  const _TagFooter();
+/// Wordmark footer at the bottom of the settings screen.
+class _AppFooter extends StatelessWidget {
+  const _AppFooter();
 
   @override
   Widget build(BuildContext context) {
@@ -468,16 +452,6 @@ class _TagFooter extends StatelessWidget {
             color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          'by TAG',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w400,
-            fontSize: 13,
-            color: AppColors.textMuted,
-          ),
-        ),
         const SizedBox(height: 8),
         Text(
           '"It\'s In The Calendar"',
@@ -494,4 +468,32 @@ class _TagFooter extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Shows the running app version, read from the platform bundle.
+class _VersionRow extends StatefulWidget {
+  const _VersionRow();
+
+  @override
+  State<_VersionRow> createState() => _VersionRowState();
+}
+
+class _VersionRowState extends State<_VersionRow> {
+  String? _version;
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (!mounted) return;
+      setState(() => _version = '${info.version} (${info.buildNumber})');
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) => _AboutRow(
+        icon: Icons.info_outline_rounded,
+        title: 'Version',
+        subtitle: _version ?? '—',
+      );
 }

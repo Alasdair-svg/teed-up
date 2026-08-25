@@ -53,14 +53,24 @@ class ContactsService {
   /// first fetch stayed invisible until the app was force-quit — which
   /// looks exactly like "it can't find this one contact" while every other
   /// name resolves fine.
-  static const Duration _cacheTtl = Duration(minutes: 2);
+  static const Duration _cacheTtl = Duration(minutes: 15);
 
   Future<List<Contact>> _getDeviceContactsLight() async {
     final cached = _deviceContactsLightCache;
     final cachedAt = _deviceContactsCachedAt;
-    final fresh = cachedAt != null &&
-        DateTime.now().difference(cachedAt) < _cacheTtl;
-    if (cached != null && fresh) return cached;
+    final stale =
+        cachedAt == null || DateTime.now().difference(cachedAt) >= _cacheTtl;
+
+    // Stale-while-revalidate. A plain TTL made every search after the
+    // expiry pay a full address-book fetch on the UI path, which turned a
+    // previously instant contact search into a visible wait — a worse bug
+    // than the staleness it was added to fix. Now a cached list is ALWAYS
+    // returned immediately, and a stale one additionally kicks off a
+    // background refresh whose result lands in time for the next search.
+    if (cached != null) {
+      if (stale) _refreshInBackground();
+      return cached;
+    }
     // Coalesce concurrent callers onto the same in-flight fetch instead of
     // each kicking off a separate platform-channel call.
     final future = _prefetchInFlight ??= FlutterContacts.getContacts(
@@ -76,6 +86,22 @@ class ContactsService {
     } finally {
       _prefetchInFlight = null;
     }
+  }
+
+  /// Re-fetches the contact list without blocking the caller.
+  void _refreshInBackground() {
+    if (_prefetchInFlight != null) return; // already refreshing
+    final future = _prefetchInFlight = FlutterContacts.getContacts(
+      withProperties: false,
+      withPhoto: false,
+      withThumbnail: false,
+    );
+    future.then((contacts) {
+      _deviceContactsLightCache = contacts;
+      _deviceContactsCachedAt = DateTime.now();
+    }).catchError((_) {
+      // Keep serving the previous list; a later search retries.
+    }).whenComplete(() => _prefetchInFlight = null);
   }
 
   /// Warms the light contacts cache in the background. Call this as soon as
@@ -211,7 +237,8 @@ class ContactsService {
 
       final nameMatches = light
           .where((c) => c.displayName.toLowerCase().contains(q))
-          .where((c) => !excludeSet.contains(c.displayName.trim().toLowerCase()))
+          .where(
+              (c) => !excludeSet.contains(c.displayName.trim().toLowerCase()))
           .take(10) // over-fetch a little — some matches may lack an email
           .toList();
       if (nameMatches.isEmpty) return [];
@@ -372,8 +399,10 @@ class ContactsService {
 
         // If we have a refinement name, ensure ALL parts appear.
         if (refineName != null) {
-          final parts =
-              refineName.toLowerCase().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+          final parts = refineName
+              .toLowerCase()
+              .split(RegExp(r'\s+'))
+              .where((p) => p.isNotEmpty);
           return parts.every((p) => displayName.contains(p));
         }
 
@@ -397,9 +426,8 @@ class ContactsService {
             orElse: () => null,
           );
 
-      final toHydrate = exactStub != null
-          ? [exactStub]
-          : nameMatches.take(8).toList();
+      final toHydrate =
+          exactStub != null ? [exactStub] : nameMatches.take(8).toList();
       final hydrated = await _hydrateEmails(toHydrate);
       if (hydrated.isEmpty) return null;
 

@@ -409,7 +409,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _selectedFamilyIndices.map((i) => appState.familyMembers[i]).toList();
 
     // Duplicate check — only when creating something new. An event for this
-    // tee time may already be in the calendar from another source (the TAG
+    // tee time may already be in the calendar from another source (a
     // CoPilot bot, the club, a manual entry). Those carry no ⛳ prefix, so
     // the app used to be blind to them and would add a second entry for the
     // same round. Warn and let the user decide rather than silently

@@ -41,7 +41,8 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
       _autoLinkAttempted = true;
       return;
     }
-    final all = grouped.values.expand((c) => c).where((c) => c.id != null).toList();
+    final all =
+        grouped.values.expand((c) => c).where((c) => c.id != null).toList();
     if (all.isEmpty) return;
     _autoLinkAttempted = true;
 
@@ -99,69 +100,72 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
             final totalCalendars =
                 grouped.values.fold<int>(0, (n, c) => n + c.length);
             return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (unnamedOnly)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    totalCalendars == 1
-                        ? 'Your phone reported 1 calendar and didn’t say which '
-                            'account it belongs to, so it’s listed as “Other”. '
-                            'If you expect more, check that calendar sync is '
-                            'switched on for each account in your phone’s '
-                            'Settings — the app can only offer what the system '
-                            'hands it.'
-                        : 'Your phone reported $totalCalendars calendars but '
-                            'didn’t say which accounts they belong to, so '
-                            'they’re grouped under “Other”. They all still '
-                            'work — pick whichever you want tee times to land '
-                            'in.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                  ),
-                ),
-              for (final entry in grouped.entries) ...[
-                _CalendarAccountGroupLabel(accountKey: entry.key),
-                const SizedBox(height: 8),
-                for (final calendar in entry.value)
-                  if (calendar.id != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _CalendarAccountRow(
-                        name: calendar.name ?? 'Unnamed Calendar',
-                        // Surface what the OS actually reported. Without
-                        // this the list can show several indistinguishable
-                        // rows (or one confusingly labelled "Other") with
-                        // no way for the user — or a bug report — to tell
-                        // which underlying account each row really is.
-                        detail: [
-                          if (calendar.accountName?.trim().isNotEmpty == true)
-                            calendar.accountName!.trim(),
-                          if (calendar.accountType?.trim().isNotEmpty == true)
-                            calendar.accountType!.trim(),
-                          if (calendar.isReadOnly == true) 'read-only',
-                        ].join(' · '),
-                        isReadOnly: calendar.isReadOnly == true,
-                        isLinked: state.linkedCalendarIds.contains(calendar.id) ||
-                            state.primaryCalendarId == calendar.id,
-                        isPrimary: state.primaryCalendarId == calendar.id,
-                        onToggleLink: () {
-                          if (state.primaryCalendarId == calendar.id) {
-                            state.setPrimaryCalendarId(null);
-                          } else {
-                            state.toggleLinkedCalendar(calendar.id!);
-                          }
-                        },
-                        onSetPrimary: () {
-                          state.setPrimaryCalendarId(calendar.id);
-                        },
-                      ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (unnamedOnly)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      totalCalendars == 1
+                          ? 'Your phone reported 1 calendar and didn’t say which '
+                              'account it belongs to, so it’s listed as “Other”. '
+                              'If you expect more, check that calendar sync is '
+                              'switched on for each account in your phone’s '
+                              'Settings — the app can only offer what the system '
+                              'hands it.'
+                          : 'Your phone reported $totalCalendars calendars but '
+                              'didn’t say which accounts they belong to, so '
+                              'they’re grouped under “Other”. They all still '
+                              'work — pick whichever you want tee times to land '
+                              'in.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textMuted,
+                          ),
                     ),
-                const SizedBox(height: 8),
+                  ),
+                for (final entry in grouped.entries) ...[
+                  _CalendarAccountGroupLabel(accountKey: entry.key),
+                  const SizedBox(height: 8),
+                  for (final calendar in entry.value)
+                    if (calendar.id != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _CalendarAccountRow(
+                          name: calendar.name ?? 'Unnamed Calendar',
+                          // Surface what the OS actually reported. Without
+                          // this the list can show several indistinguishable
+                          // rows (or one confusingly labelled "Other") with
+                          // no way for the user — or a bug report — to tell
+                          // which underlying account each row really is.
+                          detail: [
+                            if (calendar.accountName?.trim().isNotEmpty == true)
+                              calendar.accountName!.trim(),
+                            if (calendar.accountType?.trim().isNotEmpty == true)
+                              calendar.accountType!.trim(),
+                            if (calendar.isReadOnly == true)
+                              'read-only — can\'t receive tee times',
+                          ].join(' · '),
+                          fallbackDetail: 'Calendar ${calendar.id}',
+                          isReadOnly: calendar.isReadOnly == true,
+                          isLinked:
+                              state.linkedCalendarIds.contains(calendar.id) ||
+                                  state.primaryCalendarId == calendar.id,
+                          isPrimary: state.primaryCalendarId == calendar.id,
+                          onToggleLink: () {
+                            if (state.primaryCalendarId == calendar.id) {
+                              state.setPrimaryCalendarId(null);
+                            } else {
+                              state.toggleLinkedCalendar(calendar.id!);
+                            }
+                          },
+                          onSetPrimary: () {
+                            state.setPrimaryCalendarId(calendar.id);
+                          },
+                        ),
+                      ),
+                  const SizedBox(height: 8),
+                ],
               ],
-            ],
             );
           },
         );
@@ -211,6 +215,7 @@ class _CalendarAccountRow extends StatelessWidget {
   const _CalendarAccountRow({
     required this.name,
     this.detail = '',
+    this.fallbackDetail = '',
     this.isReadOnly = false,
     required this.isLinked,
     required this.isPrimary,
@@ -223,6 +228,10 @@ class _CalendarAccountRow extends StatelessWidget {
   /// Raw account info as reported by the OS (account name, type, read-only).
   final String detail;
 
+  /// Shown when the OS reported no account info at all, so that a list of
+  /// otherwise identical rows still has something to distinguish them.
+  final String fallbackDetail;
+
   /// A read-only calendar cannot receive tee times — worth showing, since
   /// selecting one would fail at write time with no obvious reason.
   final bool isReadOnly;
@@ -234,96 +243,105 @@ class _CalendarAccountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.offWhite,
-        borderRadius: AppRadius.cardBorder,
-        border: Border.all(
-          color: isPrimary ? AppColors.primary : AppColors.grey,
-          width: isPrimary ? 1.5 : 1,
+    return InkWell(
+      // The row itself selects. The instruction on screen says to pick a
+      // calendar, but the only working target used to be the Switch on the
+      // right — tapping the name, or the "Other" group heading above it,
+      // did nothing and read as a frozen screen.
+      onTap: isReadOnly ? null : onSetPrimary,
+      borderRadius: AppRadius.cardBorder,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.offWhite,
+          borderRadius: AppRadius.cardBorder,
+          border: Border.all(
+            color: isPrimary ? AppColors.primary : AppColors.grey,
+            width: isPrimary ? 1.5 : 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (detail.isNotEmpty)
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    detail,
-                    style: TextStyle(
+                    name,
+                    style: const TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 11,
-                      color: isReadOnly ? AppColors.error : AppColors.textMuted,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: AppColors.textDark,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-              ],
+                  if (detail.isNotEmpty || fallbackDetail.isNotEmpty)
+                    Text(
+                      detail.isNotEmpty ? detail : fallbackDetail,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        color:
+                            isReadOnly ? AppColors.error : AppColors.textMuted,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
-          ),
-          if (isLinked && !isPrimary)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: onSetPrimary,
+            if (isLinked && !isPrimary)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: onSetPrimary,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPale,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Text(
+                      'Set as primary',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (isPrimary)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryPale,
+                    gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: const Text(
-                    'Set as primary',
+                    'Primary',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
                       fontSize: 11,
-                      color: AppColors.primary,
+                      color: AppColors.white,
                     ),
                   ),
                 ),
               ),
+            Switch(
+              value: isLinked,
+              onChanged: isReadOnly ? null : (_) => onToggleLink(),
             ),
-          if (isPrimary)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text(
-                  'Primary',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                    color: AppColors.white,
-                  ),
-                ),
-              ),
-            ),
-          Switch(
-            value: isLinked,
-            onChanged: (_) => onToggleLink(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
