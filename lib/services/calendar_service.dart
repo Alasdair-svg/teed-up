@@ -394,11 +394,25 @@ class CalendarService {
   ///
   /// [window] is the tolerance either side of the tee time; club confirmations
   /// and manual entries often differ by a few minutes for the same booking.
+  /// Finds events near [start] that may duplicate a round being added.
+  ///
+  /// Pass an EMPTY [calendarIds] to search every calendar on the device,
+  /// which is almost always what you want: "is this already in my calendar?"
+  /// is a question about the whole calendar, not just the calendars the app
+  /// happens to write to. Restricting the search to linked calendars meant
+  /// that a user who had selected none — which was easy, since the picker
+  /// row was not tappable — had duplicate detection silently disabled, and
+  /// an entry created by another tool in an unlinked calendar was invisible
+  /// to the check by construction.
   Future<List<Event>> findConflictingEvents({
     required DateTime start,
     required List<String> calendarIds,
     Duration window = const Duration(minutes: 90),
   }) async {
+    if (calendarIds.isEmpty) {
+      final all = await getAvailableCalendars();
+      calendarIds = all.map((c) => c.id).whereType<String>().toList();
+    }
     final conflicts = <Event>[];
     final seen = <String>{};
     try {
@@ -485,8 +499,7 @@ class CalendarService {
       final existingAttendeeMap = <String, Attendee>{};
       for (final attendee in existingEvent.attendees ?? <Attendee?>[]) {
         if (attendee?.emailAddress != null) {
-          existingAttendeeMap[attendee!.emailAddress!.toLowerCase()] =
-              attendee;
+          existingAttendeeMap[attendee!.emailAddress!.toLowerCase()] = attendee;
         }
       }
 
@@ -841,7 +854,8 @@ class CalendarService {
     buffer.writeln('🏌️ Players');
     for (var i = 0; i < round.players.length; i++) {
       final p = round.players[i];
-      final isTbc = p.rsvpStatus.name == 'tbc' || p.name.toLowerCase().contains('tbc');
+      final isTbc =
+          p.rsvpStatus.name == 'tbc' || p.name.toLowerCase().contains('tbc');
       if (isTbc) {
         buffer.writeln('  ${i + 1}. Player TBC');
       } else {
@@ -1051,8 +1065,7 @@ class CalendarService {
           return AttendeeStatus.unknown;
       }
     } else if (Platform.isAndroid) {
-      final androidStatus =
-          attendee.androidAttendeeDetails?.attendanceStatus;
+      final androidStatus = attendee.androidAttendeeDetails?.attendanceStatus;
       if (androidStatus == null) return AttendeeStatus.unknown;
 
       switch (androidStatus) {
@@ -1101,8 +1114,8 @@ class CalendarService {
       DateTime? date;
 
       // YYYY-MM-DD
-      final isoMatch = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})$')
-          .firstMatch(dateStr.trim());
+      final isoMatch =
+          RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})$').firstMatch(dateStr.trim());
       if (isoMatch != null) {
         date = DateTime(
           int.parse(isoMatch.group(1)!),
@@ -1113,9 +1126,8 @@ class CalendarService {
 
       // DD/MM/YYYY or DD-MM-YYYY
       if (date == null) {
-        final dmyMatch =
-            RegExp(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$')
-                .firstMatch(dateStr.trim());
+        final dmyMatch = RegExp(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$')
+            .firstMatch(dateStr.trim());
         if (dmyMatch != null) {
           final a = int.parse(dmyMatch.group(1)!);
           final b = int.parse(dmyMatch.group(2)!);

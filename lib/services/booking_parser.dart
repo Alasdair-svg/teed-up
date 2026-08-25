@@ -35,18 +35,30 @@ class BookingParser {
 
   /// Month name → number lookup (case-insensitive keys stored lowercase).
   static const Map<String, int> _monthMap = {
-    'january': 1, 'jan': 1,
-    'february': 2, 'feb': 2,
-    'march': 3, 'mar': 3,
-    'april': 4, 'apr': 4,
+    'january': 1,
+    'jan': 1,
+    'february': 2,
+    'feb': 2,
+    'march': 3,
+    'mar': 3,
+    'april': 4,
+    'apr': 4,
     'may': 5,
-    'june': 6, 'jun': 6,
-    'july': 7, 'jul': 7,
-    'august': 8, 'aug': 8,
-    'september': 9, 'sep': 9, 'sept': 9,
-    'october': 10, 'oct': 10,
-    'november': 11, 'nov': 11,
-    'december': 12, 'dec': 12,
+    'june': 6,
+    'jun': 6,
+    'july': 7,
+    'jul': 7,
+    'august': 8,
+    'aug': 8,
+    'september': 9,
+    'sep': 9,
+    'sept': 9,
+    'october': 10,
+    'oct': 10,
+    'november': 11,
+    'nov': 11,
+    'december': 12,
+    'dec': 12,
   };
 
   /// Day-of-week names stripped from input before parsing.
@@ -120,9 +132,9 @@ class BookingParser {
     if (meridiem == 'PM' && hour < 12) hour += 12;
     if (meridiem == 'AM' && hour == 12) hour = 0;
 
-    return DateTime(roundDate.year, roundDate.month, roundDate.day, hour, minute);
+    return DateTime(
+        roundDate.year, roundDate.month, roundDate.day, hour, minute);
   }
-
 
   // ---------------------------------------------------------------------------
   // Date extraction
@@ -489,7 +501,8 @@ class BookingParser {
     for (final line in text.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
-      if (RegExp(r'\d').hasMatch(trimmed)) continue; // dates/times/prices/counts
+      if (RegExp(r'\d').hasMatch(trimmed))
+        continue; // dates/times/prices/counts
       final words = trimmed.split(RegExp(r'\s+'));
       if (words.length < 2 || words.length > 6) continue;
       if (!words.every((w) => RegExp(r'^[A-Z]').hasMatch(w))) continue;
@@ -508,9 +521,21 @@ class BookingParser {
   /// Confirmation Details" all get caught the same way).
   static bool _looksLikeScreenChrome(String line) {
     const markers = {
-      'booking', 'confirmation', 'confirmed', 'receipt', 'summary',
-      'details', 'reservation', 'welcome', 'thank', 'share', 'back',
-      'home', 'total', 'checkout', 'itinerary',
+      'booking',
+      'confirmation',
+      'confirmed',
+      'receipt',
+      'summary',
+      'details',
+      'reservation',
+      'welcome',
+      'thank',
+      'share',
+      'back',
+      'home',
+      'total',
+      'checkout',
+      'itinerary',
     };
     final words = line.toLowerCase().split(RegExp(r'\s+'));
     return words.any(markers.contains);
@@ -552,7 +577,8 @@ class BookingParser {
 
     // --- 1) "Player N" — same line, or name on the next non-blank line ---
     final lines = text.split('\n');
-    final playerLine = RegExp(r'^\s*player\s*\d+\s*[:.]?\s*(.*)$', caseSensitive: false);
+    final playerLine =
+        RegExp(r'^\s*player\s*\d+\s*[:.]?\s*(.*)$', caseSensitive: false);
     for (var i = 0; i < lines.length; i++) {
       final m = playerLine.firstMatch(lines[i]);
       if (m == null) continue;

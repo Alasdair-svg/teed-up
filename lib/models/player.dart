@@ -2,7 +2,6 @@
 ///
 /// 4-state cycle (spec A10): [tbc] → [confirmed] → [pending] → [declined] → [tbc]
 enum RsvpStatus {
-
   /// Player has confirmed / accepted the invitation.
   confirmed,
 

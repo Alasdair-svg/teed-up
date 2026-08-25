@@ -332,8 +332,8 @@ class _GolfGlobePainter extends CustomPainter {
 
     // ── Clip to sphere for all overlays ─────────────────────────────────────
     canvas.save();
-    canvas.clipPath(Path()
-      ..addOval(Rect.fromCircle(center: center, radius: ballRadius)));
+    canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: center, radius: ballRadius)));
 
     // Draw order matters and matches the reference exactly. The matte
     // white wash goes UNDER the seams and dimples — painting it over them
@@ -388,7 +388,8 @@ class _GolfGlobePainter extends CustomPainter {
 
   // ── Tee ───────────────────────────────────────────────────────────────────
 
-  void _drawTee(Canvas canvas, Offset ballCenter, double ballRadius, double sc) {
+  void _drawTee(
+      Canvas canvas, Offset ballCenter, double ballRadius, double sc) {
     final teeTop = ballCenter.dy + ballRadius - 1;
     final teeWidth = math.max(4.0, 12 * sc);
     final teeStemW = math.max(2.0, 4 * sc);
@@ -406,9 +407,11 @@ class _GolfGlobePainter extends CustomPainter {
 
     final path = Path()
       ..moveTo(cx - teeWidth / 2, teeTop + 2 * sc)
-      ..quadraticBezierTo(cx - teeWidth / 2, teeTop, cx - teeWidth * 0.3, teeTop)
+      ..quadraticBezierTo(
+          cx - teeWidth / 2, teeTop, cx - teeWidth * 0.3, teeTop)
       ..quadraticBezierTo(cx, teeTop - 2 * sc, cx + teeWidth * 0.3, teeTop)
-      ..quadraticBezierTo(cx + teeWidth / 2, teeTop, cx + teeWidth / 2, teeTop + 2 * sc)
+      ..quadraticBezierTo(
+          cx + teeWidth / 2, teeTop, cx + teeWidth / 2, teeTop + 2 * sc)
       ..lineTo(cx + teeStemW / 2, teeTop + 2 * sc)
       ..lineTo(cx + teeStemW / 2, teeTop + 2 * sc + teeStemH)
       ..lineTo(cx - teeStemW / 2, teeTop + 2 * sc + teeStemH)
@@ -626,8 +629,8 @@ class _GolfGlobePainter extends CustomPainter {
     final r = ballRadius * 0.995;
     // Meridians every 15deg
     for (var lon = -180; lon < 180; lon += 15) {
-      _strokeArc(canvas, paint, center, r,
-          (t) => (lon.toDouble(), -80 + t * 160), 24);
+      _strokeArc(
+          canvas, paint, center, r, (t) => (lon.toDouble(), -80 + t * 160), 24);
     }
     // Parallels every 15deg
     for (var lat = -75; lat <= 75; lat += 15) {
@@ -679,7 +682,8 @@ class _GolfGlobePainter extends CustomPainter {
   /// version stutter; 12 steps is visually indistinguishable here.
   static const int _dimpleShaderBuckets = 12;
 
-  void _drawDimples(Canvas canvas, Offset center, double ballRadius, double sc) {
+  void _drawDimples(
+      Canvas canvas, Offset center, double ballRadius, double sc) {
     final dimpleR = widgetSize <= 64
         ? 1.4
         : widgetSize <= 150

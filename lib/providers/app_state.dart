@@ -55,8 +55,7 @@ class AppState extends ChangeNotifier {
 
   /// Replaces the entire rounds list (e.g. after initial DB load).
   void setRounds(List<GolfRound> rounds) {
-    _upcomingRounds = List.of(rounds)
-      ..sort((a, b) => a.date.compareTo(b.date));
+    _upcomingRounds = List.of(rounds)..sort((a, b) => a.date.compareTo(b.date));
     notifyListeners();
   }
 
@@ -180,8 +179,8 @@ class AppState extends ChangeNotifier {
       final sameDay = r.date.year == date.year &&
           r.date.month == date.month &&
           r.date.day == date.day;
-      final sameTime = r.teeTime.hour == teeTime.hour &&
-          r.teeTime.minute == teeTime.minute;
+      final sameTime =
+          r.teeTime.hour == teeTime.hour && r.teeTime.minute == teeTime.minute;
       if (sameCourse && sameDay && sameTime) return r;
     }
     return null;
@@ -470,7 +469,8 @@ class AppState extends ChangeNotifier {
   // Linked Calendars (spec: multi-calendar account linking)
   // ---------------------------------------------------------------------------
 
-  static const String _linkedCalendarIdsPrefsKey = 'teed_up_linked_calendar_ids';
+  static const String _linkedCalendarIdsPrefsKey =
+      'teed_up_linked_calendar_ids';
 
   List<String> _linkedCalendarIds = [];
 

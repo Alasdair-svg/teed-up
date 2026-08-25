@@ -36,9 +36,8 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
     super.initState();
     final state = context.read<AppState>();
     final players = state.scannedPlayers;
-    _emailControllers = players
-        .map((p) => TextEditingController(text: p.email ?? ''))
-        .toList();
+    _emailControllers =
+        players.map((p) => TextEditingController(text: p.email ?? '')).toList();
     // Default from the "always notify" setting.
     _notifyFamily = state.familyAlwaysNotify && state.hasFamilyContact;
   }
@@ -151,7 +150,8 @@ class _VerifyEmailsScreenState extends State<VerifyEmailsScreen> {
               // ── Warning Header ───────────────────────────────
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
                 decoration: const BoxDecoration(
                   color: AppColors.primaryPale,
                   border: Border(

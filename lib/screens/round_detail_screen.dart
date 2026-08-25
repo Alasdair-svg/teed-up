@@ -133,8 +133,8 @@ class RoundDetailScreen extends StatelessWidget {
                                 backgroundColor: error == null
                                     ? AppColors.success
                                     : AppColors.error,
-                                duration: Duration(
-                                    seconds: error == null ? 2 : 6),
+                                duration:
+                                    Duration(seconds: error == null ? 2 : 6),
                               ),
                             );
                           },
@@ -182,11 +182,16 @@ class RoundDetailScreen extends StatelessWidget {
   /// Cycles RSVP status (spec A10): tbc → confirmed → pending → declined → tbc.
   static RsvpStatus _nextRsvp(RsvpStatus current) {
     switch (current) {
-      case RsvpStatus.tbc:       return RsvpStatus.confirmed;
-      case RsvpStatus.confirmed: return RsvpStatus.pending;
-      case RsvpStatus.accepted:  return RsvpStatus.pending; // legacy
-      case RsvpStatus.pending:   return RsvpStatus.declined;
-      case RsvpStatus.declined:  return RsvpStatus.tbc;
+      case RsvpStatus.tbc:
+        return RsvpStatus.confirmed;
+      case RsvpStatus.confirmed:
+        return RsvpStatus.pending;
+      case RsvpStatus.accepted:
+        return RsvpStatus.pending; // legacy
+      case RsvpStatus.pending:
+        return RsvpStatus.declined;
+      case RsvpStatus.declined:
+        return RsvpStatus.tbc;
     }
   }
 }
@@ -365,11 +370,31 @@ class _PlayerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (statusIcon, statusColor, statusLabel) = switch (player.rsvpStatus) {
-      RsvpStatus.confirmed => (Icons.check_circle_rounded,    AppColors.success,   'Confirmed'),
-      RsvpStatus.accepted  => (Icons.check_circle_rounded,    AppColors.success,   'Confirmed'), // legacy
-      RsvpStatus.pending   => (Icons.schedule_rounded,        AppColors.warning,   'Pending'),
-      RsvpStatus.declined  => (Icons.cancel_rounded,          AppColors.error,     'Declined'),
-      RsvpStatus.tbc       => (Icons.help_outline_rounded,    AppColors.textMuted, 'TBC'),
+      RsvpStatus.confirmed => (
+          Icons.check_circle_rounded,
+          AppColors.success,
+          'Confirmed'
+        ),
+      RsvpStatus.accepted => (
+          Icons.check_circle_rounded,
+          AppColors.success,
+          'Confirmed'
+        ), // legacy
+      RsvpStatus.pending => (
+          Icons.schedule_rounded,
+          AppColors.warning,
+          'Pending'
+        ),
+      RsvpStatus.declined => (
+          Icons.cancel_rounded,
+          AppColors.error,
+          'Declined'
+        ),
+      RsvpStatus.tbc => (
+          Icons.help_outline_rounded,
+          AppColors.textMuted,
+          'TBC'
+        ),
     };
 
     final isTbc = player.rsvpStatus == RsvpStatus.tbc ||
@@ -396,9 +421,11 @@ class _PlayerTile extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  isTbc ? '?' : (player.name.isNotEmpty
-                      ? player.name[0].toUpperCase()
-                      : '?'),
+                  isTbc
+                      ? '?'
+                      : (player.name.isNotEmpty
+                          ? player.name[0].toUpperCase()
+                          : '?'),
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontWeight: FontWeight.w600,
@@ -445,8 +472,8 @@ class _PlayerTile extends StatelessWidget {
               child: GestureDetector(
                 onTap: onRsvpCycle,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(16),
@@ -514,9 +541,7 @@ class _FamilyNotifyButton extends StatelessWidget {
                     borderRadius: AppRadius.buttonBorder),
               ),
               child: Text(
-                notified
-                    ? '✓ Family notified'
-                    : 'Let friends and family know',
+                notified ? '✓ Family notified' : 'Let friends and family know',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontWeight: FontWeight.w600,
@@ -595,18 +620,9 @@ class _TimelineEntry extends StatelessWidget {
           Icons.check_circle_rounded,
           AppColors.success
         ),
-      RoundEventType.playerDeclined => (
-          Icons.cancel_rounded,
-          AppColors.error
-        ),
-      RoundEventType.amended => (
-          Icons.edit_rounded,
-          AppColors.warning
-        ),
-      RoundEventType.cancelled => (
-          Icons.block_rounded,
-          AppColors.error
-        ),
+      RoundEventType.playerDeclined => (Icons.cancel_rounded, AppColors.error),
+      RoundEventType.amended => (Icons.edit_rounded, AppColors.warning),
+      RoundEventType.cancelled => (Icons.block_rounded, AppColors.error),
     };
 
     final description = event.description ??

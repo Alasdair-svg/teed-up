@@ -280,7 +280,10 @@ class _FamilyPickerModalState extends State<_FamilyPickerModal> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: EdgeInsets.fromLTRB(
-          20, 12, 20, MediaQuery.paddingOf(context).bottom + 20,
+          20,
+          12,
+          20,
+          MediaQuery.paddingOf(context).bottom + 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -463,7 +466,8 @@ class _MatchRow extends StatelessWidget {
           ),
         ),
       ),
-      title: Text(suggestion.name, style: Theme.of(context).textTheme.bodyMedium),
+      title:
+          Text(suggestion.name, style: Theme.of(context).textTheme.bodyMedium),
       subtitle: Text(
         suggestion.email ?? '',
         style: Theme.of(context).textTheme.bodySmall,

@@ -111,7 +111,6 @@ class RsvpMonitor {
   /// Foreground polling timer — active only when app is in foreground.
   Timer? _foregroundTimer;
 
-
   /// SharedPreferences key for the selected (primary) calendar ID.
   static const String _calendarIdKey = 'teed_up_selected_calendar_id';
 
@@ -383,7 +382,8 @@ class RsvpMonitor {
 
       final calendarIds = _resolveCalendarIds(prefs);
       if (calendarIds.isEmpty) {
-        debugPrint('[RsvpMonitor] No calendar selected — skipping manual check');
+        debugPrint(
+            '[RsvpMonitor] No calendar selected — skipping manual check');
         return [];
       }
 
@@ -656,26 +656,29 @@ class RsvpMonitor {
 
       if (result.data == null) return [];
 
-      return result.data!.map((event) {
-        final attendees = <String, String>{};
-        final attendeeNames = <String, String>{};
+      return result.data!
+          .map((event) {
+            final attendees = <String, String>{};
+            final attendeeNames = <String, String>{};
 
-        for (final a in event.attendees ?? <Attendee?>[]) {
-          if (a == null) continue;
-          final email = a.emailAddress ?? '';
-          if (email.isEmpty) continue;
-          attendees[email] = _attendeeStatusToString(a);
-          attendeeNames[email] = a.name ?? email;
-        }
+            for (final a in event.attendees ?? <Attendee?>[]) {
+              if (a == null) continue;
+              final email = a.emailAddress ?? '';
+              if (email.isEmpty) continue;
+              attendees[email] = _attendeeStatusToString(a);
+              attendeeNames[email] = a.name ?? email;
+            }
 
-        return {
-          'eventId': event.eventId ?? '',
-          'title': event.title ?? '',
-          'date': event.start?.toIso8601String().split('T').first ?? '',
-          'attendees': attendees,
-          'attendeeNames': attendeeNames,
-        };
-      }).where((e) => (e['eventId'] as String).isNotEmpty).toList();
+            return {
+              'eventId': event.eventId ?? '',
+              'title': event.title ?? '',
+              'date': event.start?.toIso8601String().split('T').first ?? '',
+              'attendees': attendees,
+              'attendeeNames': attendeeNames,
+            };
+          })
+          .where((e) => (e['eventId'] as String).isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint('[RsvpMonitor] _fetchUpcomingEvents error: $e');
       return [];
@@ -797,7 +800,8 @@ class RsvpMonitor {
       final prefs = await SharedPreferences.getInstance();
       final alertsEnabled = prefs.getBool('teed_up_decline_alerts') ?? true;
       if (!alertsEnabled) {
-        debugPrint('[RsvpMonitor] Decline alerts disabled — skipping notification.');
+        debugPrint(
+            '[RsvpMonitor] Decline alerts disabled — skipping notification.');
         return;
       }
 

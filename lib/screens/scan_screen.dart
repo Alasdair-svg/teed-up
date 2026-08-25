@@ -423,7 +423,9 @@ class _ScanScreenState extends State<ScanScreen> {
           round.teeTime.hour,
           round.teeTime.minute,
         ),
-        calendarIds: appState.calendarsToMonitor,
+        // Empty = every calendar on the device. A duplicate created by
+        // another tool won't be in a calendar this app writes to.
+        calendarIds: const [],
       );
       if (conflicts.isNotEmpty) {
         if (!mounted) return;

@@ -192,7 +192,8 @@ class ScanService {
   Future<String> _processImage(InputImage inputImage) async {
     final RecognizedText recognised;
     try {
-      recognised = await _recognizer.processImage(inputImage).timeout(_ocrTimeout);
+      recognised =
+          await _recognizer.processImage(inputImage).timeout(_ocrTimeout);
     } on TimeoutException {
       throw const ScanException(
         "Couldn't auto-detect booking details — that took too long.",

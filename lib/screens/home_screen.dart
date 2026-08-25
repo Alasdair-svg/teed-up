@@ -188,7 +188,8 @@ class _NavItemWithBadge extends StatelessWidget {
               isLabelVisible: badge > 0,
               label: Text(
                 badge > 99 ? '99+' : badge.toString(),
-                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                style:
+                    const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
               ),
               backgroundColor: AppColors.error,
               child: Icon(icon, size: 22, color: color),
@@ -295,8 +296,7 @@ class _HomeTab extends StatelessWidget {
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: rounds.length,
-                      itemBuilder: (context, i) =>
-                          _RoundCard(round: rounds[i]),
+                      itemBuilder: (context, i) => _RoundCard(round: rounds[i]),
                     ),
             ),
 
@@ -531,11 +531,11 @@ class _PlayerAvatar extends StatelessWidget {
 
   Color get _bgColor {
     return switch (player.rsvpStatus) {
-      RsvpStatus.confirmed  => AppColors.primary,
-      RsvpStatus.accepted   => AppColors.primary,
-      RsvpStatus.declined   => AppColors.error,
-      RsvpStatus.pending    => AppColors.primary,
-      RsvpStatus.tbc        => AppColors.textMuted,
+      RsvpStatus.confirmed => AppColors.primary,
+      RsvpStatus.accepted => AppColors.primary,
+      RsvpStatus.declined => AppColors.error,
+      RsvpStatus.pending => AppColors.primary,
+      RsvpStatus.tbc => AppColors.textMuted,
     };
   }
 

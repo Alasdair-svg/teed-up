@@ -109,9 +109,7 @@ class DeviceCapabilityService {
     try {
       final plugin = DeviceCalendarPlugin();
       final result = await plugin.retrieveCalendars();
-      return result.isSuccess &&
-          result.data != null &&
-          result.data!.isNotEmpty;
+      return result.isSuccess && result.data != null && result.data!.isNotEmpty;
     } catch (_) {
       return false;
     }
