@@ -37,7 +37,11 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
   /// synced. Runs once; never overrides a choice the user already made.
   void _autoLinkIfNeeded(Map<String, List<Calendar>> grouped, AppState state) {
     if (_autoLinkAttempted) return;
-    if (state.primaryCalendarId != null || state.linkedCalendarIds.isNotEmpty) {
+    // Only a set PRIMARY means there is somewhere to write. Bailing out
+    // because linked calendars exist left anyone with links but no primary
+    // permanently stuck: auto-selection never ran, and every write failed
+    // with "no calendar selected".
+    if (state.primaryCalendarId != null) {
       _autoLinkAttempted = true;
       return;
     }
@@ -126,7 +130,12 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                 for (final entry in grouped.entries) ...[
                   _CalendarAccountGroupLabel(accountKey: entry.key),
                   const SizedBox(height: 8),
-                  for (final calendar in entry.value)
+                  // Writable first. With 21 look-alike calendars, the ones
+                  // that can actually receive a tee time should not be buried
+                  // among holiday and birthday calendars.
+                  for (final calendar in ([...entry.value]..sort((a, b) =>
+                      ((a.isReadOnly == true) ? 1 : 0)
+                          .compareTo((b.isReadOnly == true) ? 1 : 0))))
                     if (calendar.id != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -248,7 +257,11 @@ class _CalendarAccountRow extends StatelessWidget {
       // calendar, but the only working target used to be the Switch on the
       // right — tapping the name, or the "Other" group heading above it,
       // did nothing and read as a frozen screen.
-      onTap: isReadOnly ? null : onSetPrimary,
+      // Always tappable. A read-only row that simply ignores taps is
+      // indistinguishable from a frozen screen — and on Android most Google
+      // sub-calendars (holidays, birthdays, subscribed) report read-only, so
+      // that could silently disable the entire list.
+      onTap: onSetPrimary,
       borderRadius: AppRadius.cardBorder,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

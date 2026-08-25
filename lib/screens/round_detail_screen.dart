@@ -6,6 +6,7 @@ import '../config/feature_flags.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/calendar_picker_sheet.dart';
 import 'scan_screen.dart';
 
 /// Detailed view of a single golf round.
@@ -121,6 +122,16 @@ class RoundDetailScreen extends StatelessWidget {
                         height: 52,
                         child: OutlinedButton.icon(
                           onPressed: () async {
+                            // If no calendar has been chosen yet, ask here
+                            // rather than failing with an error that sends the
+                            // user to Settings — which previously meant losing
+                            // the booking to get there.
+                            if (state.selectedCalendarId == null) {
+                              final picked =
+                                  await showCalendarPickerSheet(context);
+                              if (picked == null) return;
+                              state.setPrimaryCalendarId(picked);
+                            }
                             final error = await state.sendCalendarInvite(
                                 roundId: round.id);
                             if (!context.mounted) return;

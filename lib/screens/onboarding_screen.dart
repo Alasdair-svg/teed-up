@@ -698,12 +698,17 @@ class _PrimaryGradientButton extends StatelessWidget {
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // The app's own spinning ball, not a generic ring — the
+                  // user asked for this specifically so a slow permission
+                  // sweep reads as the app working rather than frozen.
                   const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      valueColor: AlwaysStoppedAnimation(AppColors.white),
+                    width: 24,
+                    height: 24,
+                    child: GolfBallLogo(
+                      size: 24,
+                      animate: true,
+                      showTee: false,
+                      showGlow: false,
                     ),
                   ),
                   const SizedBox(width: 10),
