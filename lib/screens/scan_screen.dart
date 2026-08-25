@@ -79,6 +79,11 @@ class _ScanScreenState extends State<ScanScreen> {
   // ── Review state ──────────────────────────────────────────────────────────
   GolfRound? _matchedRound;          // Existing round from A7 match detection
   List<Player> _reviewPlayers = [];  // Editable player list (A8)
+
+  /// name -> every candidate email from contacts, best-first. Populated
+  /// alongside resolution so the review row can offer a choice when a
+  /// contact has more than one address.
+  Map<String, List<String>> _emailOptions = {};
   Set<int> _selectedFamilyIndices = {}; // Family chips (A9)
   String _courseReview = '';
   DateTime? _dateReview;
@@ -229,8 +234,11 @@ class _ScanScreenState extends State<ScanScreen> {
       // ── Auto-resolve emails from contacts ───────────────────────────
       List<Player> players = parsed.players;
       try {
-        final resolved = await ContactsService.instance
-            .resolvePlayerEmails(players.map((p) => p.name).toList());
+        final names = players.map((p) => p.name).toList();
+        final resolved =
+            await ContactsService.instance.resolvePlayerEmails(names);
+        _emailOptions =
+            await ContactsService.instance.resolvePlayerEmailOptions(names);
         if (resolved.isNotEmpty) {
           players = players.map((p) {
             final email = resolved[p.name];
@@ -583,6 +591,16 @@ class _ScanScreenState extends State<ScanScreen> {
             final p = e.value;
             return _PlayerReviewRow(
               player: p,
+              emailOptions: _emailOptions[p.name] ?? const [],
+              onEmailChanged: (email) {
+                setState(() {
+                  _reviewPlayers[i] = _reviewPlayers[i].copyWith(email: email);
+                });
+                // Remember the correction so this name resolves to the
+                // chosen address next time rather than re-picking by label.
+                ContactsService.instance
+                    .saveManualCorrection(_reviewPlayers[i].name, email);
+              },
               onNameChanged: (name) {
                 setState(() {
                   _reviewPlayers[i] =
@@ -1284,10 +1302,18 @@ class _PlayerReviewRow extends StatefulWidget {
   const _PlayerReviewRow({
     required this.player,
     required this.onNameChanged,
+    this.emailOptions = const [],
+    this.onEmailChanged,
     this.isNew = false,
   });
   final Player player;
   final ValueChanged<String> onNameChanged;
+
+  /// Every address on the matched contact, best-first. When this holds more
+  /// than one the row lets the user pick, instead of silently using the
+  /// highest-priority label.
+  final List<String> emailOptions;
+  final ValueChanged<String>? onEmailChanged;
   final bool isNew;
 
   @override
@@ -1304,6 +1330,47 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
     _ctrl = TextEditingController(
       text: isTbcPlaceholder ? '' : widget.player.name,
     );
+  }
+
+  /// Lets the user pick which of a contact's addresses the invite goes to.
+  Future<void> _chooseEmail() async {
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+              child: Text('Which address for ${widget.player.name}?',
+                  style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text(
+                'This contact has more than one email. The invite goes to '
+                'whichever you choose.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ),
+            for (final e in widget.emailOptions)
+              ListTile(
+                leading: Icon(
+                  e == widget.player.email
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text(e),
+                onTap: () => Navigator.of(ctx).pop(e),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null) widget.onEmailChanged?.call(chosen);
   }
 
   @override
@@ -1384,10 +1451,41 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
                     ),
                   if (widget.player.email != null) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      widget.player.email!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (widget.emailOptions.length > 1)
+                      InkWell(
+                        onTap: _chooseEmail,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.player.email!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: AppColors.primary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.unfold_more_rounded,
+                                size: 14, color: AppColors.primary),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${widget.emailOptions.length}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
+                        widget.player.email!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                   ],
                 ],
               ),

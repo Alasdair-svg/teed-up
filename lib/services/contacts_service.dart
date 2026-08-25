@@ -137,6 +137,39 @@ class ContactsService {
     return results;
   }
 
+  /// Like [resolvePlayerEmails], but returns EVERY candidate address per
+  /// name rather than only the top-priority one.
+  ///
+  /// Needed because a contact with both a work and a personal address had
+  /// one silently chosen, so an invite could be sent to an address the
+  /// person doesn't read with no sign a choice had been made. The scan
+  /// review screen uses this to offer the alternatives.
+  ///
+  /// Names with no match are omitted. Order is best-first, matching
+  /// [orderedEmails].
+  Future<Map<String, List<String>>> resolvePlayerEmailOptions(
+    List<String> playerNames,
+  ) async {
+    final out = <String, List<String>>{};
+    for (final name in playerNames) {
+      final trimmed = name.trim();
+      if (trimmed.isEmpty) continue;
+      try {
+        final matches = await searchByName(trimmed);
+        if (matches.isEmpty) continue;
+        // Prefer an exact display-name match; otherwise the first hit.
+        final exact = matches.firstWhere(
+          (m) => m.name.trim().toLowerCase() == trimmed.toLowerCase(),
+          orElse: () => matches.first,
+        );
+        if (exact.allEmails.isNotEmpty) out[name] = exact.allEmails;
+      } catch (e) {
+        debugPrint('ContactsService: email options for "$name" failed: $e');
+      }
+    }
+    return out;
+  }
+
   /// Returns device-contact suggestions whose display name contains [query]
   /// (case-insensitive substring match), for the family-setup autocomplete
   /// (spec A4). Names in [exclude] (already-added family members) are
