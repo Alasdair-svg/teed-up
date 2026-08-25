@@ -42,11 +42,25 @@ class ContactsService {
   /// contacts. Emails are hydrated afterwards, only for the handful of
   /// contacts that actually match a query — see [_hydrateEmails].
   static List<Contact>? _deviceContactsLightCache;
+  static DateTime? _deviceContactsCachedAt;
   static Future<List<Contact>>? _prefetchInFlight;
+
+  /// How long the light contacts cache stays valid.
+  ///
+  /// It previously had no expiry at all and [invalidateContactsCache] was
+  /// never called from anywhere, so the list was fetched once per app
+  /// process and then frozen. Anyone added, edited, or synced after that
+  /// first fetch stayed invisible until the app was force-quit — which
+  /// looks exactly like "it can't find this one contact" while every other
+  /// name resolves fine.
+  static const Duration _cacheTtl = Duration(minutes: 2);
 
   Future<List<Contact>> _getDeviceContactsLight() async {
     final cached = _deviceContactsLightCache;
-    if (cached != null) return cached;
+    final cachedAt = _deviceContactsCachedAt;
+    final fresh = cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _cacheTtl;
+    if (cached != null && fresh) return cached;
     // Coalesce concurrent callers onto the same in-flight fetch instead of
     // each kicking off a separate platform-channel call.
     final future = _prefetchInFlight ??= FlutterContacts.getContacts(
@@ -57,6 +71,7 @@ class ContactsService {
     try {
       final contacts = await future;
       _deviceContactsLightCache = contacts;
+      _deviceContactsCachedAt = DateTime.now();
       return contacts;
     } finally {
       _prefetchInFlight = null;
@@ -76,7 +91,10 @@ class ContactsService {
   /// Clears the in-memory device-contacts cache, forcing the next query to
   /// re-fetch. Call after permission is newly granted, or if a caller needs
   /// to observe a contact added/edited since the cache was populated.
-  static void invalidateContactsCache() => _deviceContactsLightCache = null;
+  static void invalidateContactsCache() {
+    _deviceContactsLightCache = null;
+    _deviceContactsCachedAt = null;
+  }
 
   /// Hydrates full properties (email, etc.) for a short list of contact
   /// [stubs] in parallel — cheap because it's bounded to just the matches
@@ -367,19 +385,35 @@ class ContactsService {
       // Prefer an exact full-name match if present, otherwise hydrate just
       // the first handful of candidates (bounded — a common first/last name
       // query shouldn't hydrate hundreds of contacts).
-      final target = (refineName ?? query).toLowerCase();
+      // Collapse runs of whitespace before comparing — a contact saved as
+      // "Guy  Parsonage" (double space) or with stray padding would
+      // otherwise miss the exact-match path and fall back to fuzzier
+      // matching for no good reason.
+      String norm(String v) =>
+          v.toLowerCase().trim().replaceAll(RegExp(r'\s+'), ' ');
+      final target = norm(refineName ?? query);
       final exactStub = nameMatches.cast<Contact?>().firstWhere(
-            (c) => c!.displayName.toLowerCase() == target,
+            (c) => norm(c!.displayName) == target,
             orElse: () => null,
           );
 
       final toHydrate = exactStub != null
           ? [exactStub]
-          : nameMatches.take(5).toList();
+          : nameMatches.take(8).toList();
       final hydrated = await _hydrateEmails(toHydrate);
       if (hydrated.isEmpty) return null;
 
-      return _pickBestEmail(hydrated.first);
+      // Return the first candidate that ACTUALLY HAS an email. This used to
+      // be `_pickBestEmail(hydrated.first)`, which gave up if the single
+      // first candidate happened to have no address — even though a later
+      // one did. A contact whose name collides with an email-less entry
+      // (a phone-only contact, a company record) was therefore
+      // unresolvable, which is a silent and very confusing failure.
+      for (final c in hydrated) {
+        final email = _pickBestEmail(c);
+        if (email != null) return email;
+      }
+      return null;
     } catch (e, st) {
       debugPrint('ContactsService: contact query "$query" failed: $e\n$st');
       return null;

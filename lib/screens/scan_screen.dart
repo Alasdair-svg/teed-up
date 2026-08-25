@@ -34,6 +34,7 @@ import '../services/contacts_service.dart';
 import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_conflict_dialog.dart';
+import '../widgets/email_picker_sheet.dart';
 import '../widgets/golf_ball_logo.dart';
 import 'round_detail_screen.dart';
 
@@ -78,8 +79,8 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _abandonedProcessing = false;
 
   // ── Review state ──────────────────────────────────────────────────────────
-  GolfRound? _matchedRound;          // Existing round from A7 match detection
-  List<Player> _reviewPlayers = [];  // Editable player list (A8)
+  GolfRound? _matchedRound; // Existing round from A7 match detection
+  List<Player> _reviewPlayers = []; // Editable player list (A8)
 
   /// name -> every candidate email from contacts, best-first. Populated
   /// alongside resolution so the review row can offer a choice when a
@@ -205,7 +206,8 @@ class _ScanScreenState extends State<ScanScreen> {
         setState(() => _phase = _Phase.upload);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-            failureMessage ?? "Couldn't read the booking — try a clearer photo.",
+            failureMessage ??
+                "Couldn't read the booking — try a clearer photo.",
           ),
           backgroundColor: AppColors.error,
         ));
@@ -276,8 +278,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _dateReview = parsed.date;
         _timeReview = parsed.teeTime;
         _bookingRefReview = parsed.bookingRef;
-        _selectedFamilyIndices =
-            Set.from(List.generate(familyCount, (i) => i));
+        _selectedFamilyIndices = Set.from(List.generate(familyCount, (i) => i));
         _phase = _Phase.review;
       });
     } catch (e, st) {
@@ -341,7 +342,11 @@ class _ScanScreenState extends State<ScanScreen> {
     final time = _timeReview;
     if (date == null || time == null) return false;
     final combined = DateTime(
-      date.year, date.month, date.day, time.hour, time.minute,
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
     );
     return combined.isBefore(DateTime.now());
   }
@@ -386,8 +391,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
     // Build the new round
     final round = GolfRound(
-      id: _matchedRound?.id ??
-          'round_${now.millisecondsSinceEpoch}',
+      id: _matchedRound?.id ?? 'round_${now.millisecondsSinceEpoch}',
       courseName: _courseReview,
       date: _dateReview ?? now,
       teeTime: _timeReview ?? now,
@@ -401,9 +405,8 @@ class _ScanScreenState extends State<ScanScreen> {
     );
 
     // Selected family members for notify
-    final selectedFamily = _selectedFamilyIndices
-        .map((i) => appState.familyMembers[i])
-        .toList();
+    final selectedFamily =
+        _selectedFamilyIndices.map((i) => appState.familyMembers[i]).toList();
 
     // Duplicate check — only when creating something new. An event for this
     // tee time may already be in the calendar from another source (the TAG
@@ -496,16 +499,14 @@ class _ScanScreenState extends State<ScanScreen> {
     // Player diff for update banner (A7)
     final addedNames = isUpdate
         ? _reviewPlayers
-            .where((p) =>
-                !_matchedRound!.players.any((o) =>
-                    o.name.toLowerCase() == p.name.toLowerCase()))
+            .where((p) => !_matchedRound!.players
+                .any((o) => o.name.toLowerCase() == p.name.toLowerCase()))
             .toList()
         : <Player>[];
     final removedPlayers = isUpdate
         ? _matchedRound!.players
-            .where((o) =>
-                !_reviewPlayers.any((p) =>
-                    p.name.toLowerCase() == o.name.toLowerCase()))
+            .where((o) => !_reviewPlayers
+                .any((p) => p.name.toLowerCase() == o.name.toLowerCase()))
             .toList()
         : <Player>[];
 
@@ -561,12 +562,11 @@ class _ScanScreenState extends State<ScanScreen> {
               },
               onNameChanged: (name) {
                 setState(() {
-                  _reviewPlayers[i] =
-                      _reviewPlayers[i].copyWith(name: name);
+                  _reviewPlayers[i] = _reviewPlayers[i].copyWith(name: name);
                 });
               },
-              isNew: addedNames.any(
-                  (a) => a.name.toLowerCase() == p.name.toLowerCase()),
+              isNew: addedNames
+                  .any((a) => a.name.toLowerCase() == p.name.toLowerCase()),
             );
           }),
 
@@ -673,8 +673,7 @@ class _DashedZone extends StatelessWidget {
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.upload_file_outlined,
-              size: 44, color: AppColors.primary),
+          Icon(Icons.upload_file_outlined, size: 44, color: AppColors.primary),
           SizedBox(height: 14),
           Text(
             'Drop or upload your booking screenshot',
@@ -851,7 +850,9 @@ class _ManualEntryPhaseState extends State<_ManualEntryPhase> {
   }
 
   bool get _canContinue =>
-      _courseController.text.trim().isNotEmpty && _date != null && _time != null;
+      _courseController.text.trim().isNotEmpty &&
+      _date != null &&
+      _time != null;
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -872,8 +873,8 @@ class _ManualEntryPhaseState extends State<_ManualEntryPhase> {
     );
     if (picked != null) {
       final base = _date ?? DateTime.now();
-      setState(() => _time =
-          DateTime(base.year, base.month, base.day, picked.hour, picked.minute));
+      setState(() => _time = DateTime(
+          base.year, base.month, base.day, picked.hour, picked.minute));
     }
   }
 
@@ -984,10 +985,12 @@ class _ManualEntryPhaseState extends State<_ManualEntryPhase> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_players[i].name,
-                            style:
-                                Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    )),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                )),
                         if (_players[i].email != null)
                           Text(_players[i].email!,
                               style: Theme.of(context).textTheme.bodySmall),
@@ -1109,8 +1112,7 @@ class _UpdateBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.warningLight,
         borderRadius: AppRadius.cardBorder,
-        border: Border.all(
-            color: AppColors.warning.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,10 +1136,8 @@ class _UpdateBanner extends StatelessWidget {
           if (added.isNotEmpty || removed.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 6, runSpacing: 4, children: [
-              for (final p in added)
-                _DiffChip(name: p.name, isAdd: true),
-              for (final p in removed)
-                _DiffChip(name: p.name, isAdd: false),
+              for (final p in added) _DiffChip(name: p.name, isAdd: true),
+              for (final p in removed) _DiffChip(name: p.name, isAdd: false),
             ]),
           ],
           const SizedBox(height: 10),
@@ -1168,17 +1168,14 @@ class _DiffChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: isAdd
-            ? AppColors.successLight
-            : AppColors.errorLight,
+        color: isAdd ? AppColors.successLight : AppColors.errorLight,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(isAdd ? Icons.add_rounded : Icons.remove_rounded,
-              size: 13,
-              color: isAdd ? AppColors.success : AppColors.error),
+              size: 13, color: isAdd ? AppColors.success : AppColors.error),
           const SizedBox(width: 3),
           Text(
             name,
@@ -1241,9 +1238,7 @@ class _BookingSummaryCard extends StatelessWidget {
                   size: 14, color: AppColors.textMuted),
               const SizedBox(width: 6),
               Text(
-                teeTime != null
-                    ? DateFormat('HH:mm').format(teeTime!)
-                    : '—',
+                teeTime != null ? DateFormat('HH:mm').format(teeTime!) : '—',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -1284,7 +1279,8 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
   @override
   void initState() {
     super.initState();
-    final isTbcPlaceholder = widget.player.name.trim().isEmpty || widget.player.name.trim().toLowerCase() == 'tbc';
+    final isTbcPlaceholder = widget.player.name.trim().isEmpty ||
+        widget.player.name.trim().toLowerCase() == 'tbc';
     _ctrl = TextEditingController(
       text: isTbcPlaceholder ? '' : widget.player.name,
     );
@@ -1331,6 +1327,18 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
     if (chosen != null) widget.onEmailChanged?.call(chosen);
   }
 
+  /// Recovery path when automatic resolution found no address for this
+  /// player — search contacts under a different spelling, or type one.
+  Future<void> _addEmail() async {
+    final chosen = await showEmailPickerSheet(
+      context,
+      playerName: widget.player.name.trim().isEmpty
+          ? 'this player'
+          : widget.player.name.trim(),
+    );
+    if (chosen != null) widget.onEmailChanged?.call(chosen);
+  }
+
   @override
   void dispose() {
     _ctrl.dispose();
@@ -1348,9 +1356,7 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: widget.isNew
-              ? AppColors.successLight
-              : AppColors.offWhite,
+          color: widget.isNew ? AppColors.successLight : AppColors.offWhite,
           borderRadius: AppRadius.cardBorder,
           border: Border.all(
             color: widget.isNew
@@ -1363,13 +1369,14 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
             // Avatar
             CircleAvatar(
               radius: 18,
-              backgroundColor: isTbc
-                  ? AppColors.greyLight
-                  : AppColors.primaryPale,
+              backgroundColor:
+                  isTbc ? AppColors.greyLight : AppColors.primaryPale,
               child: Text(
-                isTbc ? '?' : (widget.player.name.isNotEmpty
-                    ? widget.player.name[0].toUpperCase()
-                    : '?'),
+                isTbc
+                    ? '?'
+                    : (widget.player.name.isNotEmpty
+                        ? widget.player.name[0].toUpperCase()
+                        : '?'),
                 style: TextStyle(
                   color: isTbc ? AppColors.textMuted : AppColors.primary,
                   fontWeight: FontWeight.w700,
@@ -1386,11 +1393,10 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
                     // TBC slot — shows placeholder, not editable
                     Text(
                       'Player TBC',
-                      style:
-                          Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textMuted,
-                                fontStyle: FontStyle.italic,
-                              ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textMuted,
+                            fontStyle: FontStyle.italic,
+                          ),
                     )
                   else
                     // Name-only inline edit
@@ -1407,6 +1413,33 @@ class _PlayerReviewRowState extends State<_PlayerReviewRow> {
                           ),
                       onChanged: widget.onNameChanged,
                     ),
+                  if (widget.player.email == null && !isTbc) ...[
+                    // A player with no address previously rendered nothing at
+                    // all here — the invite then went out without them and
+                    // nothing on screen ever said so. Make the gap visible,
+                    // and fixable.
+                    const SizedBox(height: 2),
+                    InkWell(
+                      onTap: _addEmail,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline_rounded,
+                              size: 13, color: AppColors.warning),
+                          SizedBox(width: 4),
+                          Text(
+                            'No email — tap to add',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (widget.player.email != null) ...[
                     const SizedBox(height: 2),
                     if (widget.emailOptions.length > 1)
@@ -1507,9 +1540,8 @@ class _FamilyNotifySection extends StatelessWidget {
               onSelected: (_) => onToggle(i),
               avatar: CircleAvatar(
                 radius: 12,
-                backgroundColor: isOn
-                    ? AppColors.primary
-                    : AppColors.primaryPale,
+                backgroundColor:
+                    isOn ? AppColors.primary : AppColors.primaryPale,
                 child: Text(
                   m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
                   style: TextStyle(
