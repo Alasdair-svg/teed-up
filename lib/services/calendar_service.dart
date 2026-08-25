@@ -1,10 +1,10 @@
-/// Calendar service for the Teed Up golf booking app.
+/// Calendar service for the All Teed Up golf booking app.
 ///
 /// Wraps the [device_calendar] package to create, find, update, and query
 /// golf round calendar events. Supports all calendar providers (iCloud,
 /// Google, Outlook, Exchange, CalDAV) through the unified native API.
 ///
-/// All events created by Teed Up use a ⛳ prefix in the title for
+/// All events created by All Teed Up use a ⛳ prefix in the title for
 /// reliable identification when scanning upcoming events.
 library;
 
@@ -67,7 +67,7 @@ class CalendarService {
   /// The underlying device calendar plugin instance.
   final DeviceCalendarPlugin _plugin;
 
-  /// Prefix used in event titles to identify Teed Up events.
+  /// Prefix used in event titles to identify All Teed Up events.
   static const String eventPrefix = '⛳';
 
   /// Default golf round duration in minutes (4.5 hours = 270 minutes).
@@ -302,7 +302,7 @@ class CalendarService {
   // Find existing event
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Searches for an existing Teed Up event matching the given parameters.
+  /// Searches for an existing All Teed Up event matching the given parameters.
   ///
   /// Looks in the specified calendar for events in the next 90 days whose
   /// title contains the ⛳ prefix and the [course] name, and whose start
@@ -343,7 +343,7 @@ class CalendarService {
       for (final event in events) {
         final title = event.title ?? '';
 
-        // Must be a Teed Up event.
+        // Must be a All Teed Up event.
         if (!title.contains(eventPrefix)) continue;
 
         // Must contain the course name.
@@ -606,7 +606,7 @@ class CalendarService {
   // Get upcoming rounds
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Fetches all Teed Up golf events from the next [days] days.
+  /// Fetches all All Teed Up golf events from the next [days] days.
   ///
   /// Scans the specified calendar for events with ⛳ in the title and
   /// parses each into a [GolfRound] with attendee RSVP status.
@@ -1026,7 +1026,7 @@ class CalendarService {
     }
   }
 
-  /// Extracts player names from a Teed Up event summary string.
+  /// Extracts player names from a All Teed Up event summary string.
   ///
   /// Given `⛳ Course | 07:30 | Alice, Bob, Charlie`, returns
   /// `['Alice', 'Bob', 'Charlie']`.

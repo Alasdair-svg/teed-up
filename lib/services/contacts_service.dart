@@ -1,4 +1,4 @@
-/// Contact resolution service for the Teed Up golf booking app.
+/// Contact resolution service for the All Teed Up golf booking app.
 ///
 /// Resolves player names to email addresses using a three-tier strategy:
 /// 1. **Local cache** — manual corrections always win.

@@ -1,7 +1,7 @@
-# Teed Up — App Store Registration Guide
+# All Teed Up — App Store Registration Guide
 
 > **Status:** URGENT — Complete today (6 June 2026)
-> **Goal:** Register on both stores so we can publish Teed Up within ~17 days.
+> **Goal:** Register on both stores so we can publish All Teed Up within ~17 days.
 
 ---
 
@@ -40,7 +40,7 @@ Once your account is verified:
 
 | Field | Value |
 |---|---|
-| App name | `Teed Up` |
+| App name | `All Teed Up` |
 | Default language | `English (US) – en-US` |
 | App or Game | `App` |
 | Free or Paid | `Paid` |
@@ -62,9 +62,9 @@ Smart golf scorecard with NFC ball tracking and AI-powered analytics.
 #### Full description (4,000 characters max)
 
 ```
-Teed Up is the smartest golf scorecard you'll ever use.
+All Teed Up is the smartest golf scorecard you'll ever use.
 
-Track every shot with NFC-enabled golf balls. Just tap your phone to the ball before each shot, and Teed Up automatically logs your position, club selection, and shot outcome using GPS precision. No manual data entry. No guesswork.
+Track every shot with NFC-enabled golf balls. Just tap your phone to the ball before each shot, and All Teed Up automatically logs your position, club selection, and shot outcome using GPS precision. No manual data entry. No guesswork.
 
 🏌️ INTELLIGENT SCORECARD
 • Full 18-hole digital scorecard with automatic scoring
@@ -74,7 +74,7 @@ Track every shot with NFC-enabled golf balls. Just tap your phone to the ball be
 • Offline-first: works perfectly without cell signal on the course
 
 📡 NFC BALL TRACKING
-• Tap your phone to your Teed Up NFC golf ball before each shot
+• Tap your phone to your All Teed Up NFC golf ball before each shot
 • Automatic shot detection and distance calculation
 • Club-by-club statistics build over time
 • See your average distances for every club in your bag
@@ -100,11 +100,11 @@ Track every shot with NFC-enabled golf balls. Just tap your phone to the ball be
 • Export scorecards as PDF for club handicap submissions
 
 💎 PREMIUM EXPERIENCE
-Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
+All Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
 
-Whether you're a weekend warrior looking to break 90 or a single-digit handicapper chasing scratch, Teed Up gives you tour-level analytics in your pocket.
+Whether you're a weekend warrior looking to break 90 or a single-digit handicapper chasing scratch, All Teed Up gives you tour-level analytics in your pocket.
 
-Download Teed Up today and start playing smarter golf.
+Download All Teed Up today and start playing smarter golf.
 ```
 (~1,780 characters — well within the 4,000 limit. Expand as needed.)
 
@@ -146,11 +146,11 @@ Upload screenshots at: **Main store listing → Phone screenshots**.
 3. Create an email list of testers:
    - Click **"Manage track" → "Testers" → "Create email list"**.
    - Add at least **20 email addresses** (ask friends, family, colleagues — they just need Gmail accounts).
-   - Name the list (e.g., "Teed Up Beta Testers").
+   - Name the list (e.g., "All Teed Up Beta Testers").
 4. Upload your **AAB (Android App Bundle)** file:
    - Go to **Releases → Create new release**.
    - Upload the `.aab` file.
-   - Add release notes (e.g., "Initial beta release of Teed Up").
+   - Add release notes (e.g., "Initial beta release of All Teed Up").
    - Click **"Review release" → "Start rollout"**.
 5. Share the **opt-in link** (provided by Google) with your testers via email/WhatsApp.
 6. Wait for **at least 12 testers to opt in and install**.
@@ -197,7 +197,7 @@ Once approved:
 | Field | Value |
 |---|---|
 | Platforms | `iOS` |
-| Name | `Teed Up` |
+| Name | `All Teed Up` |
 | Primary language | `English (U.S.)` |
 | Bundle ID | `com.teedup.golf` (must match Xcode project) |
 | SKU | `teedup-golf-001` |
@@ -246,9 +246,9 @@ Track every shot with NFC golf balls. AI analytics that actually help you improv
 #### Description
 
 ```
-Teed Up is the smartest golf scorecard you'll ever use.
+All Teed Up is the smartest golf scorecard you'll ever use.
 
-Track every shot with NFC-enabled golf balls. Just tap your phone to the ball before each shot, and Teed Up automatically logs your position, club selection, and shot outcome using GPS precision. No manual data entry. No guesswork.
+Track every shot with NFC-enabled golf balls. Just tap your phone to the ball before each shot, and All Teed Up automatically logs your position, club selection, and shot outcome using GPS precision. No manual data entry. No guesswork.
 
 INTELLIGENT SCORECARD
 • Full 18-hole digital scorecard with automatic scoring
@@ -258,7 +258,7 @@ INTELLIGENT SCORECARD
 • Offline-first: works perfectly without cell signal on the course
 
 NFC BALL TRACKING
-• Tap your phone to your Teed Up NFC golf ball before each shot
+• Tap your phone to your All Teed Up NFC golf ball before each shot
 • Automatic shot detection and distance calculation
 • Club-by-club statistics build over time
 • See your average distances for every club in your bag
@@ -284,7 +284,7 @@ SOCIAL & COMPETITIVE
 • Export scorecards as PDF for club handicap submissions
 
 PREMIUM EXPERIENCE
-Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
+All Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
 ```
 
 #### Keywords (100 chars, comma-separated)
@@ -297,7 +297,7 @@ golf,scorecard,NFC,ball tracking,GPS,analytics,handicap,score,putting,driving ra
 #### What's New (for version 1.0)
 
 ```
-Initial release of Teed Up — your smart golf scorecard with NFC ball tracking and AI analytics.
+Initial release of All Teed Up — your smart golf scorecard with NFC ball tracking and AI analytics.
 ```
 
 #### Screenshots Required
@@ -329,7 +329,7 @@ Initial release of Teed Up — your smart golf scorecard with NFC ball tracking 
 2. Fill in all required metadata (screenshots, description, etc.).
 3. Under **App Review Information**:
    - Contact: Your name, email, phone.
-   - Notes: `"NFC features require a Teed Up NFC golf ball. The app is fully functional as a standard scorecard without NFC."`
+   - Notes: `"NFC features require a All Teed Up NFC golf ball. The app is fully functional as a standard scorecard without NFC."`
    - Demo account: Not required (no login).
 4. Click **"Submit for Review"**.
 5. Review typically takes **24–48 hours** (occasionally up to 5 days for new developers).
@@ -343,7 +343,7 @@ Initial release of Teed Up — your smart golf scorecard with NFC ball tracking 
 **When:** After your app is live on the Play Store.
 
 1. Go to: **https://play.google.com/console**
-2. Select **Teed Up** → **Monetize → Promo codes**.
+2. Select **All Teed Up** → **Monetize → Promo codes**.
 3. Click **"Create promo code"**.
 4. Configure:
    - Product: the paid app itself
@@ -370,7 +370,7 @@ Initial release of Teed Up — your smart golf scorecard with NFC ball tracking 
 **When:** After your app is approved and live (or ready for sale).
 
 1. Go to: **https://appstoreconnect.apple.com**
-2. Select **Teed Up** → **App Store** tab.
+2. Select **All Teed Up** → **App Store** tab.
 3. In the sidebar, click **"Promo Codes"**.
 4. Select the version (e.g., 1.0).
 5. Enter number of codes: **10**.

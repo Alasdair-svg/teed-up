@@ -1,4 +1,4 @@
-/// RSVP monitoring service for the Teed Up golf booking app.
+/// RSVP monitoring service for the All Teed Up golf booking app.
 ///
 /// Periodically checks calendar event attendee statuses in the background
 /// (via [Workmanager]) and compares them against a local SQLite cache.

@@ -33,7 +33,7 @@ const String _kPurchasedKey = 'teed_up_purchased';
 const String _kCalendarIdKey = 'teed_up_selected_calendar_id';
 const String _kDeclineAlertsKey = 'teed_up_decline_alerts';
 
-/// Entry point for the Teed Up golf booking app.
+/// Entry point for the All Teed Up golf booking app.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -224,7 +224,7 @@ RsvpStatus _parseStatus(String? status) {
   }
 }
 
-/// Root widget for the Teed Up application.
+/// Root widget for the All Teed Up application.
 ///
 /// Provides [AppState] via [ChangeNotifierProvider] and applies the
 /// Light theme throughout the widget tree. Also owns the

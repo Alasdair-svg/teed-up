@@ -1,4 +1,4 @@
-/// Premium purchase / paywall screen for the Teed Up golf booking app.
+/// Premium purchase / paywall screen for the All Teed Up golf booking app.
 ///
 /// Displays the feature list, pricing (AED 99 one-time), and purchase
 /// / restore buttons. Shown before the user can

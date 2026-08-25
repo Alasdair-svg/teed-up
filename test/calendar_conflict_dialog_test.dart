@@ -10,7 +10,7 @@ import 'package:device_calendar/device_calendar.dart'
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:teed_up/widgets/calendar_conflict_dialog.dart';
+import 'package:all_teed_up/widgets/calendar_conflict_dialog.dart';
 
 Event _event(String title, DateTime start) {
   final e = Event('cal-1');

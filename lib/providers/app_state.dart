@@ -1,4 +1,4 @@
-/// Core application state for the Teed Up golf booking app.
+/// Core application state for the All Teed Up golf booking app.
 ///
 /// Manages the in-memory list of upcoming rounds, RSVP alerts,
 /// calendar selection, scan-in-progress state, and first-launch /

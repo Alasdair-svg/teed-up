@@ -1,4 +1,4 @@
-/// RSVP change model for the Teed Up golf booking app.
+/// RSVP change model for the All Teed Up golf booking app.
 ///
 /// Records a single player's RSVP status transition for a golf round,
 /// used to populate the alerts feed and trigger notifications.

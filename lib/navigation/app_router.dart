@@ -1,4 +1,4 @@
-/// Named route configuration for the Teed Up golf booking app.
+/// Named route configuration for the All Teed Up golf booking app.
 ///
 /// Centralises all route names and provides the [onGenerateRoute] callback
 /// for [MaterialApp]. Routes now point to the real screen widgets.

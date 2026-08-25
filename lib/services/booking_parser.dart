@@ -1,4 +1,4 @@
-/// Booking text parser for the Teed Up golf booking app.
+/// Booking text parser for the All Teed Up golf booking app.
 ///
 /// Extracts structured golf round data from raw OCR text using a
 /// priority-ordered set of regex patterns. Each extraction method tries

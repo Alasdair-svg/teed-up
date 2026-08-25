@@ -1,4 +1,4 @@
-/// OCR scan service for the Teed Up golf booking app.
+/// OCR scan service for the All Teed Up golf booking app.
 ///
 /// Uses Google ML Kit's on-device text recognition to extract text from
 /// booking confirmation screenshots, then delegates to [BookingParser]

@@ -1,4 +1,4 @@
-/// Device capability check service for Teed Up.
+/// Device capability check service for All Teed Up.
 ///
 /// Verifies that the device has all the hardware and software features
 /// the app depends on — calendar provider, contacts provider, and
@@ -67,7 +67,7 @@ class DeviceCapabilityResult {
   }
 }
 
-/// Service that checks whether the device meets Teed Up's requirements.
+/// Service that checks whether the device meets All Teed Up's requirements.
 ///
 /// ```dart
 /// final result = await DeviceCapabilityService.check();

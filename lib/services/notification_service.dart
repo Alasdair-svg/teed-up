@@ -1,4 +1,4 @@
-/// Notification service for the Teed Up golf booking app.
+/// Notification service for the All Teed Up golf booking app.
 ///
 /// Wraps [flutter_local_notifications] to deliver decline alerts when
 /// a calendar attendee changes their RSVP status. Handles platform-specific

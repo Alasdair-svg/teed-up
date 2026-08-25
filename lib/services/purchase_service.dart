@@ -1,4 +1,4 @@
-/// In-app purchase service for the Teed Up golf booking app.
+/// In-app purchase service for the All Teed Up golf booking app.
 ///
 /// Manages the one-time non-consumable purchase of the full app
 /// (product ID: `teed_up_full_access`, AED 99 / ~$27.99 USD).
@@ -42,7 +42,7 @@ const String _kPurchasedKey = 'teed_up_purchased';
 /// (e.g. ADB SharedPreferences manipulation on a rooted device).
 const String _kPurchaseTokenKey = 'teed_up_purchase_token';
 
-/// Manages the in-app purchase lifecycle for Teed Up.
+/// Manages the in-app purchase lifecycle for All Teed Up.
 ///
 /// Call [initialize] once at app startup, then use [buyApp] to initiate
 /// a purchase or [restorePurchases] to restore on a new device.

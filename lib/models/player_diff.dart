@@ -1,4 +1,4 @@
-/// Player diff model for the Teed Up golf booking app.
+/// Player diff model for the All Teed Up golf booking app.
 ///
 /// Computes and represents the difference between two player lists,
 /// used to show what changed between consecutive OCR scans or

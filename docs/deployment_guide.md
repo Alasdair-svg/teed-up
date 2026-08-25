@@ -1,8 +1,8 @@
-# Teed Up — Codemagic Deployment Guide
+# All Teed Up — Codemagic Deployment Guide
 
 > **Last updated:** 6 June 2026
 >
-> Build, sign, and ship Teed Up to the App Store and Google Play —
+> Build, sign, and ship All Teed Up to the App Store and Google Play —
 > entirely from Codemagic's cloud. No Xcode. No Android Studio.
 > Your Mac is a thin client; Codemagic does the heavy lifting.
 
@@ -67,14 +67,14 @@ You need three accounts before you begin. Everything else happens in the browser
 
 ### 2.1 Create an App ID (Bundle Identifier)
 
-The bundle ID for Teed Up is **`com.teedup.golf`** (already set in the Xcode project and `build.gradle`).
+The bundle ID for All Teed Up is **`com.teedup.golf`** (already set in the Xcode project and `build.gradle`).
 
 1. Go to https://developer.apple.com/account/resources/identifiers/list
 2. Click the **+** button (top left).
 3. Select **App IDs** → click **Continue**.
 4. Select **App** (not App Clip) → click **Continue**.
 5. Fill in:
-   - **Description:** `Teed Up`
+   - **Description:** `All Teed Up`
    - **Bundle ID:** Select **Explicit** and enter: `com.teedup.golf`
 6. Under **Capabilities**, check the boxes for any entitlements your app needs:
    - ✅ Push Notifications (for reminder notifications)
@@ -135,7 +135,7 @@ Everything is handled by Codemagic's integration with the App Store Connect API.
 1. Go to https://play.google.com/console
 2. Click **Create app** (top right).
 3. Fill in:
-   - **App name:** `Teed Up`
+   - **App name:** `All Teed Up`
    - **Default language:** English (United Kingdom) or your preferred locale
    - **App or game:** App
    - **Free or paid:** Free (or Paid if applicable)
@@ -151,7 +151,7 @@ This service account lets Codemagic upload builds to Google Play without your Go
 1. Go to https://console.cloud.google.com
 2. If you don't have a project linked to Play Console, create one:
    - Click the project dropdown (top left) → **New Project**
-   - Name: `Teed Up CI` → **Create**
+   - Name: `All Teed Up CI` → **Create**
 3. In the left sidebar, go to **IAM & Admin** → **Service Accounts**.
    - Direct link: https://console.cloud.google.com/iam-admin/serviceaccounts
 4. Click **+ Create Service Account**.
@@ -183,7 +183,7 @@ This service account lets Codemagic upload builds to Google Play without your Go
 2. If prompted, **link** your Google Cloud project.
 3. Under "Service accounts", find `codemagic-play-upload` → click **Manage Play Console permissions**.
 4. Under the **App permissions** tab:
-   - Click **Add app** → select **Teed Up** → **Apply**.
+   - Click **Add app** → select **All Teed Up** → **Apply**.
 5. Under the **Account permissions** tab, grant these permissions:
    - ✅ Release apps to testing tracks
    - ✅ Manage production and testing track releases
@@ -369,7 +369,7 @@ buildTypes {
 ### 4.5 Trigger Your First Build
 
 1. Go to your app in Codemagic → https://codemagic.io/apps
-2. Click on the **Teed Up** app.
+2. Click on the **All Teed Up** app.
 3. Click **Start new build** (top right).
 4. Select the **branch** (e.g., `main`).
 5. Select the **workflow**:
@@ -386,7 +386,7 @@ After a successful build:
 2. Scroll to **Artifacts**.
 3. You'll see:
    - **Android:** `app-release.apk` and `app-release.aab`
-   - **iOS:** `Teed Up.ipa`
+   - **iOS:** `All Teed Up.ipa`
 4. Click to download any artifact.
 5. If publishing is configured, artifacts are also auto-uploaded to the stores.
 
@@ -400,7 +400,7 @@ After a successful build:
 
 1. **Trigger the `ios-release` or `release-all` workflow** from Codemagic.
 2. Codemagic builds the IPA, signs it with your App Store Connect API key, and uploads to TestFlight.
-3. Go to https://appstoreconnect.apple.com → **My Apps** → **Teed Up** → **TestFlight**.
+3. Go to https://appstoreconnect.apple.com → **My Apps** → **All Teed Up** → **TestFlight**.
 4. The build will appear after Apple processes it (**5–15 minutes**).
 5. You may see a **compliance warning** — click "Manage" and answer:
    - "Does your app use encryption?" → **No** (unless you added custom encryption).
@@ -416,7 +416,7 @@ After a successful build:
 
 #### Submitting to the App Store
 
-1. In App Store Connect → **My Apps** → **Teed Up** → **App Store** tab.
+1. In App Store Connect → **My Apps** → **All Teed Up** → **App Store** tab.
 2. Complete the **App Information**:
    - App name, subtitle, category (Sports), privacy policy URL
 3. Complete the **Version Information** (1.0):
@@ -441,7 +441,7 @@ After a successful build:
 
 1. **Trigger the `android-release` or `release-all` workflow** from Codemagic.
 2. Codemagic builds the AAB and uploads to the **internal** track on Google Play.
-3. Go to https://play.google.com/console → **Teed Up** → **Release** → **Testing** → **Internal testing**.
+3. Go to https://play.google.com/console → **All Teed Up** → **Release** → **Testing** → **Internal testing**.
 4. Click **Edit release** if the build shows as a draft → **Review release** → **Start rollout**.
 5. Under **Testers**, create an email list and add your test accounts.
 6. Share the **opt-in link** with testers (Google Play generates this).
@@ -458,10 +458,10 @@ After a successful build:
 
 #### Submitting to Production
 
-1. In Google Play Console → **Teed Up** → **Release** → **Production**.
+1. In Google Play Console → **All Teed Up** → **Release** → **Production**.
 2. Click **Create new release**.
 3. Select the AAB from your testing track (or upload a new one).
-4. Add **Release notes** (e.g., "Initial release of Teed Up").
+4. Add **Release notes** (e.g., "Initial release of All Teed Up").
 5. Click **Review release** → **Start rollout to production**.
 6. Google reviews typically take **a few hours to 3 days** (longer for first submissions).
 

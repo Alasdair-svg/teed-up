@@ -1,9 +1,9 @@
-// Basic smoke test for the Teed Up app.
+// Basic smoke test for the All Teed Up app.
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:teed_up/main.dart';
-import 'package:teed_up/providers/app_state.dart';
+import 'package:all_teed_up/main.dart';
+import 'package:all_teed_up/providers/app_state.dart';
 
 void main() {
   testWidgets('App shows onboarding welcome screen on first launch',

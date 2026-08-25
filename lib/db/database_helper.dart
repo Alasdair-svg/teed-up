@@ -1,4 +1,4 @@
-/// SQLite database helper for the Teed Up golf booking app.
+/// SQLite database helper for the All Teed Up golf booking app.
 ///
 /// Manages a single database with three tables:
 /// - **contact_cache** — maps player names to resolved email addresses.

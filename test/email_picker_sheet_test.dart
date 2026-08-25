@@ -8,8 +8,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:teed_up/services/contacts_service.dart';
-import 'package:teed_up/widgets/email_picker_sheet.dart';
+import 'package:all_teed_up/services/contacts_service.dart';
+import 'package:all_teed_up/widgets/email_picker_sheet.dart';
 
 class _FakeContactsService extends ContactsService {
   _FakeContactsService(this.results);
