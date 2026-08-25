@@ -33,6 +33,7 @@ import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/calendar_conflict_dialog.dart';
 import '../widgets/golf_ball_logo.dart';
 import 'round_detail_screen.dart';
 
@@ -373,51 +374,8 @@ class _ScanScreenState extends State<ScanScreen> {
   /// Warns that the calendar already has something at this tee time.
   ///
   /// Returns true if the user wants to add the round anyway.
-  Future<bool?> _confirmDuplicate(List<Event> conflicts) {
-    final fmt = DateFormat('EEE d MMM, HH:mm');
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Already in your calendar?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              conflicts.length == 1
-                  ? 'Your calendar already has an event around this tee time:'
-                  : 'Your calendar already has ${conflicts.length} events '
-                      'around this tee time:',
-            ),
-            const SizedBox(height: 12),
-            for (final e in conflicts.take(3))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '• ${e.title?.trim().isNotEmpty == true ? e.title!.trim() : 'Untitled'}'
-                  '${e.start != null ? '\n   ${fmt.format(e.start!)}' : ''}',
-                  style: Theme.of(ctx).textTheme.bodySmall,
-                ),
-              ),
-            const SizedBox(height: 4),
-            const Text(
-              'Adding this round will create another entry.',
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Add anyway'),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<bool?> _confirmDuplicate(List<Event> conflicts) =>
+      showCalendarConflictDialog(context, conflicts);
 
   Future<void> _confirm() async {
     if (_isPastTeeTime && !await _confirmPastTeeTime()) return;
