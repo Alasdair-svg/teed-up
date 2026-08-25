@@ -171,6 +171,7 @@ class ContactsService {
           .map((c) => ContactSuggestion(
                 name: c.displayName,
                 email: _pickBestEmail(c),
+                allEmails: orderedEmails(c),
               ))
           .toList();
     } catch (e, st) {
@@ -357,11 +358,23 @@ class ContactsService {
   /// Prefers emails labelled as *work* or *home* over unlabelled ones.
   /// When the contact has only one email, that one wins regardless of label.
   String? _pickBestEmail(Contact contact) {
-    final emails = contact.emails;
-    if (emails.isEmpty) return null;
-    if (emails.length == 1) return emails.first.address;
+    final ordered = orderedEmails(contact);
+    return ordered.isEmpty ? null : ordered.first;
+  }
 
-    // Priority: work > home > other > unlabelled.
+  /// Every address on [contact], best-first (work > home > iCloud > other >
+  /// unlabelled), de-duplicated.
+  ///
+  /// [_pickBestEmail] returns only the first of these. That's a reasonable
+  /// default but a poor final answer: a contact with both a work and a
+  /// personal address gets one picked silently, so an invite can go to an
+  /// address the person never reads with no indication a choice was made.
+  /// Surfacing the full list lets the UI ask.
+  List<String> orderedEmails(Contact contact) {
+    final emails = contact.emails;
+    if (emails.isEmpty) return const [];
+
+    // Priority: work > home > iCloud > other > unlabelled.
     const labelPriority = {
       EmailLabel.work: 0,
       EmailLabel.home: 1,
@@ -376,18 +389,41 @@ class ContactsService {
         return pa.compareTo(pb);
       });
 
-    return sorted.first.address;
+    final out = <String>[];
+    for (final e in sorted) {
+      final addr = e.address.trim();
+      if (addr.isEmpty) continue;
+      if (out.any((x) => x.toLowerCase() == addr.toLowerCase())) continue;
+      out.add(addr);
+    }
+    return out;
   }
 }
 
 /// A device-contact match surfaced by [ContactsService.searchByName].
 class ContactSuggestion {
   /// Creates a [ContactSuggestion] with a [name] and optional [email].
-  const ContactSuggestion({required this.name, this.email});
+  const ContactSuggestion({
+    required this.name,
+    this.email,
+    this.allEmails = const [],
+  });
 
   /// Display name from the device contact.
   final String name;
 
   /// Best email address for this contact, if any.
   final String? email;
+
+  /// Every email on the contact, best-first.
+  ///
+  /// A contact with a work AND a personal address used to have one silently
+  /// chosen by label priority, with no way for the user to say which one the
+  /// invite should go to — so invites could be sent to an address the person
+  /// doesn't read. Callers should offer a choice whenever this has more than
+  /// one entry.
+  final List<String> allEmails;
+
+  /// Whether this contact has more than one address to choose between.
+  bool get hasMultipleEmails => allEmails.length > 1;
 }

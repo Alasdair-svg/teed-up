@@ -280,9 +280,22 @@ class AppState extends ChangeNotifier {
   /// Sends (creates or refreshes) the calendar invite for a round's
   /// players — the always-shown "Send invite" action. Does not touch
   /// family attendees.
-  Future<void> sendCalendarInvite({required String roundId}) async {
+  /// Sends (creates or refreshes) the calendar invite for a round's players.
+  ///
+  /// Returns `null` on success, or a human-readable reason on failure.
+  /// This USED to return void and swallow every failure path — no calendar
+  /// selected, permission denied, provider rejection — while the UI showed
+  /// "Calendar invite sent" unconditionally. That meant the app could
+  /// silently not send an invite and still tell the user it had, which is
+  /// the one failure this product cannot afford. Callers must surface the
+  /// returned reason rather than assuming success.
+  Future<String?> sendCalendarInvite({required String roundId}) async {
     final round = getRound(roundId);
-    if (round == null || _selectedCalendarId == null) return;
+    if (round == null) return 'Round not found.';
+    if (_selectedCalendarId == null) {
+      return 'No calendar selected. Choose where tee times should land in '
+          'Settings first.';
+    }
 
     final calendarService = CalendarService();
     if (round.calendarEventId != null) {
@@ -290,23 +303,27 @@ class AppState extends ChangeNotifier {
         oldPlayers: round.players,
         newPlayers: round.players,
       );
-      await calendarService.updateGolfEvent(
+      final ok = await calendarService.updateGolfEvent(
         round.calendarEventId!,
         round,
         diff,
         _selectedCalendarId!,
         reminderMinutes: enabledReminderMinutes,
       );
-    } else {
-      final eventId = await calendarService.createGolfEvent(
-        round,
-        _selectedCalendarId!,
-        reminderMinutes: enabledReminderMinutes,
-      );
-      if (eventId != null) {
-        await updateRound(round.copyWith(calendarEventId: eventId));
-      }
+      return ok ? null : "Couldn't update the calendar event.";
     }
+
+    final eventId = await calendarService.createGolfEvent(
+      round,
+      _selectedCalendarId!,
+      reminderMinutes: enabledReminderMinutes,
+    );
+    if (eventId == null) {
+      return "Couldn't create the calendar event. Check that the selected "
+          'calendar is writable and calendar permission is granted.';
+    }
+    await updateRound(round.copyWith(calendarEventId: eventId));
+    return null;
   }
 
   /// Creates or patches [round]'s calendar event so [members] are added as

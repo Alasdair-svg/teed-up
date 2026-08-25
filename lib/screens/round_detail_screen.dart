@@ -121,12 +121,20 @@ class RoundDetailScreen extends StatelessWidget {
                         height: 52,
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            await state.sendCalendarInvite(roundId: round.id);
+                            final error = await state.sendCalendarInvite(
+                                roundId: round.id);
                             if (!context.mounted) return;
+                            // Only claim success when the write actually
+                            // succeeded — this previously reported "sent"
+                            // unconditionally, including when nothing was.
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Calendar invite sent'),
-                                backgroundColor: AppColors.success,
+                              SnackBar(
+                                content: Text(error ?? 'Calendar invite sent'),
+                                backgroundColor: error == null
+                                    ? AppColors.success
+                                    : AppColors.error,
+                                duration: Duration(
+                                    seconds: error == null ? 2 : 6),
                               ),
                             );
                           },

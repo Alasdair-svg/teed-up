@@ -381,6 +381,52 @@ class CalendarService {
     return null;
   }
 
+  /// Finds ANY existing calendar event overlapping [start], regardless of who
+  /// created it, across every calendar in [calendarIds].
+  ///
+  /// [findExistingEvent] deliberately requires the ⛳ prefix because it's for
+  /// re-finding *this app's own* events. That makes it useless for duplicate
+  /// detection: a round already in the calendar from another source — the TAG
+  /// CoPilot bot, a club's own invite, a manually-added entry — has no ⛳ and
+  /// was therefore invisible, so the app would happily create a second event
+  /// for a tee time already in the calendar. This matches on time overlap
+  /// instead, which is the thing that actually makes two entries duplicates.
+  ///
+  /// [window] is the tolerance either side of the tee time; club confirmations
+  /// and manual entries often differ by a few minutes for the same booking.
+  Future<List<Event>> findConflictingEvents({
+    required DateTime start,
+    required List<String> calendarIds,
+    Duration window = const Duration(minutes: 90),
+  }) async {
+    final conflicts = <Event>[];
+    final seen = <String>{};
+    try {
+      if (!await _ensurePermissions()) return conflicts;
+      for (final calendarId in calendarIds) {
+        final events = await _retrieveEvents(
+          calendarId,
+          start.subtract(window),
+          start.add(window),
+        );
+        for (final e in events) {
+          final s = e.start;
+          if (s == null) continue;
+          if (e.allDay == true) continue; // all-day entries aren't tee times
+          if (s.difference(start).abs() > window) continue;
+          final id = e.eventId;
+          if (id != null && !seen.add(id)) continue;
+          conflicts.add(e);
+        }
+      }
+    } catch (e, st) {
+      debugPrint('[CalendarService] findConflictingEvents error: $e\n$st');
+    }
+    conflicts.sort((a, b) => (a.start?.difference(start).abs() ?? Duration.zero)
+        .compareTo(b.start?.difference(start).abs() ?? Duration.zero));
+    return conflicts;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Update event (CRITICAL — preserves RSVP statuses)
   // ─────────────────────────────────────────────────────────────────────────
@@ -397,7 +443,11 @@ class CalendarService {
   ///    (they receive cancellation notices from the calendar provider).
   /// 5. Updates the event title with the new player list.
   /// 6. Updates the description.
-  Future<void> updateGolfEvent(
+  /// Returns `true` only if the event was actually written. Callers must
+  /// surface a failure to the user rather than assuming success — an
+  /// earlier version returned void and swallowed every error, so the UI
+  /// reported "Calendar invite sent" even when nothing was sent.
+  Future<bool> updateGolfEvent(
     String eventId,
     GolfRound round,
     PlayerDiff diff,
@@ -406,7 +456,7 @@ class CalendarService {
     List<int>? reminderMinutes,
   }) async {
     try {
-      if (!await _ensurePermissions()) return;
+      if (!await _ensurePermissions()) return false;
 
       // 1. Fetch the existing event to get current attendees + statuses.
       final existingEvents = await _retrieveEvents(
@@ -427,7 +477,7 @@ class CalendarService {
         debugPrint(
           '[CalendarService] Could not find event "$eventId" to update',
         );
-        return;
+        return false;
       }
 
       // 2. Build a map of existing attendee email → Attendee for
@@ -526,14 +576,16 @@ class CalendarService {
           'removed: ${diff.removed.length}, '
           'unchanged: ${diff.unchanged.length}',
         );
-      } else {
-        debugPrint(
-          '[CalendarService] Failed to update event: '
-          '${result?.errors.map((e) => e.errorMessage).join(', ')}',
-        );
+        return true;
       }
+      debugPrint(
+        '[CalendarService] Failed to update event: '
+        '${result?.errors.map((e) => e.errorMessage).join(', ')}',
+      );
+      return false;
     } catch (e, st) {
       debugPrint('[CalendarService] updateGolfEvent error: $e\n$st');
+      return false;
     }
   }
 

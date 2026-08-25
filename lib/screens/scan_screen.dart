@@ -25,8 +25,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import 'package:device_calendar/device_calendar.dart' show Event;
+
 import '../models/models.dart';
 import '../providers/app_state.dart';
+import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
@@ -359,6 +362,55 @@ class _ScanScreenState extends State<ScanScreen> {
     return confirmed ?? false;
   }
 
+  /// Warns that the calendar already has something at this tee time.
+  ///
+  /// Returns true if the user wants to add the round anyway.
+  Future<bool?> _confirmDuplicate(List<Event> conflicts) {
+    final fmt = DateFormat('EEE d MMM, HH:mm');
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Already in your calendar?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              conflicts.length == 1
+                  ? 'Your calendar already has an event around this tee time:'
+                  : 'Your calendar already has ${conflicts.length} events '
+                      'around this tee time:',
+            ),
+            const SizedBox(height: 12),
+            for (final e in conflicts.take(3))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '• ${e.title?.trim().isNotEmpty == true ? e.title!.trim() : 'Untitled'}'
+                  '${e.start != null ? '\n   ${fmt.format(e.start!)}' : ''}',
+                  style: Theme.of(ctx).textTheme.bodySmall,
+                ),
+              ),
+            const SizedBox(height: 4),
+            const Text(
+              'Adding this round will create another entry.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Add anyway'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirm() async {
     if (_isPastTeeTime && !await _confirmPastTeeTime()) return;
     if (!mounted) return;
@@ -386,6 +438,32 @@ class _ScanScreenState extends State<ScanScreen> {
     final selectedFamily = _selectedFamilyIndices
         .map((i) => appState.familyMembers[i])
         .toList();
+
+    // Duplicate check — only when creating something new. An event for this
+    // tee time may already be in the calendar from another source (the TAG
+    // CoPilot bot, the club, a manual entry). Those carry no ⛳ prefix, so
+    // the app used to be blind to them and would add a second entry for the
+    // same round. Warn and let the user decide rather than silently
+    // duplicating or silently merging.
+    if (_matchedRound == null) {
+      final conflicts = await CalendarService().findConflictingEvents(
+        start: DateTime(
+          round.date.year,
+          round.date.month,
+          round.date.day,
+          round.teeTime.hour,
+          round.teeTime.minute,
+        ),
+        calendarIds: appState.calendarsToMonitor,
+      );
+      if (conflicts.isNotEmpty) {
+        if (!mounted) return;
+        final proceed = await _confirmDuplicate(conflicts);
+        if (proceed != true) return;
+      }
+    }
+
+    if (!mounted) return;
 
     if (_matchedRound != null) {
       await appState.updateRound(round, selectedFamily: selectedFamily);

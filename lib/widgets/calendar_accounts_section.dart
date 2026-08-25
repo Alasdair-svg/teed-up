@@ -87,24 +87,36 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
         return Consumer<AppState>(
           builder: (context, state, _) {
             _autoLinkIfNeeded(grouped, state);
-            // "Other" means the device didn't report an account name for
-            // any calendar found — usually a phone with only a local
-            // calendar and no Google/iCloud/Exchange account signed in at
-            // the OS level. There's nothing more to show until an account
-            // with calendar sync is added in the phone's own Settings app.
-            final onlyUnnamedAccount =
+            // "Other" only means the device didn't report an accountName
+            // for a calendar — NOT that no accounts exist. An earlier
+            // version asserted the latter ("no linked account… add one in
+            // Settings"), which is a diagnosis this code cannot actually
+            // make: users with several Google accounts signed in still hit
+            // this path, and were told to go add an account they already
+            // had. Say what was found and let the user judge.
+            final unnamedOnly =
                 grouped.length == 1 && grouped.containsKey('Other');
+            final totalCalendars =
+                grouped.values.fold<int>(0, (n, c) => n + c.length);
             return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (onlyUnnamedAccount)
+              if (unnamedOnly)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'Only one calendar found, with no linked account. To see '
-                    'more options here, add a Google, iCloud, or Exchange '
-                    'account with calendar sync on in your phone’s '
-                    'Settings app.',
+                    totalCalendars == 1
+                        ? 'Your phone reported 1 calendar and didn’t say which '
+                            'account it belongs to, so it’s listed as “Other”. '
+                            'If you expect more, check that calendar sync is '
+                            'switched on for each account in your phone’s '
+                            'Settings — the app can only offer what the system '
+                            'hands it.'
+                        : 'Your phone reported $totalCalendars calendars but '
+                            'didn’t say which accounts they belong to, so '
+                            'they’re grouped under “Other”. They all still '
+                            'work — pick whichever you want tee times to land '
+                            'in.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textMuted,
                         ),
@@ -119,6 +131,19 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _CalendarAccountRow(
                         name: calendar.name ?? 'Unnamed Calendar',
+                        // Surface what the OS actually reported. Without
+                        // this the list can show several indistinguishable
+                        // rows (or one confusingly labelled "Other") with
+                        // no way for the user — or a bug report — to tell
+                        // which underlying account each row really is.
+                        detail: [
+                          if (calendar.accountName?.trim().isNotEmpty == true)
+                            calendar.accountName!.trim(),
+                          if (calendar.accountType?.trim().isNotEmpty == true)
+                            calendar.accountType!.trim(),
+                          if (calendar.isReadOnly == true) 'read-only',
+                        ].join(' · '),
+                        isReadOnly: calendar.isReadOnly == true,
                         isLinked: state.linkedCalendarIds.contains(calendar.id) ||
                             state.primaryCalendarId == calendar.id,
                         isPrimary: state.primaryCalendarId == calendar.id,
@@ -185,6 +210,8 @@ class _CalendarAccountGroupLabel extends StatelessWidget {
 class _CalendarAccountRow extends StatelessWidget {
   const _CalendarAccountRow({
     required this.name,
+    this.detail = '',
+    this.isReadOnly = false,
     required this.isLinked,
     required this.isPrimary,
     required this.onToggleLink,
@@ -192,6 +219,14 @@ class _CalendarAccountRow extends StatelessWidget {
   });
 
   final String name;
+
+  /// Raw account info as reported by the OS (account name, type, read-only).
+  final String detail;
+
+  /// A read-only calendar cannot receive tee times — worth showing, since
+  /// selecting one would fail at write time with no obvious reason.
+  final bool isReadOnly;
+
   final bool isLinked;
   final bool isPrimary;
   final VoidCallback onToggleLink;
@@ -212,15 +247,31 @@ class _CalendarAccountRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                color: AppColors.textDark,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: AppColors.textDark,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (detail.isNotEmpty)
+                  Text(
+                    detail,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      color: isReadOnly ? AppColors.error : AppColors.textMuted,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           if (isLinked && !isPrimary)
