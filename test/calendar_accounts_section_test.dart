@@ -58,18 +58,19 @@ void main() {
     expect(find.text('Other'), findsNothing);
   });
 
-  testWidgets('says so plainly when no calendar can accept events',
+  testWidgets('still chooses a calendar when all report read-only',
       (tester) async {
     final state = await pump(tester, {
       'Other': [
-        _cal('r1', 'Holidays', readOnly: true),
-        _cal('r2', 'Birthdays', readOnly: true),
+        _cal('r1', 'Personal', readOnly: true),
+        _cal('r2', 'Work', readOnly: true),
       ],
     });
     await tester.pumpAndSettle();
-    expect(state.selectedCalendarId, isNull);
-    expect(
-        find.textContaining('none of them accept new events'), findsOneWidget);
-    expect(find.text('No calendar chosen yet'), findsOneWidget);
+    // A device reporting zero writable calendars is not credible. Refusing
+    // to choose left the user with no target AND an accusation about their
+    // phone. Choose anyway; a real write failure reports itself honestly.
+    expect(state.selectedCalendarId, 'r1');
+    expect(find.textContaining('accept new events'), findsNothing);
   });
 }

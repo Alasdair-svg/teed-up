@@ -1,5 +1,10 @@
 // The picker is the only route to choosing a calendar that doesn't require
 // abandoning a scanned booking, so its failure modes matter.
+//
+// It originally hid anything device_calendar flagged read-only. On the
+// user's real phone that flag came back true for EVERY calendar, so the
+// sheet was empty and the app told them their phone accepts no new events —
+// which was false, and not a conclusion this app is entitled to draw.
 
 import 'package:device_calendar/device_calendar.dart' show Calendar;
 import 'package:flutter/material.dart';
@@ -26,28 +31,31 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('lists only writable calendars', (tester) async {
+  testWidgets('lists every calendar, likely-writable first', (tester) async {
     await pump(tester, [
-      _cal('1', 'Work', account: 'me@work.com'),
       _cal('2', 'Holidays in UAE', readOnly: true),
+      _cal('1', 'Work', account: 'me@work.com'),
       _cal('3', 'Birthdays', readOnly: true),
     ]);
     expect(find.text('Work'), findsOneWidget);
-    expect(find.text('Holidays in UAE'), findsNothing);
-    expect(find.text('Birthdays'), findsNothing);
-    expect(find.textContaining('2 read-only calendars hidden'), findsOneWidget);
+    expect(find.text('Holidays in UAE'), findsOneWidget);
+    expect(find.text('Birthdays'), findsOneWidget);
   });
 
-  testWidgets('explains itself when every calendar is read-only',
+  testWidgets('an all-read-only device still gets a usable list',
       (tester) async {
     await pump(tester, [
-      _cal('1', 'Holidays', readOnly: true),
-      _cal('2', 'Birthdays', readOnly: true),
+      _cal('1', 'Personal', readOnly: true),
+      _cal('2', 'Work', readOnly: true),
     ]);
-    // Must not be a blank sheet: this is the state the user actually hit.
-    expect(
-        find.textContaining('none of them accept new events'), findsOneWidget);
+    expect(find.text('Personal'), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('never claims the phone accepts no events', (tester) async {
+    await pump(tester, [_cal('1', 'Personal', readOnly: true)]);
+    expect(find.textContaining('accept new events'), findsNothing);
   });
 
   testWidgets('many look-alike calendars render without overflow',
@@ -58,11 +66,9 @@ void main() {
       size: const Size(320, 568),
     );
     expect(tester.takeException(), isNull);
-    // No account info reported -> falls back to the id so otherwise
-    // identical rows can be told apart. Only checks the first row: the list
-    // is lazy, so off-screen items are never built.
+    // Falls back to the id so otherwise identical rows can be told apart.
+    // Only the first rows are checked: the list is lazy.
     expect(find.text('Calendar id0'), findsOneWidget);
-    expect(find.text('Calendar id1'), findsOneWidget);
   });
 
   testWidgets('choosing a calendar returns its id', (tester) async {

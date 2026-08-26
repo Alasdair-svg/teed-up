@@ -58,12 +58,21 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
     }
   }
 
-  /// Only calendars that can actually receive an event. Offering a read-only
-  /// calendar is offering a choice that fails later at write time, with no
-  /// obvious cause — worse than not offering it.
-  List<Calendar> get _writable => (_all ?? const [])
-      .where((c) => c.id != null && c.isReadOnly != true)
-      .toList();
+  /// Every calendar with an id, most-likely-writable first.
+  ///
+  /// This used to hide anything device_calendar flagged read-only. On a real
+  /// device that flag came back true for EVERY calendar, so the list was
+  /// empty and the user was told their phone accepts no new events — which
+  /// was false, and not a conclusion this app is entitled to draw. Show them
+  /// all; if a write genuinely fails, report the real error rather than
+  /// hiding the option in advance.
+  List<Calendar> get _selectable {
+    final all =
+        (_all ?? const <Calendar>[]).where((c) => c.id != null).toList();
+    all.sort((a, b) => ((a.isReadOnly == true) ? 1 : 0)
+        .compareTo((b.isReadOnly == true) ? 1 : 0));
+    return all;
+  }
 
   String _label(Calendar c) {
     final name = (c.name ?? '').trim();
@@ -84,8 +93,7 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final loading = _all == null;
-    final writable = _writable;
-    final readOnlyCount = (_all ?? const []).length - writable.length;
+    final selectable = _selectable;
 
     return SafeArea(
       child: Column(
@@ -127,17 +135,11 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
                 ),
               ),
             )
-          else if (writable.isEmpty)
+          else if (selectable.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               child: Text(
-                readOnlyCount > 0
-                    ? 'Your phone reported $readOnlyCount calendar'
-                        '${readOnlyCount == 1 ? '' : 's'}, but none of them '
-                        'accept new events. Check that a writable account '
-                        '(Google, iCloud, Outlook) has calendar sync switched '
-                        "on in your phone's settings."
-                    : 'No calendars found on this device.',
+                'No calendars found on this device.',
                 style: text.bodySmall?.copyWith(color: AppColors.textMuted),
               ),
             )
@@ -145,9 +147,9 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: writable.length,
+                itemCount: selectable.length,
                 itemBuilder: (context, i) {
-                  final c = writable[i];
+                  final c = selectable[i];
                   return ListTile(
                     leading: const Icon(Icons.calendar_today_outlined,
                         color: AppColors.primary),
@@ -156,16 +158,6 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
                     onTap: () => Navigator.of(context).pop(c.id),
                   );
                 },
-              ),
-            ),
-          if (!loading && readOnlyCount > 0 && writable.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Text(
-                '$readOnlyCount read-only calendar'
-                '${readOnlyCount == 1 ? '' : 's'} hidden — they can\'t accept '
-                'new events.',
-                style: text.labelSmall?.copyWith(color: AppColors.textMuted),
               ),
             ),
           const SizedBox(height: 12),

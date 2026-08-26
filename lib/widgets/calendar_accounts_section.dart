@@ -69,9 +69,11 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
       // failure surfaced much later as an unexplained calendar error.
       // Leaving it unset instead lets the UI say plainly that nothing on
       // this phone accepts new events.
+      // Prefer one the OS says is writable, but never refuse to choose:
+      // device_calendar reported read-only for every calendar on a real
+      // device, and bailing out left the user with no target at all.
       final writable = all.where((c) => c.isReadOnly != true).toList();
-      if (writable.isEmpty) return;
-      final primary = writable.first;
+      final primary = writable.isNotEmpty ? writable.first : all.first;
       state.setPrimaryCalendarId(primary.id);
       for (final c in all) {
         if (c.id != primary.id) state.toggleLinkedCalendar(c.id!);
@@ -141,8 +143,7 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
             _autoLinkIfNeeded(grouped, state);
 
             final all = grouped.values.expand((c) => c).toList();
-            final writable =
-                all.where((c) => c.id != null && c.isReadOnly != true).toList();
+            final selectable = all.where((c) => c.id != null).toList();
             final current = state.primaryCalendarId == null
                 ? null
                 : all.cast<Calendar?>().firstWhere(
@@ -217,7 +218,7 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                         ),
                       ),
                       TextButton(
-                        onPressed: writable.isEmpty
+                        onPressed: selectable.isEmpty
                             ? null
                             : () async {
                                 final picked =
@@ -231,14 +232,11 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                     ],
                   ),
                 ),
-                if (writable.isEmpty)
+                if (selectable.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
-                      'Your phone reported ${all.length} calendar'
-                      '${all.length == 1 ? '' : 's'}, but none of them accept '
-                      'new events. Switch calendar sync on for a Google, '
-                      'iCloud or Outlook account in your phone settings.',
+                      'No calendars found on this device.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textMuted,
                           ),
