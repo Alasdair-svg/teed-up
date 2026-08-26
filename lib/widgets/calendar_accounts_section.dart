@@ -35,10 +35,28 @@ class CalendarAccountsSection extends StatefulWidget {
 }
 
 class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
-  late final Future<Map<String, List<Calendar>>> _grouped =
-      widget.groupedOverride != null
-          ? Future.value(widget.groupedOverride!)
-          : CalendarService().getAvailableCalendarsGrouped();
+  late Future<Map<String, List<Calendar>>> _grouped = _load();
+
+  /// Fetches the calendar list.
+  ///
+  /// Held in a mutable field, not `late final`, because an empty result must
+  /// never be permanent. This previously cached the FIRST result forever —
+  /// and if that first call happened before calendar permission was granted
+  /// it returned nothing, so the screen said "No calendars found on this
+  /// device" for the rest of the session no matter what the user did next.
+  Future<Map<String, List<Calendar>>> _load() {
+    final o = widget.groupedOverride;
+    if (o != null) return Future.value(o);
+    return CalendarService().getAvailableCalendarsGrouped();
+  }
+
+  /// Re-runs the fetch — used when the first attempt came back empty, which
+  /// is the signature of it having run before permission existed.
+  void _reload() {
+    if (!mounted) return;
+    setState(() => _grouped = _load());
+  }
+
   bool _autoLinkAttempted = false;
 
   /// Defaults every discovered calendar to linked (opt-out, not opt-in) the
@@ -123,20 +141,7 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
         }
         final grouped = snapshot.data ?? const {};
         if (grouped.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.offWhite,
-              borderRadius: AppRadius.cardBorder,
-              border: Border.all(color: AppColors.grey),
-            ),
-            child: Text(
-              'No calendar accounts found on this device.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-            ),
-          );
+          return _EmptyCalendars(onRetry: _reload);
         }
         return Consumer<AppState>(
           builder: (context, state, _) {
@@ -247,6 +252,46 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
           },
         );
       },
+    );
+  }
+}
+
+/// Shown when the device returns no calendars at all.
+///
+/// Always offers a retry: the commonest cause is the list having been
+/// fetched before calendar permission was granted, which is recoverable —
+/// a dead-end message is not.
+class _EmptyCalendars extends StatelessWidget {
+  const _EmptyCalendars({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.offWhite,
+        borderRadius: AppRadius.cardBorder,
+        border: Border.all(color: AppColors.grey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Couldn't read your calendars yet. If you've just granted "
+            'calendar access, tap Retry.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textMuted,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ),
+        ],
+      ),
     );
   }
 }

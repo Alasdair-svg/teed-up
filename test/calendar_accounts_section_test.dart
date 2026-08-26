@@ -73,4 +73,32 @@ void main() {
     expect(state.selectedCalendarId, 'r1');
     expect(find.textContaining('accept new events'), findsNothing);
   });
+
+  _emptyStateTests();
+}
+
+// Regression: an empty first fetch must never be permanent.
+//
+// The list used to be held in a `late final` Future. If the first fetch ran
+// before calendar permission existed — which it did, because PageView built
+// the calendar step while the user was still on the Welcome screen — the
+// empty result was cached for the widget's lifetime and the step read
+// "No calendars found on this device" no matter what happened afterwards.
+void _emptyStateTests() {
+  testWidgets('an empty calendar list offers a retry, not a dead end',
+      (tester) async {
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AppState>.value(
+        value: AppState(),
+        child: const MaterialApp(
+          home: Scaffold(
+            body: CalendarAccountsSection(groupedOverride: {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.textContaining("Couldn't read your calendars"), findsOneWidget);
+  });
 }

@@ -206,26 +206,46 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: BuildStamp(),
             ),
             Expanded(
-              child: PageView(
+              // itemBuilder, NOT a children list.
+              //
+              // A children list constructs EVERY page up front, so the
+              // calendar step was built while the user was still on Welcome.
+              // Its calendar fetch therefore ran before onboarding had asked
+              // for anything: that fired the OS permission dialog ahead of
+              // the screen explaining why it was needed, and — because
+              // permission was not yet granted — it returned an empty list
+              // which the page then cached for the lifetime of the widget.
+              // Granting permission afterwards never re-ran it, so the step
+              // said "No calendars found on this device" permanently.
+              child: PageView.builder(
                 controller: _pageController,
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                children: [
-                  _WelcomePage(isTablet: isTablet),
-                  _PermissionsPage(isTablet: isTablet),
-                  _CalendarAccountsPage(isTablet: isTablet),
-                  _FamilySetupPage(
-                    isTablet: isTablet,
-                    entries: _familyEntries,
-                    onAdd: (name, email) => setState(
-                      () => _familyEntries.add(
-                        FamilyMember(name: name, email: email),
-                      ),
-                    ),
-                    onRemove: (i) => setState(() => _familyEntries.removeAt(i)),
-                  ),
-                  _DonePage(isTablet: isTablet),
-                ],
+                itemCount: 5,
+                itemBuilder: (context, i) {
+                  switch (i) {
+                    case 0:
+                      return _WelcomePage(isTablet: isTablet);
+                    case 1:
+                      return _PermissionsPage(isTablet: isTablet);
+                    case 2:
+                      return _CalendarAccountsPage(isTablet: isTablet);
+                    case 3:
+                      return _FamilySetupPage(
+                        isTablet: isTablet,
+                        entries: _familyEntries,
+                        onAdd: (name, email) => setState(
+                          () => _familyEntries.add(
+                            FamilyMember(name: name, email: email),
+                          ),
+                        ),
+                        onRemove: (i) =>
+                            setState(() => _familyEntries.removeAt(i)),
+                      );
+                    default:
+                      return _DonePage(isTablet: isTablet);
+                  }
+                },
               ),
             ),
 
