@@ -171,7 +171,8 @@ Players:
 
     test('labelled: "Date: 15/06/2026"', () {
       expect(
-        BookingParser.extractDate('Booking confirmed\nDate: 15/06/2026\nTime: 07:30'),
+        BookingParser.extractDate(
+            'Booking confirmed\nDate: 15/06/2026\nTime: 07:30'),
         DateTime(2026, 6, 15),
       );
     });
@@ -655,7 +656,6 @@ Player 3: David Thompson
       expect(round.teeTime, DateTime(2026, 6, 15, 6, 30));
       expect(round.players, hasLength(3));
       expect(round.bookingRef, 'VYA-20260615');
-
     });
 
     test('BRS Golf-style confirmation', () {
@@ -679,7 +679,6 @@ Golfers:
       expect(round.teeTime, DateTime(2026, 6, 15, 8, 0));
       expect(round.players, hasLength(2));
       expect(round.bookingRef, 'BRS-98765');
-
     });
 
     test('ForeUp-style confirmation', () {
@@ -701,7 +700,6 @@ Players: Tiger Woods, Phil Mickelson, Rory McIlroy
       expect(round.teeTime, DateTime(2026, 6, 15, 10, 15));
       expect(round.players, hasLength(3));
       expect(round.bookingRef, 'FU-44321');
-
     });
 
     test('Generic email confirmation', () {
@@ -723,7 +721,6 @@ Group:
       expect(round.date, DateTime(2026, 6, 15));
       expect(round.teeTime, DateTime(2026, 6, 15, 7, 0));
       expect(round.bookingRef, 'DCG-5555');
-
     });
 
     test('Club V1-style with dots in date', () {
@@ -748,7 +745,6 @@ Name: Michael Chen
       // before the allMatches-based nameColon pattern can find both names.
       expect(round.players, hasLength(1));
       expect(round.bookingRef, 'CV1-7890');
-
     });
 
     test('Viya app (real, unlabelled card layout) — no colons anywhere', () {

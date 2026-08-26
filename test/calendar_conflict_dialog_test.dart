@@ -23,7 +23,8 @@ void main() {
   setUpAll(tzdata.initializeTimeZones);
   final base = DateTime(2026, 8, 30, 7, 40);
 
-  Future<void> pumpAt(WidgetTester tester, Size size, List<Event> conflicts) async {
+  Future<void> pumpAt(
+      WidgetTester tester, Size size, List<Event> conflicts) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
