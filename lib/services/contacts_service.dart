@@ -21,6 +21,56 @@ import '../db/database_helper.dart';
 /// final service = ContactsService();
 /// final emails = await service.resolvePlayerEmails(['John Smith', 'Jane Doe']);
 /// ```
+
+/// Normalises a name for comparison: lowercase, accents folded, punctuation
+/// (hyphens, apostrophes, dots) reduced to spaces, whitespace collapsed.
+///
+/// Needed because OCR and the address book routinely disagree on
+/// punctuation — "Sidi-Mohammed Saaf" against a contact saved as
+/// "Sidi Mohammed Saaf" — and a raw substring test treats that as a
+/// different person.
+String normalizeName(String v) {
+  const from = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿ';
+  const to = 'aaaaaaceeeeiiiinooooouuuuyy';
+  final buf = StringBuffer();
+  for (final ch in v.toLowerCase().split('')) {
+    final i = from.indexOf(ch);
+    buf.write(i >= 0 ? to[i] : ch);
+  }
+  return buf
+      .toString()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .trim()
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+/// Whether [query] and [candidate] plausibly name the same person.
+///
+/// The previous rule required EVERY token of the scanned name to appear as a
+/// literal substring of the contact's display name. That rejected the two
+/// commonest real-world cases: a shortened first name ("Zach Drury" in
+/// contacts vs "Zachary Drury" on the booking) and punctuation differences
+/// in compound names. Both looked to the user like the app simply failing to
+/// find a contact that was plainly there.
+///
+/// The surname must match exactly. The forename may match exactly, be a
+/// prefix of the other (Zach/Zachary, Nick/Nicholas), or share an initial.
+bool namesMatch(String query, String candidate) {
+  final q = normalizeName(query).split(' ').where((e) => e.isNotEmpty).toList();
+  final c =
+      normalizeName(candidate).split(' ').where((e) => e.isNotEmpty).toList();
+  if (q.isEmpty || c.isEmpty) return false;
+
+  if (q.last != c.last) return false;
+  if (q.length == 1 || c.length == 1) return true;
+
+  final qf = q.first;
+  final cf = c.first;
+  if (qf == cf) return true;
+  if (qf.startsWith(cf) || cf.startsWith(qf)) return true;
+  return qf[0] == cf[0];
+}
+
 class ContactsService {
   /// Creates a [ContactsService] backed by the given [DatabaseHelper].
   ///
@@ -390,24 +440,26 @@ class ContactsService {
       final light = await _getDeviceContactsLight();
 
       // Filter contacts matching the query.
+      final target = refineName ?? query;
       final nameMatches = light.where((c) {
-        final displayName = c.displayName.toLowerCase();
-        final q = query.toLowerCase();
+        // Real name comparison first — tolerates shortened forenames and
+        // punctuation differences that a substring test rejects outright.
+        if (namesMatch(target, c.displayName)) return true;
+        // Then the looser substring test, which still catches partial
+        // queries like a bare surname.
+        return normalizeName(c.displayName).contains(normalizeName(query));
+      }).toList();
 
-        // Basic substring match first.
-        if (!displayName.contains(q)) return false;
-
-        // If we have a refinement name, ensure ALL parts appear.
-        if (refineName != null) {
-          final parts = refineName
-              .toLowerCase()
-              .split(RegExp(r'\s+'))
-              .where((p) => p.isNotEmpty);
-          return parts.every((p) => displayName.contains(p));
+      // Best matches first so the hydrate cap can't discard the right person.
+      nameMatches.sort((a, b) {
+        int rank(Contact c) {
+          if (normalizeName(c.displayName) == normalizeName(target)) return 0;
+          if (namesMatch(target, c.displayName)) return 1;
+          return 2;
         }
 
-        return true;
-      }).toList();
+        return rank(a).compareTo(rank(b));
+      });
 
       if (nameMatches.isEmpty) return null;
 
@@ -418,11 +470,8 @@ class ContactsService {
       // "Guy  Parsonage" (double space) or with stray padding would
       // otherwise miss the exact-match path and fall back to fuzzier
       // matching for no good reason.
-      String norm(String v) =>
-          v.toLowerCase().trim().replaceAll(RegExp(r'\s+'), ' ');
-      final target = norm(refineName ?? query);
       final exactStub = nameMatches.cast<Contact?>().firstWhere(
-            (c) => norm(c!.displayName) == target,
+            (c) => normalizeName(c!.displayName) == normalizeName(target),
             orElse: () => null,
           );
 

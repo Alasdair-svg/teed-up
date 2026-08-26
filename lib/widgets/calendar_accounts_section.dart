@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../services/calendar_service.dart';
 import '../theme/app_theme.dart';
+import 'golf_ball_logo.dart';
 
 /// Grouped, linkable list of device calendars bound to [AppState].
 class CalendarAccountsSection extends StatefulWidget {
@@ -67,9 +68,38 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
       future: _grouped,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
+          // Enumerating every calendar on the device takes a noticeable
+          // moment on a phone with many accounts, and this lands straight
+          // after the permission step — so the app appeared to freeze
+          // between screens. Say what is happening, with the app's own ball.
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: GolfBallLogo(
+                      size: 44,
+                      animate: true,
+                      showTee: false,
+                      showGlow: false,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Finding your calendars…',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         final grouped = snapshot.data ?? const {};
@@ -101,32 +131,23 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
             // had. Say what was found and let the user judge.
             final unnamedOnly =
                 grouped.length == 1 && grouped.containsKey('Other');
-            final totalCalendars =
-                grouped.values.fold<int>(0, (n, c) => n + c.length);
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (unnamedOnly)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      totalCalendars == 1
-                          ? 'Your phone reported 1 calendar and didn’t say which '
-                              'account it belongs to, so it’s listed as “Other”. '
-                              'If you expect more, check that calendar sync is '
-                              'switched on for each account in your phone’s '
-                              'Settings — the app can only offer what the system '
-                              'hands it.'
-                          : 'Your phone reported $totalCalendars calendars but '
-                              'didn’t say which accounts they belong to, so '
-                              'they’re grouped under “Other”. They all still '
-                              'work — pick whichever you want tee times to land '
-                              'in.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    unnamedOnly
+                        ? 'Tap a calendar to choose where tee times land. Your '
+                            'phone didn\'t say which account each one belongs '
+                            'to, so they\'re listed together — the ones that '
+                            'accept new events are first.'
+                        : 'Tap a calendar to choose where tee times land.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
                   ),
+                ),
                 for (final entry in grouped.entries) ...[
                   _CalendarAccountGroupLabel(accountKey: entry.key),
                   const SizedBox(height: 8),
