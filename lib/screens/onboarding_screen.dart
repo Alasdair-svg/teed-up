@@ -22,11 +22,13 @@ import 'package:provider/provider.dart';
 import '../models/family_member.dart';
 import '../providers/app_state.dart';
 import '../services/contacts_service.dart';
+import '../services/notification_service.dart';
 import '../services/device_capability_service.dart';
 import '../services/rsvp_monitor.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_accounts_section.dart';
 import '../widgets/family_setup_section.dart';
+import '../widgets/build_stamp.dart';
 import '../widgets/golf_ball_logo.dart';
 import 'home_screen.dart';
 
@@ -132,6 +134,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       appState.addFamilyMember(name: entry.name, email: entry.email);
     }
     appState.completeOnboarding();
+    // Now that the user has been through the Permissions step, start the
+    // services whose initialisation triggers OS prompts. They are skipped at
+    // startup on a fresh install so those dialogs can't appear before the
+    // app has explained why it needs them.
+    NotificationService.instance.initialize().catchError((_) {});
+    RsvpMonitor.instance.initialize().catchError((_) {});
     // Fire-and-forget — enriches self-identity resolution once calendar
     // permission has just been granted, but shouldn't add latency to
     // finishing onboarding (see the earlier fix for slow-feeling permission
@@ -190,6 +198,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
 
             // ── PageView ─────────────────────────────────────────────
+            // Build stamp on the very first screen the user sees, so a
+            // stale install is obvious at a glance rather than after a
+            // wasted test cycle.
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: BuildStamp(),
+            ),
             Expanded(
               child: PageView(
                 controller: _pageController,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/build_stamp.dart';
 import 'alerts_screen.dart';
 import 'round_detail_screen.dart';
 import 'scan_screen.dart';
@@ -239,6 +240,9 @@ class _HomeTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Version sits directly under the wordmark on the
+                        // main screen: checking which build is running
+                        // should be a glance, not a trip into Settings.
                         Text(
                           'All Teed Up',
                           style: Theme.of(context)
@@ -250,6 +254,7 @@ class _HomeTab extends StatelessWidget {
                                 fontSize: 26,
                               ),
                         ),
+                        const BuildStamp(align: TextAlign.left),
                         const SizedBox(height: 2),
                         Text(
                           rounds.isEmpty

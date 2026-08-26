@@ -188,18 +188,26 @@ Future<void> _initializeServices(AppState appState) async {
     ContactsService.prefetch();
   }
 
-  // Notification service.
-  try {
-    await NotificationService.instance.initialize();
-  } catch (e, st) {
-    debugPrint('[main] NotificationService init failed: $e\n$st');
-  }
+  // Notifications and the RSVP monitor BOTH trigger OS permission prompts:
+  // the notification plugin asks for alert permission as it initialises, and
+  // the monitor touches CalendarService, which calls requestPermissions().
+  // Running them at startup fired those system dialogs before the user had
+  // even seen the Welcome screen — so permissions were granted first and the
+  // app's own "Grant Permissions" page appeared afterwards, explaining a
+  // decision already made. Contacts was already deferred for this reason;
+  // these two were not. Defer them the same way.
+  if (appState.onboardingComplete) {
+    try {
+      await NotificationService.instance.initialize();
+    } catch (e, st) {
+      debugPrint('[main] NotificationService init failed: $e\n$st');
+    }
 
-  // RSVP background monitor.
-  try {
-    await RsvpMonitor.instance.initialize();
-  } catch (e, st) {
-    debugPrint('[main] RsvpMonitor init failed: $e\n$st');
+    try {
+      await RsvpMonitor.instance.initialize();
+    } catch (e, st) {
+      debugPrint('[main] RsvpMonitor init failed: $e\n$st');
+    }
   }
 
   // In-app purchase service — may fail if Play Store is not configured yet.
