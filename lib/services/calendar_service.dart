@@ -737,6 +737,22 @@ class CalendarService {
       }
 
       // 4. Update the event fields.
+      // Rewrite the time from the round, not just the text.
+      //
+      // This previously patched only title, description and attendees, so an
+      // event written at the wrong time stayed wrong forever: re-sending the
+      // invite could not repair it, and the user had no way to correct a
+      // tee time short of deleting the event by hand. Any round whose event
+      // was created before the timezone fix is in exactly that state.
+      final rebuilt = _buildEvent(
+        round,
+        calendarId,
+        notifyFamilyMembers: notifyFamilyMembers,
+        reminderMinutes: reminderMinutes,
+      );
+      existingEvent.start = rebuilt.start;
+      existingEvent.end = rebuilt.end;
+
       existingEvent.title = _buildSummary(round);
       existingEvent.description =
           _buildDescription(round, familyNoteLine: familyNoteLine);
