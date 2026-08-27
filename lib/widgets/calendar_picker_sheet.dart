@@ -67,8 +67,10 @@ class _CalendarPickerSheetState extends State<CalendarPickerSheet> {
   /// all; if a write genuinely fails, report the real error rather than
   /// hiding the option in advance.
   List<Calendar> get _selectable {
-    final all =
-        (_all ?? const <Calendar>[]).where((c) => c.id != null).toList();
+    // Do NOT filter on a non-null id here. If the platform returns
+    // calendars without ids, hiding them leaves a blank sheet and no clue;
+    // showing them at least names what the phone reported.
+    final all = (_all ?? const <Calendar>[]).toList();
     all.sort((a, b) => ((a.isReadOnly == true) ? 1 : 0)
         .compareTo((b.isReadOnly == true) ? 1 : 0));
     return all;

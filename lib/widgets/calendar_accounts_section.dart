@@ -179,7 +179,11 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
             _autoLinkIfNeeded(grouped, state);
 
             final all = grouped.values.expand((c) => c).toList();
-            final selectable = all.where((c) => c.id != null).toList();
+            // Anything the platform returned counts as selectable. Filtering
+            // on a non-null id emptied this list while `grouped` was full,
+            // which produced the exact contradiction the user reported:
+            // "returned: 21" beside "no calendars".
+            final selectable = all.toList();
             final current = state.primaryCalendarId == null
                 ? null
                 : all.cast<Calendar?>().firstWhere(

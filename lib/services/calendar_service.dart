@@ -115,27 +115,48 @@ class CalendarService {
     final parts = <String>[];
     try {
       final ph = await Permission.calendarFullAccess.status;
-      parts.add('OS: ${ph.name}');
-    } catch (e) {
-      parts.add('OS: error');
+      parts.add('OS:${ph.name}');
+    } catch (_) {
+      parts.add('OS:err');
     }
     try {
       final has = await _plugin.hasPermissions();
-      parts.add('plugin: ${has.data == true ? "granted" : "denied"}');
-    } catch (e) {
-      parts.add('plugin: error');
+      parts.add('gate:${has.data == true ? "y" : "n"}');
+    } catch (_) {
+      parts.add('gate:err');
     }
+    // Report EVERY stage. The previous version reported only the raw count,
+    // which said 21 while the screen showed none — proving the loss happened
+    // somewhere downstream but not where. Each stage is measured separately
+    // so the next screenshot names the exact step that drops them.
     try {
       final res = await _plugin.retrieveCalendars();
-      final n = res.data?.length ?? 0;
-      parts.add('returned: $n');
+      final raw = res.data?.toList() ?? const <Calendar>[];
+      parts.add('raw:${raw.length}');
+      parts.add('withId:${raw.where((c) => c.id != null).length}');
+      if (raw.isNotEmpty) {
+        final f = raw.first;
+        parts.add('id0:${f.id ?? "null"}');
+        parts.add('nm0:${f.name ?? "null"}');
+      }
       if (res.errors.isNotEmpty) {
-        parts.add('err: ${res.errors.first.errorMessage}');
+        parts.add('e:${res.errors.first.errorMessage}');
       }
     } catch (e) {
-      parts.add('returned: threw');
+      parts.add('raw:threw ${e.runtimeType}');
     }
-    return parts.join('  ·  ');
+    try {
+      parts.add('svc:${(await getAvailableCalendars()).length}');
+    } catch (e) {
+      parts.add('svc:threw');
+    }
+    try {
+      final g = await getAvailableCalendarsGrouped();
+      parts.add('grp:${g.length}/${g.values.expand((v) => v).length}');
+    } catch (e) {
+      parts.add('grp:threw');
+    }
+    return parts.join('  ');
   }
 
   /// Public wrapper so onboarding can prime the plugin's own permission
