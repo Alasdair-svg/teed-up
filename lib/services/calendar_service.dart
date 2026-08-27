@@ -1007,7 +1007,7 @@ class CalendarService {
       "Open it — this round's waiting for you.\n"
       '\n'
       'New here? Never miss a tee time again.\n'
-      'All Teed Up — AED 99 once, no subscription.\n'
+      'All Teed Up — AED 99.\n'
       '🍎 iPhone → $_appStoreUrl\n'
       '🤖 Android → $_playStoreUrl';
 
