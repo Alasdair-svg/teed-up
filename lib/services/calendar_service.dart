@@ -1121,12 +1121,15 @@ class CalendarService {
   /// `https://` line is the only link form confirmed to render as
   /// tappable in a calendar event view at all, so that's what the
   /// "new here" store links use.
+  /// Beta wording. The store links below still point at listings that are
+  /// not live, so this must not read as though the app can be bought today.
   static const String _growthLoopFooter = '──────────\n'
       '📲 Already have All Teed Up?\n'
       "Open it — this round's waiting for you.\n"
       '\n'
       'New here? Never miss a tee time again.\n'
-      'All Teed Up — AED 99.\n'
+      'All Teed Up is in beta now but will be available in the stores '
+      'for AED99 soon\n'
       '🍎 iPhone → $_appStoreUrl\n'
       '🤖 Android → $_playStoreUrl';
 
