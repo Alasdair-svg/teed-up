@@ -34,8 +34,37 @@ class CalendarAccountsSection extends StatefulWidget {
       _CalendarAccountsSectionState();
 }
 
+/// Long enough for the onboarding page transition to finish before the
+/// calendar read begins.
+const Duration _transitionSettleDelay = Duration(milliseconds: 450);
+
 class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
-  late Future<Map<String, List<Calendar>>> _grouped = _load();
+  Future<Map<String, List<Calendar>>>? _grouped;
+
+  /// Held null until the page transition has settled.
+  ///
+  /// Reading the device calendar list is slow — noticeably so with many
+  /// calendars — and device_calendar does its work on the platform thread.
+  /// Starting it while this page is sliding in stalled the PageView
+  /// animation part-way, leaving both pages visible side by side: the
+  /// "stuck screen" that was reported repeatedly. Deferring past the
+  /// transition costs nothing perceptible and keeps the animation smooth.
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.groupedOverride != null) {
+      _grouped = _load();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(_transitionSettleDelay);
+      if (!mounted) return;
+      setState(() {
+        _grouped = _load();
+      });
+    });
+  }
 
   /// Fetches the calendar list.
   ///
@@ -54,7 +83,9 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
   /// is the signature of it having run before permission existed.
   void _reload() {
     if (!mounted) return;
-    setState(() => _grouped = _load());
+    setState(() {
+      _grouped = _load();
+    });
   }
 
   bool _autoLinkAttempted = false;

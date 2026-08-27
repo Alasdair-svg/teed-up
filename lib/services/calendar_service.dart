@@ -172,12 +172,37 @@ class CalendarService {
       if (!await _ensurePermissions()) return [];
 
       final result = await _plugin.retrieveCalendars();
-      if (result.isSuccess && result.data != null) {
-        return result.data!.toList();
+
+      // Use the data whenever there IS data, regardless of isSuccess.
+      //
+      // This previously required `result.isSuccess && result.data != null`
+      // and returned an empty list otherwise. On a real device the plugin
+      // returned 21 calendars TOGETHER WITH a non-success flag — so every
+      // one of them was discarded here, and the app reported "No calendars
+      // found on this device" on a phone full of them. The on-screen
+      // diagnostic proved it: `OS: granted · plugin: granted · returned:
+      // 21`, because the diagnostic read result.data directly and this did
+      // not.
+      //
+      // A non-fatal error alongside good data is common in device_calendar
+      // (one unreadable account among several). Log it and keep the data;
+      // discarding everything because part of the read complained is worse
+      // than surfacing what the OS did hand us.
+      if (result.errors.isNotEmpty) {
+        debugPrint(
+          '[CalendarService] retrieveCalendars reported '
+          '${result.errors.length} error(s), continuing with '
+          '${result.data?.length ?? 0} calendar(s): '
+          '${result.errors.map((e) => e.errorMessage).join(', ')}',
+        );
       }
 
+      final data = result.data;
+      if (data != null && data.isNotEmpty) return data.toList();
+
       debugPrint(
-        '[CalendarService] Failed to retrieve calendars: '
+        '[CalendarService] No calendars returned. isSuccess='
+        '${result.isSuccess} errors='
         '${result.errors.map((e) => e.errorMessage).join(', ')}',
       );
       return [];
@@ -978,8 +1003,20 @@ class CalendarService {
     final params = RetrieveEventsParams(startDate: startTz, endDate: endTz);
     final result = await _plugin.retrieveEvents(calendarId, params);
 
-    if (result.isSuccess && result.data != null) {
-      return result.data!.toList();
+    // Same read-shaped rule as retrieveCalendars: keep the data whenever
+    // there is data. Gating on isSuccess here would silently return no
+    // events when the plugin reports a non-fatal error alongside a good
+    // result — which would disable duplicate detection without a word.
+    final data = result.data;
+    if (data != null && data.isNotEmpty) {
+      if (result.errors.isNotEmpty) {
+        debugPrint(
+          '[CalendarService] retrieveEvents reported errors but returned '
+          '${data.length} event(s): '
+          '${result.errors.map((e) => e.errorMessage).join(', ')}',
+        );
+      }
+      return data.toList();
     }
 
     debugPrint(
