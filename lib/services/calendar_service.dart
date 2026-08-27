@@ -103,6 +103,11 @@ class CalendarService {
   ///
   /// Returns `true` if permissions are available (or were just granted),
   /// `false` otherwise.
+  /// Public wrapper so onboarding can prime the plugin's own permission
+  /// gate at the point the user has just agreed, rather than lazily on the
+  /// first read — which is too late if the read is what populates the UI.
+  Future<bool> ensureCalendarPermission() => _ensurePermissions();
+
   Future<bool> _ensurePermissions() async {
     try {
       permissionChecks++;

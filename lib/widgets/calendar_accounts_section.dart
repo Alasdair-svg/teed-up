@@ -223,15 +223,20 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                         ),
                       ),
                       TextButton(
-                        onPressed: selectable.isEmpty
-                            ? null
-                            : () async {
-                                final picked =
-                                    await showCalendarPickerSheet(context);
-                                if (picked != null) {
-                                  state.setPrimaryCalendarId(picked);
-                                }
-                              },
+                        // Never disabled. A disabled button is
+                        // indistinguishable from a broken one — this was
+                        // reported repeatedly as "clicking does nothing".
+                        onPressed: () async {
+                          if (selectable.isEmpty) {
+                            await CalendarService().ensureCalendarPermission();
+                            _reload();
+                            return;
+                          }
+                          final picked = await showCalendarPickerSheet(context);
+                          if (picked != null) {
+                            state.setPrimaryCalendarId(picked);
+                          }
+                        },
                         child: Text(current == null ? 'Choose' : 'Change'),
                       ),
                     ],

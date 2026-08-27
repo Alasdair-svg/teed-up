@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import '../models/family_member.dart';
 import '../providers/app_state.dart';
+import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
 import '../services/notification_service.dart';
 import '../services/device_capability_service.dart';
@@ -94,12 +95,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _handlePermissionsNext() async {
     setState(() => _requestingPermissions = true);
     try {
+      // calendarFullAccess ONLY — never alongside calendarWriteOnly.
+      //
+      // On Android these map to distinct manifest permissions:
+      // calendarWriteOnly -> WRITE_CALENDAR, calendarFullAccess ->
+      // READ_CALENDAR + WRITE_CALENDAR. Requesting both together could
+      // resolve to the write-only grant, and WITHOUT READ_CALENDAR
+      // retrieveCalendars() returns an empty list. That is exactly the
+      // reported failure: the calendar step said no calendars were found
+      // and the Choose button did nothing, on a phone with plenty of them.
       await [
-        Permission.calendarWriteOnly,
         Permission.calendarFullAccess,
         Permission.contacts,
         Permission.camera,
       ].request();
+
+      // Ask through device_calendar as well. It maintains its own
+      // permission gate, and a grant obtained via permission_handler is not
+      // always reflected there until the plugin has asked once itself.
+      await CalendarService().ensureCalendarPermission();
 
       // Warm the contacts cache in the background now that permission is
       // granted, so the Family setup step's first search isn't the one
@@ -756,17 +770,20 @@ class _PrimaryGradientButton extends StatelessWidget {
                   // The app's own spinning ball, not a generic ring — the
                   // user asked for this specifically so a slow permission
                   // sweep reads as the app working rather than frozen.
+                  // Sized to actually read as motion on a purple button.
+                  // At 24px against the gradient the ball was reported as
+                  // invisible, so the wait looked like a freeze.
                   const SizedBox(
-                    width: 24,
-                    height: 24,
+                    width: 34,
+                    height: 34,
                     child: GolfBallLogo(
-                      size: 24,
+                      size: 34,
                       animate: true,
                       showTee: false,
-                      showGlow: false,
+                      showGlow: true,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Text(
                     loadingLabel,
                     style: const TextStyle(
