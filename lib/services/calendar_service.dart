@@ -104,6 +104,39 @@ class CalendarService {
   ///
   /// Returns `true` if permissions are available (or were just granted),
   /// `false` otherwise.
+  /// Confirms an event actually exists in the calendar after writing it.
+  ///
+  /// Searches a window around the expected start rather than trusting the
+  /// write's return value, because the plugin can report success for an
+  /// event that never lands.
+  Future<bool> verifyEventExists({
+    required String calendarId,
+    required String eventId,
+    required TZDateTime around,
+  }) async {
+    try {
+      final params = RetrieveEventsParams(
+        startDate: around.subtract(const Duration(days: 1)),
+        endDate: around.add(const Duration(days: 1)),
+      );
+      final res = await _plugin.retrieveEvents(calendarId, params);
+      final found = res.data?.any((e) => e.eventId == eventId) ?? false;
+      if (!found && res.errors.isNotEmpty) {
+        debugPrint(
+          '[CalendarService] verify read failed: '
+          '${res.errors.map((e) => e.errorMessage).join(', ')}',
+        );
+      }
+      return found;
+    } catch (e) {
+      debugPrint('[CalendarService] verifyEventExists threw: $e');
+      // Unable to verify is not the same as verified-absent. Treat an
+      // unreadable calendar as inconclusive rather than reporting a
+      // failure for an event that may well be there.
+      return true;
+    }
+  }
+
   /// A one-line, user-showable report of why the calendar list is empty.
   ///
   /// Four rounds of remote debugging failed because the app said only "no
@@ -359,11 +392,34 @@ class CalendarService {
       final result = await _plugin.createOrUpdateEvent(event);
 
       if (result?.isSuccess == true && result?.data != null) {
-        debugPrint(
-          '[CalendarService] Created event ${result!.data} '
-          'for "${round.courseName}"',
+        final eventId = result!.data!;
+
+        // Read it back before calling this a success.
+        //
+        // The plugin reporting success is not evidence the event exists.
+        // A user was shown a green "invite sent" for an event that was not
+        // in their calendar, and only discovered it by checking manually —
+        // which is worse than an error, because it removes any reason to
+        // trust the message. Confirm the event is really there, and say so
+        // only then.
+        final confirmed = await verifyEventExists(
+          calendarId: calendarId,
+          eventId: eventId,
+          around: event.start ?? TZDateTime.now(local),
         );
-        return result.data;
+        if (!confirmed) {
+          debugPrint(
+            '[CalendarService] Plugin reported success for $eventId but the '
+            'event could not be read back from calendar $calendarId',
+          );
+          return null;
+        }
+
+        debugPrint(
+          '[CalendarService] Created and verified event $eventId '
+          'for "${round.courseName}" at ${event.start}',
+        );
+        return eventId;
       }
 
       debugPrint(
@@ -696,6 +752,19 @@ class CalendarService {
       final result = await _plugin.createOrUpdateEvent(existingEvent);
 
       if (result?.isSuccess == true) {
+        // Same rule as create: confirm before claiming success.
+        final confirmed = await verifyEventExists(
+          calendarId: calendarId,
+          eventId: eventId,
+          around: existingEvent.start ?? TZDateTime.now(local),
+        );
+        if (!confirmed) {
+          debugPrint(
+            '[CalendarService] Plugin reported success updating $eventId but '
+            'it could not be read back',
+          );
+          return false;
+        }
         debugPrint(
           '[CalendarService] Updated event "$eventId" — '
           'added: ${diff.added.length}, '

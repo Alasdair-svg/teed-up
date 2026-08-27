@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_picker_sheet.dart';
+import '../widgets/invite_review_sheet.dart';
 import 'scan_screen.dart';
 
 /// Detailed view of a single golf round.
@@ -132,6 +133,18 @@ class RoundDetailScreen extends StatelessWidget {
                               if (picked == null) return;
                               state.setPrimaryCalendarId(picked);
                             }
+                            // Last look before anything is sent. An invite
+                            // cannot be recalled — everyone on it is notified
+                            // the moment it is written — and a wrong tee time
+                            // is only discoverable by the recipients.
+                            if (!context.mounted) return;
+                            final choice = await showInviteReviewSheet(
+                              context,
+                              round: round,
+                            );
+                            if (choice != InviteReviewChoice.send) return;
+
+                            if (!context.mounted) return;
                             final error = await state.sendCalendarInvite(
                                 roundId: round.id);
                             if (!context.mounted) return;
@@ -140,7 +153,11 @@ class RoundDetailScreen extends StatelessWidget {
                             // unconditionally, including when nothing was.
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(error ?? 'Calendar invite sent'),
+                                content: Text(
+                                  error ??
+                                      'Invite added to your calendar for '
+                                          '${DateFormat('HH:mm').format(round.teeTime)}',
+                                ),
                                 backgroundColor: error == null
                                     ? AppColors.success
                                     : AppColors.error,
