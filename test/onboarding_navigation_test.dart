@@ -49,7 +49,7 @@ void main() {
 
     // The page content is what matters. Asserting only on the button would
     // have passed throughout the entire bug.
-    expect(find.text('A few things we need'), findsOneWidget);
+    expect(find.text('A few things needed to get going:'), findsOneWidget);
     expect(find.text('Grant Permissions'), findsOneWidget);
   });
 
@@ -77,7 +77,7 @@ void main() {
 
     await t.tap(find.text('Get Started'));
     await pumpFrames(t);
-    expect(find.text('A few things we need'), findsOneWidget);
+    expect(find.text('A few things needed to get going:'), findsOneWidget);
 
     await t.tap(find.text('Grant Permissions'));
     // Advance past the permission timeout. In the test environment the
