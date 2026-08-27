@@ -169,9 +169,27 @@ class CalendarService {
   /// Returns an empty list if permissions are denied or an error occurs.
   Future<List<Calendar>> getAvailableCalendars() async {
     try {
-      if (!await _ensurePermissions()) return [];
+      // The permission check is advisory here, NOT a gate.
+      //
+      // Bailing out on it returned an empty list while a direct
+      // retrieveCalendars() on the same device returned 21 — the on-screen
+      // diagnostic showed `plugin: granted · returned: 21` moments after
+      // this had produced nothing. The read itself is the authority on
+      // whether the calendars are reachable, so ask for permission if it
+      // looks missing, then read regardless of what the gate claims.
+      await _ensurePermissions();
 
-      final result = await _plugin.retrieveCalendars();
+      var result = await _plugin.retrieveCalendars();
+
+      // Retry once on an empty result. Permission is granted moments
+      // earlier in onboarding, and on Android the calendar provider is not
+      // reliably ready the instant the grant returns — the first read comes
+      // back empty and a read a moment later returns everything. Without
+      // this the user is told they have no calendars and has no way back.
+      if ((result.data?.isEmpty ?? true)) {
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        result = await _plugin.retrieveCalendars();
+      }
 
       // Use the data whenever there IS data, regardless of isSuccess.
       //
@@ -898,6 +916,21 @@ class CalendarService {
   /// player list so [_eventToGolfRound]'s comma-split player parsing (used
   /// when an event has no attendees to read RSVP status from) can't pick
   /// up "All Teed Up" as a fourth player name.
+  /// Exactly what this app writes as the event title and body, without
+  /// touching the device calendar.
+  ///
+  /// Exposed so the invite can be reviewed — on-device and offline — before
+  /// anyone sends one. Uses the same builders as the real write, so a
+  /// preview cannot drift from what actually goes out.
+  ({String title, String description}) buildInvitePreview(
+    GolfRound round, {
+    String? familyNoteLine,
+  }) =>
+      (
+        title: _buildSummary(round),
+        description: _buildDescription(round, familyNoteLine: familyNoteLine),
+      );
+
   String _buildSummary(GolfRound round) {
     final playerNames = round.players.map((p) => p.name).join(', ');
     return '$eventPrefix ${round.courseName} '
