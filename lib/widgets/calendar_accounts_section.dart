@@ -242,16 +242,7 @@ class _CalendarAccountsSectionState extends State<CalendarAccountsSection> {
                     ],
                   ),
                 ),
-                if (selectable.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(
-                      'No calendars found on this device.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                    ),
-                  ),
+                if (selectable.isEmpty) const _CalendarDiagnostics(),
               ],
             );
           },
@@ -295,6 +286,61 @@ class _EmptyCalendars extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton(onPressed: onRetry, child: const Text('Retry')),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Reports exactly what the device said about calendar access.
+///
+/// "No calendars found" is a symptom shared by several unrelated causes, and
+/// guessing between them from a screenshot cost days. This states the OS
+/// permission status, the plugin's own gate, and the raw number of
+/// calendars returned, so the next report is evidence.
+class _CalendarDiagnostics extends StatefulWidget {
+  const _CalendarDiagnostics();
+
+  @override
+  State<_CalendarDiagnostics> createState() => _CalendarDiagnosticsState();
+}
+
+class _CalendarDiagnosticsState extends State<_CalendarDiagnostics> {
+  String? _report;
+
+  @override
+  void initState() {
+    super.initState();
+    CalendarService().diagnoseCalendarAccess().then((r) {
+      if (mounted) setState(() => _report = r);
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final small = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppColors.textMuted,
+        );
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Couldn't read any calendars from this phone. Tap Choose to ask "
+            'for calendar access again.',
+            style: small,
+          ),
+          if (_report != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _report!,
+              style: small?.copyWith(
+                fontFamily: 'monospace',
+                fontSize: 11,
+              ),
+            ),
+          ],
         ],
       ),
     );

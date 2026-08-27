@@ -14,6 +14,8 @@ library;
 
 import 'dart:async' show unawaited;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:permission_handler/permission_handler.dart';
@@ -38,6 +40,17 @@ import 'home_screen.dart';
 // =============================================================================
 
 /// Onboarding screen shown once on first launch.
+/// How long to wait for the OS permission dialogs before giving up and
+/// letting the user continue anyway.
+///
+/// Generous, because the user is reading real dialogs — but bounded,
+/// because on some devices the request Future never resolves at all and an
+/// unbounded await strands onboarding on the permissions step permanently.
+const Duration kPermissionRequestTimeout = Duration(seconds: 25);
+
+/// Device capability probing is a nice-to-have; never let it block.
+const Duration kCapabilityTimeout = Duration(seconds: 8);
+
 class OnboardingScreen extends StatefulWidget {
   /// Creates an [OnboardingScreen].
   const OnboardingScreen({super.key});
@@ -94,38 +107,54 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _handlePermissionsNext() async {
     setState(() => _requestingPermissions = true);
+
+    // Every step below is individually guarded and NAVIGATION ALWAYS
+    // HAPPENS.
+    //
+    // This method used to be one try/finally with no catch, so a throw from
+    // any of four awaits skipped the _next() at the bottom and onboarding
+    // simply stopped — the screen "freezing" on the permissions step with
+    // no error and no way forward. Requesting permission is best-effort;
+    // being unable to complete it must never trap the user on a screen.
     try {
-      // calendarFullAccess ONLY — never alongside calendarWriteOnly.
-      //
-      // On Android these map to distinct manifest permissions:
-      // calendarWriteOnly -> WRITE_CALENDAR, calendarFullAccess ->
-      // READ_CALENDAR + WRITE_CALENDAR. Requesting both together could
-      // resolve to the write-only grant, and WITHOUT READ_CALENDAR
-      // retrieveCalendars() returns an empty list. That is exactly the
-      // reported failure: the calendar step said no calendars were found
-      // and the Choose button did nothing, on a phone with plenty of them.
       await [
+        // calendarFullAccess ONLY — never alongside calendarWriteOnly.
+        // On Android these map to distinct manifest permissions:
+        // calendarWriteOnly -> WRITE_CALENDAR, calendarFullAccess ->
+        // READ_CALENDAR + WRITE_CALENDAR. Requesting both together can
+        // resolve to the write-only grant, and without READ_CALENDAR
+        // retrieveCalendars() returns an empty list.
         Permission.calendarFullAccess,
         Permission.contacts,
         Permission.camera,
-      ].request();
+      ].request().timeout(kPermissionRequestTimeout);
+    } on TimeoutException {
+      // The request never completed. Observed on real devices: the dialogs
+      // appear, the user grants, and the returned Future simply never
+      // resolves — so awaiting it traps onboarding on the permissions step
+      // forever with a spinner and no way forward. A catch cannot help
+      // because nothing is ever thrown; only a timeout can.
+      debugPrint('[onboarding] permission request timed out — continuing');
+    } catch (e, st) {
+      debugPrint('[onboarding] permission request failed: $e\n$st');
+    }
 
-      // Ask through device_calendar as well. It maintains its own
-      // permission gate, and a grant obtained via permission_handler is not
-      // always reflected there until the plugin has asked once itself.
-      await CalendarService().ensureCalendarPermission();
+    // device_calendar keeps its own permission gate. Primed here, but never
+    // awaited on the navigation path: on some devices this call is slow or
+    // throws, and in 1.6.0 it was what stopped onboarding advancing.
+    unawaited(
+      CalendarService().ensureCalendarPermission().catchError((Object e) {
+        debugPrint('[onboarding] calendar permission priming failed: $e');
+        return false;
+      }),
+    );
 
-      // Warm the contacts cache in the background now that permission is
-      // granted, so the Family setup step's first search isn't the one
-      // paying the device-contacts fetch cost.
-      ContactsService.prefetch();
+    ContactsService.prefetch();
 
-      if (!mounted) return;
-
-      final capability = await DeviceCapabilityService.check();
-      if (!mounted) return;
-
-      if (capability.hasIssues) {
+    try {
+      final capability =
+          await DeviceCapabilityService.check().timeout(kCapabilityTimeout);
+      if (mounted && capability.hasIssues) {
         final ok = await _showIncompatibilitySheet(capability);
         if (!mounted) return;
         if (!ok) {
@@ -133,11 +162,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           return;
         }
       }
-
-      _next();
-    } finally {
-      if (mounted) setState(() => _requestingPermissions = false);
+    } on TimeoutException {
+      debugPrint('[onboarding] capability check timed out — continuing');
+    } catch (e, st) {
+      debugPrint('[onboarding] capability check failed: $e\n$st');
     }
+
+    if (!mounted) return;
+    setState(() => _requestingPermissions = false);
+    _next();
   }
 
   Future<void> _handleFinish() async {

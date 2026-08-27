@@ -11,6 +11,7 @@ library;
 import 'dart:io' show Platform;
 
 import 'package:device_calendar/device_calendar.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/family_member.dart';
@@ -103,6 +104,40 @@ class CalendarService {
   ///
   /// Returns `true` if permissions are available (or were just granted),
   /// `false` otherwise.
+  /// A one-line, user-showable report of why the calendar list is empty.
+  ///
+  /// Four rounds of remote debugging failed because the app said only "no
+  /// calendars found", which is a symptom shared by several very different
+  /// causes: permission never granted, permission granted but the plugin
+  /// gate disagreeing, or the OS genuinely returning nothing. This states
+  /// which, so a screenshot is evidence rather than another guess.
+  Future<String> diagnoseCalendarAccess() async {
+    final parts = <String>[];
+    try {
+      final ph = await Permission.calendarFullAccess.status;
+      parts.add('OS: ${ph.name}');
+    } catch (e) {
+      parts.add('OS: error');
+    }
+    try {
+      final has = await _plugin.hasPermissions();
+      parts.add('plugin: ${has.data == true ? "granted" : "denied"}');
+    } catch (e) {
+      parts.add('plugin: error');
+    }
+    try {
+      final res = await _plugin.retrieveCalendars();
+      final n = res.data?.length ?? 0;
+      parts.add('returned: $n');
+      if (res.errors.isNotEmpty) {
+        parts.add('err: ${res.errors.first.errorMessage}');
+      }
+    } catch (e) {
+      parts.add('returned: threw');
+    }
+    return parts.join('  ·  ');
+  }
+
   /// Public wrapper so onboarding can prime the plugin's own permission
   /// gate at the point the user has just agreed, rather than lazily on the
   /// first read — which is too late if the read is what populates the UI.
