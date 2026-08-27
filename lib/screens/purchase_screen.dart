@@ -280,16 +280,6 @@ class _PurchaseScreenState extends State<PurchaseScreen>
                                 color: AppColors.primary,
                               ),
                     ),
-                    const SizedBox(height: 4),
-
-                    // Tagline
-                    Text(
-                      'It\'s In The Calendar',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
                     const SizedBox(height: 32),
 
                     // Feature list

@@ -493,18 +493,6 @@ class _AppFooter extends StatelessWidget {
             color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          '"It\'s In The Calendar"',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w400,
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-            color: AppColors.textMuted.withValues(alpha: 0.7),
-          ),
-          textAlign: TextAlign.center,
-        ),
         const SizedBox(height: 24),
       ],
     );

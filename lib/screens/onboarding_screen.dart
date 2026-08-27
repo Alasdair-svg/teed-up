@@ -480,7 +480,7 @@ class _PermissionsPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'A few things we need',
+            'A few things needed to get going:',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
@@ -495,7 +495,7 @@ class _PermissionsPage extends StatelessWidget {
           // Camera
           _PermissionCard(
             icon: Icons.camera_alt_rounded,
-            title: 'Camera',
+            title: 'Camera access:',
             description:
                 'So you can snap your booking from the golf app and automatically create a calendar entry.',
           ),
@@ -504,18 +504,18 @@ class _PermissionsPage extends StatelessWidget {
           // Calendar
           _PermissionCard(
             icon: Icons.calendar_month_rounded,
-            title: 'Calendar',
+            title: 'Calendar access:',
             description:
-                'So you can pop your tee times straight on it\u00a0—\u00a0no double-booking the in-laws.',
+                'So the app can pop your tee times straight into your calendar and create an invite for the other players.',
           ),
           const SizedBox(height: 12),
 
           // Contacts
           _PermissionCard(
             icon: Icons.contacts_rounded,
-            title: 'Contacts',
+            title: 'Access to Contacts',
             description:
-                'So you automatically send your playing partners a calendar invite\u00a0—\u00a0works across every contacts account on your phone. To get the most out of the app, you\u2019ll need your fellow players\u2019 email addresses\u00a0—\u00a0you can add them manually if they\u2019re not already in your contacts.',
+                'So the app can automatically send your playing partners a calendar invite. You\u2019ll need your fellow players\u2019 email addresses obviously, but you can add them manually if they\u2019re not already in your contacts.',
           ),
         ],
       ),
