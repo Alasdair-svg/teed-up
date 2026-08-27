@@ -67,6 +67,14 @@ class CalendarService {
   /// The underlying device calendar plugin instance.
   final DeviceCalendarPlugin _plugin;
 
+  /// Number of times this service has touched the calendar permission API.
+  ///
+  /// Instrumentation, not decoration: a permission prompt appearing before
+  /// onboarding explained why is caused by SOMETHING calling into the
+  /// calendar API too early, and reading the code repeatedly failed to find
+  /// which. A counter makes it testable.
+  static int permissionChecks = 0;
+
   /// Prefix used in event titles to identify All Teed Up events.
   static const String eventPrefix = '⛳';
 
@@ -97,6 +105,7 @@ class CalendarService {
   /// `false` otherwise.
   Future<bool> _ensurePermissions() async {
     try {
+      permissionChecks++;
       var permResult = await _plugin.hasPermissions();
       if (permResult.data == true) return true;
 

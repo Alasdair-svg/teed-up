@@ -206,6 +206,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: BuildStamp(),
             ),
             Expanded(
+              // This key is load-bearing. Do not remove it.
+              //
+              // Widgets above this one are inserted conditionally
+              // (`if (_currentPage >= 1 …)`), so advancing past Welcome
+              // changes this Column's children list and shifts this slot's
+              // index. Without a key, reconciliation treats the widget now
+              // occupying the slot as a different element, discards the old
+              // one and rebuilds the PageView from scratch — resetting its
+              // scroll position to page 0 while _currentPage stays 1.
+              //
+              // Visible result: tapping Get Started updated the button and
+              // the step indicator but left the Welcome page on screen, so
+              // onboarding appeared frozen between screens. Tapping "Grant
+              // Permissions" then requested permissions and only afterwards
+              // advanced the page — which is why the OS dialogs appeared
+              // BEFORE the screen explaining why they were needed.
+              //
+              // The key must be on this Expanded, the Column's direct child.
+              // A key on the PageView nested inside is never consulted.
+              key: const ValueKey('onboarding-pageview-slot'),
               // itemBuilder, NOT a children list.
               //
               // A children list constructs EVERY page up front, so the
