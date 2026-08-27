@@ -939,15 +939,28 @@ class CalendarService {
   }) {
     final localTz = local;
 
-    // Combine date + tee time into a TZDateTime.
-    final startDt = TZDateTime(
-      localTz,
+    // Build the instant with Dart's DateTime FIRST, then convert.
+    //
+    // TZDateTime(localTz, y, m, d, hh, mm) treats those components as
+    // wall-clock time IN localTz — so if the timezone package's `local` is
+    // wrong, the instant is wrong. That is how a 06:30 tee time went out as
+    // 10:30: `local` was UTC, so 06:30 became 06:30Z, which is 10:30 in
+    // Dubai.
+    //
+    // DateTime(y, m, d, hh, mm) is interpreted in the DEVICE's zone by the
+    // Dart runtime itself, with no dependency on the timezone database.
+    // Converting that instant into localTz therefore yields the correct
+    // moment even when localTz is UTC: only the label changes, and the
+    // epoch milliseconds — which is what the platform actually stores — are
+    // right either way.
+    final wallClock = DateTime(
       round.date.year,
       round.date.month,
       round.date.day,
       round.teeTime.hour,
       round.teeTime.minute,
     );
+    final startDt = TZDateTime.from(wallClock, localTz);
 
     final endDt = startDt.add(const Duration(minutes: _roundDurationMinutes));
 

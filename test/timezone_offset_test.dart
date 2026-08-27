@@ -42,4 +42,41 @@ void main() {
     expect(built.toUtc().hour, 1);
     expect(built.toUtc().minute, 0);
   });
+
+  group('the construction actually used by _buildEvent', () {
+    // The bug shipped twice because TimezoneService was assumed to have
+    // worked. These prove the event instant is right even when it has NOT.
+
+    test('TZDateTime(local, ...) is WRONG when local is UTC — the old way', () {
+      tz.setLocalLocation(tz.getLocation('UTC'));
+      final wrong = tz.TZDateTime(tz.local, 2026, 8, 30, 6, 30);
+      // 06:30Z is 10:30 in Dubai — precisely the reported symptom.
+      expect(
+        tz.TZDateTime.from(wrong, tz.getLocation('Asia/Dubai')).hour,
+        10,
+      );
+    });
+
+    test(
+        'TZDateTime.from(DateTime(...), local) carries the right instant '
+        'even when local is UTC — the new way', () {
+      tz.setLocalLocation(tz.getLocation('UTC'));
+
+      // DateTime(...) is interpreted in the DEVICE's zone by the Dart
+      // runtime, independently of the timezone database.
+      final wall = DateTime(2026, 8, 30, 6, 30);
+      final built = tz.TZDateTime.from(wall, tz.local);
+
+      // Epoch millis are what the platform stores, and they must match the
+      // instant the device means by "06:30 today".
+      expect(built.millisecondsSinceEpoch, wall.millisecondsSinceEpoch);
+    });
+
+    test('and it is still right when local IS correct', () {
+      tz.setLocalLocation(tz.getLocation('Asia/Dubai'));
+      final wall = DateTime(2026, 8, 30, 6, 30);
+      final built = tz.TZDateTime.from(wall, tz.local);
+      expect(built.millisecondsSinceEpoch, wall.millisecondsSinceEpoch);
+    });
+  });
 }

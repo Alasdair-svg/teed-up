@@ -60,3 +60,10 @@
 # name. Same failure mode, so keep them for the same reason.
 -keep class co.quis.flutter_contacts.** { *; }
 -keep class dev.fluttercommunity.plus.** { *; }
+
+# flutter_timezone — resolves the device's IANA zone name.
+# Without this its plugin class can be stripped in release, the lookup
+# fails, and the timezone package's `local` silently stays UTC. Event times
+# are no longer dependent on that (see CalendarService._buildEvent), but a
+# working lookup still gives the event a correct zone LABEL.
+-keep class net.wolverinebeach.flutter_timezone.** { *; }
