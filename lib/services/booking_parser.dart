@@ -572,6 +572,60 @@ class BookingParser {
   /// on [extractOpenSlots].
   ///
   /// Results are de-duplicated and capped at 8 (two groups max).
+  /// Row content that is never a player's name.
+  ///
+  /// A booking row carries a price and a membership tier alongside the name.
+  /// Without this, "AED 0.00" was accepted AS a name — it survived
+  /// _cleanPlayerName as "AED 000" and passed _isValidName — so a player was
+  /// not merely dropped but replaced by a price in the review list.
+  static bool _isNonNameRowNoise(String candidate) {
+    final v = candidate.trim();
+    if (v.isEmpty) return true;
+
+    // Any currency code or amount.
+    if (RegExp(
+      r'^(?:aed|usd|gbp|eur|sar|qar|omr|bhd|kwd|inr|rs|\$|£|€)\b',
+      caseSensitive: false,
+    ).hasMatch(v)) {
+      return true;
+    }
+    // Digits with no letters at all — amounts, totals, counts.
+    if (!RegExp(r'[A-Za-z]').hasMatch(v)) return true;
+    // A trailing bare number is what "AED 0.00" degrades into once the
+    // currency symbol and punctuation are stripped.
+    if (RegExp(r'^[A-Za-z]{2,4}\s*\d[\d.,]*$').hasMatch(v)) return true;
+
+    // Membership tiers and row labels seen on real bookings.
+    const labels = {
+      'member',
+      'members',
+      'guest',
+      'guests',
+      'visitor',
+      'visitors',
+      'homeowner single',
+      'homeowner',
+      'single',
+      'jge member',
+      'holes',
+      'total',
+      'booking confirmed',
+      'player details',
+      'confirmed',
+      'paid',
+      'unpaid',
+      'free',
+    };
+    final lower = v.toLowerCase();
+    if (labels.contains(lower)) return true;
+    // "<something> Member" / "<something> Guest" tier lines.
+    if (RegExp(r'\b(member|guest|visitor)$', caseSensitive: false)
+        .hasMatch(lower)) {
+      return true;
+    }
+    return false;
+  }
+
   static List<String> extractPlayers(String text) {
     final Set<String> found = {};
 
@@ -591,14 +645,27 @@ class BookingParser {
         continue;
       }
 
-      // "Player N" alone on its line — the name is the next non-blank line.
-      for (var j = i + 1; j < lines.length && j < i + 3; j++) {
+      // "Player N" alone on its line — the name is on a following line.
+      //
+      // Keep looking until a NAME is found, rather than giving up on the
+      // first non-blank line. Each row in a booking carries a price and a
+      // membership label as well as a name, and the order they arrive in is
+      // decided by the OCR engine's block ordering, not the layout. On a
+      // real 4-player booking the price for player 3 was emitted before the
+      // name, so the old code took "AED 0.00", failed to recognise it, and
+      // broke out — losing Michael Murphy entirely while the same
+      // screenshot picked from the gallery found all four.
+      for (var j = i + 1; j < lines.length && j < i + 5; j++) {
         final candidate = _cleanPlayerName(lines[j]);
         if (candidate.isEmpty) continue;
+        // Stop if the next player's marker is reached: the name for this one
+        // is genuinely absent rather than further down.
+        if (playerLine.hasMatch(lines[j])) break;
+        if (_isNonNameRowNoise(candidate)) continue;
         if (_isValidName(candidate) && !_isTbcPlaceholder(candidate)) {
           found.add(candidate);
+          break;
         }
-        break; // only the first non-blank line after the marker counts
       }
     }
     if (found.isNotEmpty) return found.take(8).toList();

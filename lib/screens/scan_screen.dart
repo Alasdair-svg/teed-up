@@ -553,6 +553,74 @@ class _ScanScreenState extends State<ScanScreen> {
           _SectionHeader(
             title: 'Who\'s playing? Booking says ${_reviewPlayers.length}',
           ),
+          // What the recogniser actually read.
+          //
+          // A screenshot shared straight into the app repeatedly found one
+          // fewer player than the identical image picked from the gallery.
+          // The image the recogniser sees is the difference, so state its
+          // size: a truncated share-sheet read shows up here as an
+          // unexpected height, which is the difference between evidence and
+          // another guess.
+          if (lastDecodedSize != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'Read from $lastDecodedSize image'
+                '${lastSourceBytes != null ? ' · ${(lastSourceBytes! / 1024).round()} KB' : ''}',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+          // Exactly what the scan read, on request.
+          //
+          // When a player is missed, the parsed list cannot say why: the
+          // name may never have been recognised, or recognised and then
+          // dropped by the parser. Those need opposite fixes, and guessing
+          // between them from the symptom alone has cost several wrong
+          // builds. Collapsed by default; opening it shows the OCR output
+          // block by block, and the text is selectable so it can be shared.
+          if (lastOcrStructure != null)
+            Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                title: const Text(
+                  'What the scan read',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                children: [
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 260),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.offWhite,
+                      borderRadius: AppRadius.cardBorder,
+                      border: Border.all(color: AppColors.grey),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        lastOcrStructure!,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           ..._reviewPlayers.asMap().entries.map((e) {
             final i = e.key;

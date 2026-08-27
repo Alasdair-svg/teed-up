@@ -33,6 +33,12 @@ import 'booking_parser.dart';
 /// // round.course, round.teeTime, etc. are populated.
 /// await scanService.dispose();
 /// ```
+/// The most recent OCR result, block by block, for on-screen diagnosis.
+///
+/// Populated on every scan so a failing scan can be reported as evidence
+/// rather than described. Never shown unless the user opens it.
+String? lastOcrStructure;
+
 class ScanService {
   /// Creates a [ScanService].
   ///
@@ -199,6 +205,22 @@ class ScanService {
         "Couldn't auto-detect booking details — that took too long.",
       );
     }
+
+    // Record the block structure, not just the flattened text.
+    //
+    // ML Kit returns spatial BLOCKS whose order need not follow reading
+    // order, so the same booking can flatten differently depending on the
+    // image it was given. That is the difference between a share-sheet scan
+    // and a gallery scan of the same screenshot, and it cannot be diagnosed
+    // from the parsed result alone.
+    final structure = StringBuffer();
+    for (var b = 0; b < recognised.blocks.length; b++) {
+      structure.writeln('[block $b]');
+      for (final line in recognised.blocks[b].lines) {
+        structure.writeln('  ${line.text}');
+      }
+    }
+    lastOcrStructure = structure.toString();
 
     final buffer = StringBuffer();
     for (final block in recognised.blocks) {

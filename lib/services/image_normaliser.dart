@@ -24,6 +24,41 @@ const int kMaxImageEdge = 2048;
 /// Matches image_picker's `imageQuality: 90`.
 const int kJpegQuality = 90;
 
+/// Dimensions of the most recently decoded image, for on-screen diagnosis.
+/// A truncated share-sheet read shows up here as an unexpected height.
+String? lastDecodedSize;
+
+/// Byte length of the most recently read source image.
+int? lastSourceBytes;
+
+/// Polls until [file]'s length stops changing, or [limit] elapses.
+///
+/// Cheap insurance: a few short sleeps cost nothing next to an OCR pass, and
+/// reading a half-written screenshot silently loses data.
+Future<void> _awaitStableFile(
+  File file, {
+  Duration limit = const Duration(seconds: 3),
+}) async {
+  const step = Duration(milliseconds: 120);
+  var elapsed = Duration.zero;
+  var last = -1;
+  var stableFor = 0;
+  while (elapsed < limit) {
+    final size = await file.length();
+    if (size > 0 && size == last) {
+      stableFor++;
+      // Two consecutive identical readings: treat as finished writing.
+      if (stableFor >= 2) return;
+    } else {
+      stableFor = 0;
+    }
+    last = size;
+    await Future<void>.delayed(step);
+    elapsed += step;
+  }
+  debugPrint('[ImageNormaliser] file size never settled within $limit');
+}
+
 /// Normalises the image at [path] and returns a path to feed OCR.
 ///
 /// Returns the ORIGINAL path unchanged if anything goes wrong: a failure to
@@ -34,9 +69,22 @@ Future<String> normaliseForOcr(String path) async {
     final file = File(path);
     if (!await file.exists()) return path;
 
+    // Wait for the file to stop growing before reading it.
+    //
+    // Sharing a screenshot the instant it is taken can hand the app a file
+    // the system is still writing. PNG decoders succeed on truncated data,
+    // returning an image whose BOTTOM ROWS ARE MISSING — so the last entry
+    // in a list silently disappears. That matches the report exactly: the
+    // same player missing every time via the share sheet, all four found
+    // when the identical screenshot was picked from the gallery moments
+    // later, by which point the file was complete.
+    await _awaitStableFile(file);
+
     final bytes = await file.readAsBytes();
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return path;
+    lastDecodedSize = '${decoded.width}x${decoded.height}';
+    lastSourceBytes = bytes.length;
 
     // Apply EXIF orientation. A share-sheet image can carry a rotation flag
     // that the picker path resolves and the raw path does not, which alone
