@@ -12,11 +12,13 @@ import 'models/golf_round.dart';
 import 'models/player.dart';
 import 'models/rsvp_change.dart';
 import 'providers/app_state.dart';
+import 'services/timezone_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/scan_screen.dart';
 import 'services/contacts_service.dart';
 import 'services/notification_service.dart';
+import 'services/timezone_service.dart';
 import 'services/purchase_service.dart';
 import 'services/rsvp_monitor.dart';
 import 'theme/app_theme.dart';
@@ -53,6 +55,11 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Point the timezone package at the device's zone BEFORE anything builds
+  // a calendar event. Its `local` is UTC until this runs, which silently
+  // shifted every tee time by the device's UTC offset.
+  await TimezoneService.configure();
 
   // Load persisted state before building the widget tree.
   final appState = AppState();
