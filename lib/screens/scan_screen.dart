@@ -31,6 +31,7 @@ import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../services/calendar_service.dart';
 import '../services/contacts_service.dart';
+import '../services/image_normaliser.dart';
 import '../services/scan_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_conflict_dialog.dart';
@@ -99,8 +100,14 @@ class _ScanScreenState extends State<ScanScreen> {
     if (widget.sharedImagePath != null) {
       // Came from share-sheet — skip upload phase and go straight to processing
       _shareSource = 'Shared from Photos';
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _processImage(widget.sharedImagePath!);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        // Normalise first. The gallery path goes through image_picker, which
+        // downscales, bakes EXIF orientation and re-encodes; this path used
+        // the raw file, so OCR saw different pixels and could miss a player
+        // that the gallery route found.
+        final normalised = await normaliseForOcr(widget.sharedImagePath!);
+        if (!mounted) return;
+        await _processImage(normalised);
       });
     }
   }
