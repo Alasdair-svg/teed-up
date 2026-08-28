@@ -128,6 +128,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Permission.calendarFullAccess,
         Permission.contacts,
         Permission.camera,
+        // Android 13+ requires a RUNTIME request for POST_NOTIFICATIONS.
+        // Declaring it in the manifest is not enough: without this, every
+        // notification the app sends is silently dropped and the user is
+        // never asked. On iOS this is also the only place the notification
+        // prompt should come from — see NotificationService, which no longer
+        // requests on init so the dialog cannot appear on a later screen
+        // with no explanation.
+        Permission.notification,
       ].request().timeout(kPermissionRequestTimeout);
     } on TimeoutException {
       // Observed on real devices: the dialogs appear, the user grants, and
@@ -418,42 +426,56 @@ class _WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final heroSize = isTablet ? 220.0 : 160.0;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: isTablet ? 64 : 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          GolfBallLogo(
-            size: heroSize,
-            animate: true,
-            showTee: true,
-            showGlow: true,
-          ),
-          SizedBox(height: isTablet ? 56 : 40),
-          Text(
-            'All Teed Up',
-            style: Theme.of(context).textTheme.displayMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Snap your booking....Your group never misses a tee time',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
+    // Scrollable, like the other onboarding pages.
+    //
+    // This was a bare centred Column, which overflowed by 279px on a 320x568
+    // screen — the hero, wordmark, tagline and privacy line simply do not fit
+    // — so the bottom of the content was clipped rather than reachable on
+    // small handsets. Centring is preserved by letting the scroll view take
+    // the full height and centring within it.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 64 : 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GolfBallLogo(
+                  size: heroSize,
+                  animate: true,
+                  showTee: true,
+                  showGlow: true,
                 ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No accounts. No cloud. No Data Leaves Your Phone\u00a0—\u00a0Except A Calendar Invite.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textMuted,
-                  height: 1.55,
+                SizedBox(height: isTablet ? 56 : 40),
+                Text(
+                  'All Teed Up',
+                  style: Theme.of(context).textTheme.displayMedium,
+                  textAlign: TextAlign.center,
                 ),
-            textAlign: TextAlign.center,
+                const SizedBox(height: 12),
+                Text(
+                  'Snap your booking....Your group never misses a tee time',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No accounts. No cloud. No Data Leaves Your Phone\u00a0—\u00a0Except A Calendar Invite.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textMuted,
+                        height: 1.55,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -507,6 +529,16 @@ class _PermissionsPage extends StatelessWidget {
             title: 'Calendar access:',
             description:
                 'So the app can pop your tee times straight into your calendar and create an invite for the other players.',
+          ),
+          const SizedBox(height: 12),
+
+          // Notifications
+          _PermissionCard(
+            icon: Icons.notifications_active_outlined,
+            title: 'Notification access:',
+            description:
+                'So the app can tell you if a player drops out or hasn\u2019t '
+                'replied, and nudge you before the tee time.',
           ),
           const SizedBox(height: 12),
 

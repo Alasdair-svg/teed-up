@@ -92,10 +92,18 @@ class NotificationService {
       );
 
       // --- iOS settings ---
+      // Do NOT request here.
+      //
+      // Initialising this service used to raise the iOS notification prompt
+      // by itself, which meant the dialog appeared wherever initialisation
+      // happened to run rather than on the screen that explains why it is
+      // needed. Onboarding's Permissions step now asks for
+      // Permission.notification alongside camera, calendar and contacts, so
+      // this only sets the plugin up.
       const iosSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
       );
 
       const initSettings = InitializationSettings(
