@@ -596,7 +596,7 @@ class AppState extends ChangeNotifier {
 
   bool _isPurchased = false;
 
-  /// Whether the user has purchased the app (AED 99 one-time).
+  /// Whether the user has an active subscription (AED 99 a year).
   bool get isPurchased => _isPurchased;
 
   /// Records a successful purchase.

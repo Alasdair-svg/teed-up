@@ -945,7 +945,7 @@ class _DeviceCompatibilitySheet extends StatelessWidget {
           const SizedBox(height: 12),
           _CapRow(
               label: 'Google Play Services',
-              description: 'Required to complete the one-time in-app purchase.',
+              description: 'Required to complete the in-app subscription.',
               available: result.hasPlayServices),
           const SizedBox(height: 20),
           const Divider(height: 1),

@@ -1,6 +1,6 @@
 /// Premium purchase / paywall screen for the All Teed Up golf booking app.
 ///
-/// Displays the feature list, pricing (AED 99 one-time), and purchase
+/// Displays the feature list, pricing (AED 99 a year), and purchase
 /// / restore buttons. Shown before the user can
 /// access the full app.
 ///
@@ -26,7 +26,7 @@ import '../widgets/golf_ball_logo.dart';
 
 /// The paywall screen presented to unpaid users.
 ///
-/// Shows the app's key features, a one-time price tag, and buttons to
+/// Shows the app's key features, the annual price, and buttons to
 /// purchase or restore a previous purchase. Fully branded with
 /// white background, purple accents, and Outfit / Inter typography.
 class PurchaseScreen extends StatefulWidget {
@@ -301,7 +301,7 @@ class _PurchaseScreenState extends State<PurchaseScreen>
                       child: Column(
                         children: [
                           Text(
-                            'AED 99 — One Time. No Subscription. Ever.',
+                            'AED 99 a year',
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge

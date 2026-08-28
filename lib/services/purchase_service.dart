@@ -1,12 +1,13 @@
 /// In-app purchase service for the All Teed Up golf booking app.
 ///
-/// Manages the one-time non-consumable purchase of the full app
+/// Manages the AED 99/year subscription that unlocks the full app.
 /// (product ID: `teed_up_full_access`, AED 99 / ~$27.99 USD).
 ///
 /// Uses the `in_app_purchase` Flutter plugin for App Store / Play Store
 /// transactions and [SharedPreferences] for local purchase persistence.
 /// No backend server is required — verification is handled locally
-/// since this is a non-consumable product.
+/// The subscription product itself is configured in App Store Connect and
+/// Play Console; this only initiates the purchase and listens for the result.
 ///
 /// ## Usage
 ///
@@ -28,7 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/app_state.dart';
 
-/// The single non-consumable product ID configured in App Store Connect
+/// The subscription product ID configured in App Store Connect and Play
 /// and Google Play Console.
 const String kProductId = 'teed_up_full_access';
 
@@ -228,6 +229,12 @@ class PurchaseService {
     );
 
     // Non-consumable purchase — the store remembers it forever.
+    // buyNonConsumable is correct for a SUBSCRIPTION.
+    //
+    // The name misleads: the in_app_purchase package uses buyConsumable only
+    // for consumables and buyNonConsumable for everything else, subscriptions
+    // included — see the package README, which uses it in its own
+    // "upgrading or downgrading an existing in-app subscription" section.
     final success = await _iap.buyNonConsumable(
       purchaseParam: purchaseParam,
     );
