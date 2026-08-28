@@ -18,7 +18,6 @@ import 'screens/onboarding_screen.dart';
 import 'screens/scan_screen.dart';
 import 'services/contacts_service.dart';
 import 'services/notification_service.dart';
-import 'services/timezone_service.dart';
 import 'services/purchase_service.dart';
 import 'services/rsvp_monitor.dart';
 import 'theme/app_theme.dart';

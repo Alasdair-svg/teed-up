@@ -82,19 +82,22 @@ class CalendarService {
   /// Default golf round duration in minutes (4.5 hours = 270 minutes).
   static const int _roundDurationMinutes = 270;
 
-  /// Store links for the growth-loop invite footer (see "The Growth Loop"
-  /// design doc, Section 01). No link is ever placed inline in the invite
-  /// title or as a tappable button — on-device testing confirmed neither
-  /// custom URL schemes nor Android `intent://` links render as tappable
-  /// in any calendar app's event view, so a plain `https://` line is the
-  /// only reliably-tappable form available at all.
-  ///
-  /// Apple ID 6780447827, confirmed against App Store Connect. This was
-  /// previously a literal `id0000000000` placeholder, so every invite the
-  /// app has ever sent carried a link to a dead App Store page.
-  static const String _appStoreUrl = 'https://apps.apple.com/app/id6780447827';
-  static const String _playStoreUrl =
-      'https://play.google.com/store/apps/details?id=com.teedup.golf';
+  // Store links are deliberately ABSENT from the invite footer while the app
+  // is in beta. Neither listing is live, so a recipient following one reached
+  // a dead page — and during testing it also risks sending people to a store
+  // install that is not the build under test. The footer says
+  // "Link available when app is released" instead.
+  //
+  // When the listings go live, restore these two lines and put them back in
+  // _growthLoopFooter:
+  //   Apple  https://apps.apple.com/app/id6780447827   (ID confirmed in ASC)
+  //   Play   https://play.google.com/store/apps/details?id=com.teedup.golf
+  //
+  // Note for whoever restores them: no link may be placed inline in the
+  // invite TITLE or as a tappable button. On-device testing confirmed that
+  // neither custom URL schemes nor Android `intent://` links render as
+  // tappable in any calendar app's event view, so a plain `https://` line on
+  // its own row is the only reliably-tappable form available.
 
   // ─────────────────────────────────────────────────────────────────────────
   // Permissions
@@ -1130,8 +1133,7 @@ class CalendarService {
       'New here? Never miss a tee time again.\n'
       'All Teed Up is in beta now but will be available in the stores '
       'for AED99 soon\n'
-      '🍎 iPhone → $_appStoreUrl\n'
-      '🤖 Android → $_playStoreUrl';
+      'Link available when app is released';
 
   /// Converts a [Player] to a device_calendar [Attendee].
   Attendee _playerToAttendee(Player player) {
