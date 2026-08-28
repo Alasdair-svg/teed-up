@@ -631,8 +631,12 @@ class BookingParser {
 
     // --- 1) "Player N" — same line, or name on the next non-blank line ---
     final lines = text.split('\n');
+    // A bare "Player" with no digit counts as a marker too. On a real Viya
+    // booking ML Kit emitted the first row's label as "Player" on its own —
+    // the "1" was never recognised — so a numbered-only pattern matched
+    // players 2, 3 and 4, returned early, and lost player 1 altogether.
     final playerLine =
-        RegExp(r'^\s*player\s*\d+\s*[:.]?\s*(.*)$', caseSensitive: false);
+        RegExp(r'^\s*player\s*\d*\s*[:.]?\s*(.*)$', caseSensitive: false);
     for (var i = 0; i < lines.length; i++) {
       final m = playerLine.firstMatch(lines[i]);
       if (m == null) continue;
@@ -668,7 +672,25 @@ class BookingParser {
         }
       }
     }
-    if (found.isNotEmpty) return found.take(8).toList();
+    if (found.isNotEmpty) {
+      // A booking that states its own group size ("4 Player(s)") is the
+      // authority on how many names should have been found. When the marker
+      // pass comes up short, sweep the text for names it could not reach
+      // rather than returning a group that is silently a player light.
+      final declared = extractDeclaredPlayerCount(text);
+      if (declared != null && found.length < declared) {
+        for (final line in lines) {
+          if (found.length >= declared) break;
+          final candidate = _cleanPlayerName(line);
+          if (candidate.isEmpty || candidate != line.trim()) continue;
+          if (_isNonNameRowNoise(candidate)) continue;
+          if (_isValidName(candidate) && !_isTbcPlaceholder(candidate)) {
+            found.add(candidate);
+          }
+        }
+      }
+      return found.take(8).toList();
+    }
 
     // --- 2) Lines under a header: "Players:", "Golfers:", "Group:" ---
     final headerPattern = RegExp(
@@ -739,12 +761,26 @@ class BookingParser {
     for (final line in lines) {
       final candidate = _cleanPlayerName(line);
       if (candidate.isEmpty || candidate != line.trim()) continue;
+      if (_isNonNameRowNoise(candidate)) continue;
       if (_isValidName(candidate) && !_isTbcPlaceholder(candidate)) {
         found.add(candidate);
       }
     }
 
     return found.take(8).toList();
+  }
+
+  /// The group size the booking states for itself — "4 Player(s)",
+  /// "3 golfers". Returns `null` when the text makes no such claim, in
+  /// which case callers must not assume a size.
+  static int? extractDeclaredPlayerCount(String text) {
+    final m = RegExp(
+      r'\b(\d+)\s*(?:player|golfer)\(?s?\)?',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (m == null) return null;
+    final n = int.parse(m.group(1)!);
+    return (n >= 1 && n <= 8) ? n : null;
   }
 
   /// Cleans a raw player name string.
