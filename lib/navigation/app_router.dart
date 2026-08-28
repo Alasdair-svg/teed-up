@@ -9,11 +9,9 @@ import 'package:flutter/material.dart';
 import '../screens/alerts_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/onboarding_screen.dart';
-import '../screens/purchase_screen.dart';
 import '../screens/round_detail_screen.dart';
 import '../screens/scan_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/verify_emails_screen.dart';
 
 /// All named route paths used in the app.
 ///
@@ -28,9 +26,6 @@ abstract final class AppRoutes {
   /// OCR camera scan screen.
   static const String scan = '/scan';
 
-  /// Email verification / contact matching screen.
-  static const String verifyEmails = '/verify-emails';
-
   /// Individual round detail screen.
   ///
   /// Expects a route argument of type `String` for the round's ID.
@@ -44,9 +39,6 @@ abstract final class AppRoutes {
 
   /// First-launch onboarding flow.
   static const String onboarding = '/onboarding';
-
-  /// Premium purchase / paywall screen.
-  static const String purchase = '/purchase';
 }
 
 /// Generates [Route] objects for the named routes defined in [AppRoutes].
@@ -76,12 +68,6 @@ abstract final class AppRouter {
           builder: (_) => const ScanScreen(),
         );
 
-      case AppRoutes.verifyEmails:
-        return _buildRoute(
-          settings: settings,
-          builder: (_) => const VerifyEmailsScreen(),
-        );
-
       case AppRoutes.alerts:
         return _buildRoute(
           settings: settings,
@@ -98,12 +84,6 @@ abstract final class AppRouter {
         return _buildRoute(
           settings: settings,
           builder: (_) => const OnboardingScreen(),
-        );
-
-      case AppRoutes.purchase:
-        return _buildRoute(
-          settings: settings,
-          builder: (_) => const PurchaseScreen(),
         );
 
       default:
