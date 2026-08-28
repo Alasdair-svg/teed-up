@@ -129,13 +129,22 @@ Upload screenshots at: **Main store listing → Phone screenshots**.
 5. You should receive a rating of **Everyone / PEGI 3 / USK 0**.
 6. Click **"Save"** and then **"Submit"**.
 
-### Step 5 — Pricing & Distribution
+### Step 5 — Subscription & Distribution
 
-1. Navigate to **Monetize → Pricing**.
-2. Set the default price:
-   - **USD $26.99** (Google will auto-convert to local currencies including AED).
-   - Or set AED manually: go to **Pricing → Manage prices by country** → find UAE → set **AED 99**.
-3. Navigate to **Countries / regions**: select **"All countries"** (or deselect any you want to exclude).
+All Teed Up is a **subscription at AED 99 a year**, not a paid app. It is
+therefore set up under Subscriptions, NOT under app pricing — those are
+different mechanisms and the app-price route does not produce a subscription.
+
+1. Navigate to **Monetize → Products → Subscriptions**.
+2. Create a subscription with product ID `teed_up_full_access` — this must
+   match `kProductId` in `lib/services/purchase_service.dart`.
+3. Add a **base plan**: billing period **yearly**, auto-renewing.
+4. Set the price for the UAE to **AED 99**. Let Google convert the rest, or
+   set per-country prices deliberately.
+5. **Activate** the base plan — a subscription with no active base plan cannot
+   be purchased.
+6. Navigate to **Countries / regions**: select **"All countries"** (or deselect
+   any you want to exclude).
 
 ### Step 6 — Set Up Closed Testing (MANDATORY)
 
@@ -217,18 +226,24 @@ Navigate to **App Store → App Information**:
 | Content Rights | Does not contain third-party content |
 | Age Rating | Fill questionnaire → should be `4+` |
 
-### Step 4 — Pricing and Availability
+### Step 4 — Subscription and Availability
 
-1. Navigate to **App Store → Pricing and Availability**.
-2. Click **"Price Schedule" → "Add Base Price"**.
-3. Select **Price Tier 40** (= $26.99 USD / AED 99.99):
+All Teed Up is a **subscription at AED 99 a year**. Price tiers are the
+mechanism for a paid app; a subscription is configured separately and the
+tier route will not create one.
 
-| Currency | Approx. Price |
-|---|---|
-| USD | $26.99 |
-| AED | 99.99 |
-| GBP | £22.99 |
-| EUR | €26.99 |
+1. Navigate to **Monetization → Subscriptions**.
+2. Create a **subscription group** (all plans a user can switch between live
+   in one group).
+3. Add a subscription with product ID `teed_up_full_access` — this must match
+   `kProductId` in `lib/services/purchase_service.dart`.
+4. Set the duration to **1 year**, and the price for the UAE to **AED 99**.
+   Apple generates the other currencies from that choice; review them rather
+   than assuming.
+5. Add a localised display name and description — Apple requires these before
+   the subscription can be submitted.
+6. Submit the subscription **with the app version**. A subscription that has
+   never been submitted cannot be bought, and the app will show no product.
 
 4. **Availability:** Select **"All Territories"** (175 countries).
 5. Click **"Save"**.
@@ -489,7 +504,7 @@ Complete this checklist before uploading to either store:
 | Apple Developer Enrollment | https://developer.apple.com/programs/enroll/ |
 | App Store Connect | https://appstoreconnect.apple.com |
 | Apple ID Creation | https://appleid.apple.com/account |
-| Apple Price Tier Matrix | https://developer.apple.com/help/app-store-connect/manage-app-pricing/price-points |
+| Apple subscription pricing | https://developer.apple.com/help/app-store-connect/manage-subscriptions/set-a-price-for-a-subscription |
 | Apple Screenshot Specs | https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications |
 | Google Screenshot Specs | https://support.google.com/googleplay/android-developer/answer/9866151 |
 | D-U-N-S Lookup (for Org accounts) | https://developer.apple.com/enroll/duns-lookup/ |

@@ -27,6 +27,7 @@ import 'package:provider/provider.dart';
 
 import 'package:device_calendar/device_calendar.dart' show Event;
 
+import '../config/feature_flags.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../services/calendar_service.dart';
@@ -414,6 +415,28 @@ class _ScanScreenState extends State<ScanScreen> {
     // Selected family members for notify
     final selectedFamily =
         _selectedFamilyIndices.map((i) => appState.familyMembers[i]).toList();
+
+    // Subscription gate.
+    //
+    // Blocks CREATING a round, not reading existing ones: locking someone out
+    // of rounds they already organised would punish their playing partners
+    // too. Off unless kEnforceSubscription is set — see feature_flags.dart for
+    // why that matters before the product exists in the stores.
+    if (kEnforceSubscription && !appState.isPurchased) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your All Teed Up subscription has ended. Renew in Settings to '
+            'add new rounds — the rounds you already have stay in your '
+            'calendar.',
+          ),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
 
     // Duplicate check — only when creating something new. An event for this
     // tee time may already be in the calendar from another source (a

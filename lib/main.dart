@@ -181,6 +181,9 @@ Future<void> _saveRounds(AppState state) async {
 
 /// Initializes non-critical services. Errors are fully caught so they can
 /// never crash the app. Each service is optional — the app works without them.
+/// Held so the lifecycle observer can re-check entitlement on resume.
+PurchaseService? _purchaseService;
+
 Future<void> _initializeServices(AppState appState) async {
   // Warm the contacts cache for returning users only — i.e. users who have
   // already been through onboarding's Permissions step at least once, so
@@ -220,6 +223,11 @@ Future<void> _initializeServices(AppState appState) async {
   try {
     final purchaseService = PurchaseService(appState: appState);
     await purchaseService.initialize();
+    // Ask the store whether the subscription is still active. The cached flag
+    // is written once at purchase and would otherwise stay true forever.
+    // Never revokes on an inconclusive check — see revalidateEntitlement.
+    unawaited(purchaseService.revalidateEntitlement());
+    _purchaseService = purchaseService;
   } catch (e, st) {
     debugPrint('[main] PurchaseService init failed: $e\n$st');
     // App works fine without IAP — just mark as unpurchased for now.
@@ -278,6 +286,9 @@ class _TeedUpAppState extends State<TeedUpApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       if (!widget.appState.onboardingComplete) return;
+      // A subscription can lapse while the app is backgrounded.
+      unawaited(
+          _purchaseService?.revalidateEntitlement() ?? Future.value(false));
       RsvpMonitor.instance.startForegroundPolling();
       unawaited(
         RsvpMonitor.instance.reconcileWithCalendar(widget.appState),

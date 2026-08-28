@@ -1,7 +1,7 @@
 /// In-app purchase service for the All Teed Up golf booking app.
 ///
 /// Manages the AED 99/year subscription that unlocks the full app.
-/// (product ID: `teed_up_full_access`, AED 99 / ~$27.99 USD).
+/// (product ID: `teed_up_full_access`, AED 99 a year).
 ///
 /// Uses the `in_app_purchase` Flutter plugin for App Store / Play Store
 /// transactions and [SharedPreferences] for local purchase persistence.
@@ -63,6 +63,10 @@ class PurchaseService {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _isAvailable = false;
   bool _isPurchased = false;
+
+  /// Set when a purchase/restore event for [kProductId] arrives during a
+  /// revalidation pass. See [revalidateEntitlement].
+  bool _sawActiveEntitlement = false;
   ProductDetails? _productDetails;
 
   /// An optional callback invoked when a purchase error occurs.
@@ -171,6 +175,58 @@ class PurchaseService {
       _isPurchased = false;
     }
     _appState.setPurchased(_isPurchased);
+  }
+
+  /// Re-checks with the store whether the subscription is still active, and
+  /// revokes access if it is not.
+  ///
+  /// The cached flag alone is not enough for a subscription: it is written
+  /// once at purchase and would stay true forever, so a lapsed subscription
+  /// would never be noticed. This asks the store on every launch and resume.
+  ///
+  /// IMPORTANT — it only ever revokes on a DEFINITIVE negative. If the store
+  /// is unreachable, the restore throws, or the platform is unavailable, the
+  /// result is inconclusive and the previous state is kept. Revoking on a
+  /// network failure would lock out paying customers, which is far worse than
+  /// briefly over-granting.
+  ///
+  /// Returns true if the subscription is considered active afterwards.
+  Future<bool> revalidateEntitlement({
+    Duration wait = const Duration(seconds: 6),
+  }) async {
+    if (!_isAvailable) {
+      debugPrint('PurchaseService: store unavailable — entitlement unchanged.');
+      return _isPurchased;
+    }
+
+    _sawActiveEntitlement = false;
+    try {
+      await _iap.restorePurchases();
+    } catch (e) {
+      debugPrint('PurchaseService: restore failed ($e) — entitlement '
+          'unchanged. Not revoking on an inconclusive check.');
+      return _isPurchased;
+    }
+
+    // Restored purchases arrive asynchronously on the purchase stream, which
+    // _handleSuccessfulPurchase sets the flag from.
+    await Future<void>.delayed(wait);
+
+    if (_sawActiveEntitlement) {
+      debugPrint('PurchaseService: subscription active.');
+      return true;
+    }
+
+    if (_isPurchased) {
+      debugPrint('PurchaseService: no active subscription returned by the '
+          'store — revoking access.');
+      _isPurchased = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kPurchasedKey);
+      await prefs.remove(_kPurchaseTokenKey);
+      _appState.setPurchased(false);
+    }
+    return false;
   }
 
   /// Queries the store for the [kProductId] product details.
@@ -380,6 +436,7 @@ class PurchaseService {
     await prefs.setString(_kPurchaseTokenKey, _computeIntegrityToken());
 
     // Update reactive state.
+    _sawActiveEntitlement = true;
     _appState.setPurchased(true);
   }
 

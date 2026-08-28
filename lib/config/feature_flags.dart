@@ -20,3 +20,17 @@ library;
 const bool kEnableFamilyCalendarInvite = bool.fromEnvironment(
   'ENABLE_FAMILY_CALENDAR_INVITE',
 );
+
+/// Whether a lapsed or absent subscription blocks scanning a new booking.
+///
+/// OFF during beta, deliberately. The AED 99/year subscription does not exist
+/// in either store yet, so a store check returns "no active purchase" for
+/// EVERYONE — turning enforcement on before the product exists would lock out
+/// every tester on their next launch.
+///
+/// Turn this on with --dart-define=ENFORCE_SUBSCRIPTION=true once the
+/// subscription is live in App Store Connect and Play Console, and confirmed
+/// purchasable on a real device.
+const bool kEnforceSubscription = bool.fromEnvironment(
+  'ENFORCE_SUBSCRIPTION',
+);

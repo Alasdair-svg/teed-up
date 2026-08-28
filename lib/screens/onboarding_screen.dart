@@ -537,8 +537,8 @@ class _PermissionsPage extends StatelessWidget {
             icon: Icons.notifications_active_outlined,
             title: 'Notification access:',
             description:
-                'So the app can tell you if a player drops out or hasn\u2019t '
-                'replied, and nudge you before the tee time.',
+                'So the app can tell you when a player declines a round '
+                'you\u2019ve organised.',
           ),
           const SizedBox(height: 12),
 
