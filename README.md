@@ -4,7 +4,7 @@
 
 A premium Flutter golf booking management app. Photograph your tee-time confirmation, and All Teed Up uses on-device OCR to extract the details, create calendar events, and manage your group's RSVPs — all without any cloud backend.
 
-**Price:** AED 99 (one-time purchase)
+**Price:** AED 99 a year (subscription, sold through the App Store and Play Store)
 **Bundle ID:** `com.teedup.golf`
 
 ---

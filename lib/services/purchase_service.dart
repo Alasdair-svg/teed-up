@@ -228,7 +228,7 @@ class PurchaseService {
       productDetails: _productDetails!,
     );
 
-    // Non-consumable purchase — the store remembers it forever.
+    // The store tracks the subscription and its renewal state.
     // buyNonConsumable is correct for a SUBSCRIPTION.
     //
     // The name misleads: the in_app_purchase package uses buyConsumable only

@@ -100,7 +100,7 @@ Track every shot with NFC-enabled golf balls. Just tap your phone to the ball be
 • Export scorecards as PDF for club handicap submissions
 
 💎 PREMIUM EXPERIENCE
-All Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
+All Teed Up is AED 99 a year — no ads, no data collection. Every future update is included.
 
 Whether you're a weekend warrior looking to break 90 or a single-digit handicapper chasing scratch, All Teed Up gives you tour-level analytics in your pocket.
 
@@ -240,7 +240,7 @@ Navigate to **App Store → your version (e.g., 1.0)**:
 #### Promotional Text (170 chars, can be updated without new review)
 
 ```
-Track every shot with NFC golf balls. AI analytics that actually help you improve. One-time purchase — no subscriptions ever.
+Snap your booking. Your group never misses a tee time. AED 99 a year.
 ```
 
 #### Description
@@ -284,7 +284,7 @@ SOCIAL & COMPETITIVE
 • Export scorecards as PDF for club handicap submissions
 
 PREMIUM EXPERIENCE
-All Teed Up is a one-time purchase — no subscriptions, no ads, no in-app purchases. Pay once, own it forever. Every future update is included.
+All Teed Up is AED 99 a year — no ads, no data collection. Every future update is included.
 ```
 
 #### Keywords (100 chars, comma-separated)
