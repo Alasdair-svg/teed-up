@@ -47,11 +47,17 @@ class DeviceCapabilityResult {
 
   /// Whether Google Play Services (or equivalent billing infrastructure)
   /// is available, which is required to complete the in-app purchase.
+  /// Whether the platform's billing service answered.
+  ///
+  /// NOT part of [hasIssues]. The app has no paywall — every feature works
+  /// without the store — so a store that cannot be reached is not a reason to
+  /// warn that the app "may not function as intended". It also has nothing to
+  /// do with Google Play on iOS, where this check is StoreKit.
   final bool hasPlayServices;
 
   /// `true` if ALL critical capabilities are present.
   bool get isFullyCompatible =>
-      hasCalendar && hasContacts && hasCameraOrGallery && hasPlayServices;
+      hasCalendar && hasContacts && hasCameraOrGallery;
 
   /// `true` if ANY critical capability is missing.
   bool get hasIssues => !isFullyCompatible;
@@ -62,7 +68,6 @@ class DeviceCapabilityResult {
     if (!hasCalendar) issues.add('Calendar');
     if (!hasContacts) issues.add('Contacts');
     if (!hasCameraOrGallery) issues.add('Camera / Photo Library');
-    if (!hasPlayServices) issues.add('Google Play Services');
     return issues;
   }
 }

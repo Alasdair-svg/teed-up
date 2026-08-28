@@ -210,6 +210,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       context: context,
       isDismissible: false,
       enableDrag: false,
+      // Scrollable and height-bounded. A bottom sheet does not scroll by
+      // default, and this one overflowed by 163px on an iPhone — the
+      // striped overflow banner was visible to the user, over the content.
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -885,128 +892,125 @@ class _DeviceCompatibilitySheet extends StatelessWidget {
         24,
         MediaQuery.paddingOf(context).bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.warning_amber_rounded,
-                    color: AppColors.error, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Device Compatibility Check',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Some features may not work on this device.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.grey,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          _CapRow(
-              label: 'Camera / Photo Library',
-              description:
-                  'Required to photograph or import your booking confirmation.',
-              available: result.hasCameraOrGallery),
-          const SizedBox(height: 12),
-          _CapRow(
-              label: 'Calendar',
-              description:
-                  'Required to create tee time events and send invitations.',
-              available: result.hasCalendar),
-          const SizedBox(height: 12),
-          _CapRow(
-              label: 'Contacts',
-              description:
-                  'Used to match player names to email addresses automatically.',
-              available: result.hasContacts),
-          const SizedBox(height: 12),
-          _CapRow(
-              label: 'Google Play Services',
-              description: 'Required to complete the in-app subscription.',
-              available: result.hasPlayServices),
-          const SizedBox(height: 20),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              'All Teed Up requires all of the above to work correctly. '
-              'If your device or organisation restricts these features, '
-              'the app may not function as intended.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.error,
-                    height: 1.5,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(Icons.warning_amber_rounded,
+                      color: AppColors.error, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Device Compatibility Check',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Some features may not work on this device.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.grey,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.buttonBorder),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            _CapRow(
+                label: 'Camera / Photo Library',
+                description:
+                    'Required to photograph or import your booking confirmation.',
+                available: result.hasCameraOrGallery),
+            const SizedBox(height: 12),
+            _CapRow(
+                label: 'Calendar',
+                description:
+                    'Required to create tee time events and send invitations.',
+                available: result.hasCalendar),
+            const SizedBox(height: 12),
+            _CapRow(
+                label: 'Contacts',
+                description:
+                    'Used to match player names to email addresses automatically.',
+                available: result.hasContacts),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text('Exit App',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: AppColors.white,
-                  )),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.grey),
-                shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.buttonBorder),
+              child: Text(
+                'All Teed Up requires all of the above to work correctly. '
+                'If your device or organisation restricts these features, '
+                'the app may not function as intended.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.error,
+                      height: 1.5,
+                    ),
               ),
-              child: Text('Continue Anyway',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
-                    color: AppColors.textBody,
-                  )),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.buttonBorder),
+                ),
+                child: const Text('Exit App',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.white,
+                    )),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.grey),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.buttonBorder),
+                ),
+                child: Text('Continue Anyway',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      color: AppColors.textBody,
+                    )),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

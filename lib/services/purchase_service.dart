@@ -27,6 +27,7 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/feature_flags.dart';
 import '../providers/app_state.dart';
 
 /// The subscription product ID configured in App Store Connect and Play
@@ -197,6 +198,18 @@ class PurchaseService {
     if (!_isAvailable) {
       debugPrint('PurchaseService: store unavailable — entitlement unchanged.');
       return _isPurchased;
+    }
+
+    // Do not disturb anyone who has nothing to revalidate.
+    //
+    // restorePurchases() can raise an App Store sign-in prompt on iOS. During
+    // beta there is no subscription product in either store and nobody has
+    // purchased, so calling it on every launch and resume would prompt
+    // testers for a sign-in that finds nothing. Only check when enforcement
+    // is on, or when this device believes it already has an entitlement to
+    // confirm.
+    if (!kEnforceSubscription && !_isPurchased) {
+      return false;
     }
 
     _sawActiveEntitlement = false;
