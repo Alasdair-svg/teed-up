@@ -9,6 +9,7 @@ import '../services/purchase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calendar_accounts_section.dart';
 import '../widgets/family_setup_section.dart';
+import '../config/feature_flags.dart';
 
 /// Settings screen — 5 grouped cards (spec C5): Calendars & Accounts,
 /// Notifications & Reminders, Friends & Family, Contacts & Privacy, and
@@ -102,7 +103,7 @@ class SettingsScreen extends StatelessWidget {
               _SettingsCard(
                 emoji: '\u{1F4B3}',
                 title: 'App License & About',
-                child: _LicenseAboutSection(isPurchased: state.isPurchased),
+                child: LicenseAboutSection(isPurchased: state.isPurchased),
               ),
               const SizedBox(height: 24),
               const _AppFooter(),
@@ -301,9 +302,21 @@ class _ContactsPrivacySectionState extends State<_ContactsPrivacySection> {
 // App License & About card
 // =============================================================================
 
-class _LicenseAboutSection extends StatelessWidget {
-  const _LicenseAboutSection({required this.isPurchased});
+class LicenseAboutSection extends StatelessWidget {
+  const LicenseAboutSection({super.key, required this.isPurchased});
   final bool isPurchased;
+
+  /// What the licence badge says.
+  ///
+  /// "Free" was wrong in a way that mattered: it told a tester the app IS
+  /// free, when the truth was that the AED 99/year subscription does not
+  /// exist yet, so nobody could have bought one. During the beta the honest
+  /// word is Beta; once the product is live the badge reports whether this
+  /// person is subscribed.
+  String get _badgeLabel {
+    if (!kEnforceSubscription) return 'Beta';
+    return isPurchased ? 'Subscribed' : 'Not subscribed';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +332,7 @@ class _LicenseAboutSection extends StatelessWidget {
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
-            isPurchased ? 'Purchased' : 'Free',
+            _badgeLabel,
             style: TextStyle(
               fontFamily: 'Inter',
               fontWeight: FontWeight.w600,
@@ -329,16 +342,24 @@ class _LicenseAboutSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          height: 44,
-          child: OutlinedButton.icon(
-            onPressed: () => _restorePurchase(context),
-            icon: const Icon(Icons.restore_rounded, size: 18),
-            label: const Text('Restore purchases'),
+        // Apple requires a restore mechanism for any app selling a
+        // subscription (App Store Review Guideline 3.1.1), so this ships —
+        // but only once there is something to restore. While the AED 99/year
+        // product does not exist in either store a store query can only come
+        // back empty, and a button whose only possible outcome is "no
+        // purchase found" is worse than no button.
+        if (kEnforceSubscription) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: () => _restorePurchase(context),
+              icon: const Icon(Icons.restore_rounded, size: 18),
+              label: const Text('Restore purchases'),
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
+          const SizedBox(height: 14),
+        ],
         // Read from the actual bundle rather than a literal. This was
         // hardcoded to '1.1.0' and stayed there across every release, so the
         // About screen reported a version the user was not running — which
