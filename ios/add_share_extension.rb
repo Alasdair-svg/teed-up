@@ -14,7 +14,7 @@ require 'xcodeproj'
 PROJECT_PATH = 'Runner.xcodeproj'
 TARGET_NAME = 'Share Extension'
 BUNDLE_ID = 'com.teedup.golf.ShareExtension'
-APP_GROUP = 'group.com.teedup.golf'
+APP_GROUP = 'group.com.teedup.golf.share'
 DEPLOYMENT_TARGET = '16.0'
 
 project = Xcodeproj::Project.open(PROJECT_PATH)

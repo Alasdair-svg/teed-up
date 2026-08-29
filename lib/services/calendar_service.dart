@@ -1188,6 +1188,39 @@ class CalendarService {
   /// Converts a device_calendar [Event] back into a [GolfRound].
   ///
   /// Returns `null` if the event cannot be parsed.
+
+  /// The wall-clock time [instant] represents **on this device**.
+  ///
+  /// `Event.start` is a `TZDateTime` carrying the event's own zone — GMT for
+  /// an event this app wrote. Its `.hour` is therefore the hour in *that*
+  /// zone, so reading the fields directly gave 02:30 for a 06:30 Dubai
+  /// booking: four hours early, and as a *second* round, because the tee
+  /// time no longer matched the one already saved.
+  ///
+  /// Deliberately NOT `instant.toLocal()`. `TZDateTime` overrides `toLocal`
+  /// to convert to the **timezone package's** `tz.local`, not the OS zone —
+  /// so in any isolate where `TimezoneService.configure()` has not run
+  /// (the workmanager background isolate, for one) `tz.local` is still UTC
+  /// and `toLocal()` is a silent no-op. Measured on the Simulator:
+  ///
+  ///   ms=1788057000000  tzName=GMT  toLocal=02:30Z  dartNowOffsetMin=240
+  ///
+  /// The epoch was right the whole time; only the conversion was wrong.
+  /// Going through the epoch uses the OS zone and cannot be defeated by an
+  /// unconfigured isolate.
+  static DateTime localWallClock(DateTime instant) {
+    final local = DateTime.fromMillisecondsSinceEpoch(
+      instant.millisecondsSinceEpoch,
+    );
+    return DateTime(
+      local.year,
+      local.month,
+      local.day,
+      local.hour,
+      local.minute,
+    );
+  }
+
   GolfRound? _eventToGolfRound(Event event) {
     try {
       final title = event.title ?? '';
@@ -1248,17 +1281,16 @@ class CalendarService {
         bookingRef = refMatch.group(1)?.trim();
       }
 
+      // Read the instant in the DEVICE's timezone, not the event's own.
+      // See [localWallClock] — start.hour is the hour in whatever zone the
+      // event carries, which is not necessarily the user's.
+      final wall = localWallClock(start);
+
       return GolfRound(
         id: event.eventId ?? 'unknown',
         courseName: courseName,
-        date: DateTime(start.year, start.month, start.day),
-        teeTime: DateTime(
-          start.year,
-          start.month,
-          start.day,
-          start.hour,
-          start.minute,
-        ),
+        date: DateTime(wall.year, wall.month, wall.day),
+        teeTime: wall,
         players: players,
         bookingRef: bookingRef,
         calendarEventId: event.eventId,

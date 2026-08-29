@@ -638,7 +638,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -714,7 +714,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CODE_SIGNING_REQUIRED = YES;
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -725,7 +725,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf.ShareExtension;
 				PRODUCT_NAME = "Share Extension";
-				PROVISIONING_PROFILE_SPECIFIER = "All Teed Up ShareExtension AppStore Profile 1787466255";
+				PROVISIONING_PROFILE_SPECIFIER = "com.teedup.golf.ShareExtension AppStore";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -742,7 +742,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
 				CODE_SIGN_ALLOWED = NO;
 				CODE_SIGN_STYLE = Manual;
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -882,7 +882,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -909,7 +909,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -919,7 +919,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.teedup.golf;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "All Teed Up AppStore Profile 1787466249";
+				PROVISIONING_PROFILE_SPECIFIER = "com.teedup.golf AppStore";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -934,7 +934,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Share Extension/Share Extension.entitlements";
 				CODE_SIGN_ALLOWED = NO;
 				CODE_SIGN_STYLE = Manual;
-				CUSTOM_GROUP_ID = group.com.teedup.golf;
+				CUSTOM_GROUP_ID = group.com.teedup.golf.share;
 				DEVELOPMENT_TEAM = CH9U7G9757;
 				INFOPLIST_FILE = "Share Extension/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;

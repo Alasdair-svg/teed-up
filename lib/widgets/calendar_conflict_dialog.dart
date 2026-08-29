@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../theme/app_theme.dart';
+import '../services/calendar_service.dart';
 
 /// Shows the conflict alert. Resolves true if the user chose "Add anyway".
 Future<bool?> showCalendarConflictDialog(
@@ -143,7 +144,13 @@ class CalendarConflictDialog extends StatelessWidget {
                                 if (e.start != null) ...[
                                   const SizedBox(height: 2),
                                   Text(
-                                    fmt.format(e.start!),
+                                    // Via localWallClock: e.start is a
+                                    // plugin TZDateTime in the event's own
+                                    // zone, so formatting it directly shows
+                                    // the wrong hour.
+                                    fmt.format(
+                                      CalendarService.localWallClock(e.start!),
+                                    ),
                                     style: text.bodySmall
                                         ?.copyWith(color: AppColors.textMuted),
                                   ),

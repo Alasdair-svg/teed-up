@@ -16,7 +16,7 @@ platform :ios do
     # The Share Extension IS registered (com.teedup.golf.ShareExtension,
     # 9TLT7SCA57) and IS signed in Release; only Debug and Profile disable
     # signing. Both App IDs carry the APP_GROUPS capability for
-    # group.com.teedup.golf — run the refresh_profiles lane if a profile
+    # group.com.teedup.golf.share — run the refresh_profiles lane if a profile
     # predates that and the archive fails on the entitlement.
     build_app(
       workspace: 'Runner.xcworkspace',
