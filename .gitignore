@@ -83,3 +83,6 @@ coverage/
 test/.test_coverage.dart
 build8-app-release.aab
 *.aab
+
+# Provisioning profiles are regenerable and identify the signing account
+ios/fastlane/profiles/

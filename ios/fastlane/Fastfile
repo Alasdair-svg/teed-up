@@ -13,9 +13,11 @@ platform :ios do
       in_house: false
     )
 
-    # Share Extension has CODE_SIGN_ALLOWED=NO and CODE_SIGNING_REQUIRED=NO set
-    # directly in project.pbxproj — its App ID (com.teedup.golf.ShareExtension) is
-    # not registered in Apple Developer Portal.
+    # The Share Extension IS registered (com.teedup.golf.ShareExtension,
+    # 9TLT7SCA57) and IS signed in Release; only Debug and Profile disable
+    # signing. Both App IDs carry the APP_GROUPS capability for
+    # group.com.teedup.golf — run the refresh_profiles lane if a profile
+    # predates that and the archive fails on the entitlement.
     build_app(
       workspace: 'Runner.xcworkspace',
       scheme: 'Runner',
@@ -26,6 +28,30 @@ platform :ios do
     upload_to_testflight(
       skip_waiting_for_build_processing: true
     )
+  end
+
+  desc 'Regenerate the App Store provisioning profiles so they carry current entitlements'
+  desc 'Needed after adding a capability: an existing profile does not pick up a new'
+  desc 'entitlement, and the archive fails with "does not match the entitlements file".'
+  lane :refresh_profiles do
+    key_path = File.expand_path("keys/AuthKey_98UDF59KU7.p8", __dir__)
+    api_key = app_store_connect_api_key(
+      key_id: "98UDF59KU7",
+      issuer_id: "32df2f83-b463-468f-95aa-f43b10192828",
+      key_filepath: key_path,
+      duration: 1200,
+      in_house: false
+    )
+
+    %w[com.teedup.golf com.teedup.golf.ShareExtension].each do |bundle_id|
+      get_provisioning_profile(
+        api_key: api_key,
+        app_identifier: bundle_id,
+        force: true,
+        output_path: File.expand_path("profiles", __dir__)
+      )
+      UI.important "#{bundle_id} -> #{lane_context[SharedValues::SIGH_NAME]}"
+    end
   end
 
   desc 'Push a new release to App Store'
