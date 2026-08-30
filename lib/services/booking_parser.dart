@@ -775,13 +775,27 @@ class BookingParser {
   /// "3 golfers". Returns `null` when the text makes no such claim, in
   /// which case callers must not assume a size.
   static int? extractDeclaredPlayerCount(String text) {
-    final m = RegExp(
+    // Count-first — "4 Player(s)", "3 golfers" — as Viya writes it.
+    final countFirst = RegExp(
       r'\b(\d+)\s*(?:player|golfer)\(?s?\)?',
       caseSensitive: false,
     ).firstMatch(text);
-    if (m == null) return null;
-    final n = int.parse(m.group(1)!);
-    return (n >= 1 && n <= 8) ? n : null;
+
+    // Label-first — "Number of players: 4", "Players: 4". CPS Golf's booking
+    // screen labels the field "number of players", and several confirmation
+    // emails follow the same order, so the count-first pattern alone missed
+    // them entirely.
+    final labelFirst = RegExp(
+      r'(?:number\s+of\s+)?(?:players?|golfers?)\s*[:=]\s*(\d+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+
+    for (final m in [countFirst, labelFirst]) {
+      if (m == null) continue;
+      final n = int.parse(m.group(1)!);
+      if (n >= 1 && n <= 8) return n;
+    }
+    return null;
   }
 
   /// Cleans a raw player name string.
@@ -952,7 +966,10 @@ class BookingParser {
       RegExp(
         r'(?:booking\s*(?:ref(?:erence)?|id|no|number|#)|'
         r'ref(?:erence)?\s*(?:no|number|#|:)|'
-        r'confirmation\s*(?:no|number|#|code|:)|'
+        r'confirmation\s*(?:no|number|#|code|id|:)|'
+      // foreUP puts a "Tee Time Identification number" in every
+      // confirmation email; TeeOff and GolfNow say "Confirmation ID".
+      r'tee\s*time\s*(?:id|identification\s*(?:no|number)?)|'
         r'reservation\s*(?:no|number|#|id|:)|'
         r'order\s*(?:no|number|#|:))'
         r'\s*[:#]?\s*([A-Za-z0-9][\w\-]{2,20})',
