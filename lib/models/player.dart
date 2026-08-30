@@ -74,6 +74,73 @@ class Player {
   bool get hasValidEmail =>
       email != null && email!.isNotEmpty && email!.contains('@');
 
+  /// The player's forename.
+  ///
+  /// Bookings write names in more than one order — "Marc McStay" on a Viya
+  /// confirmation, "McStay, Marc" on tee sheets that sort by surname — so
+  /// this is derived rather than assumed to be the first word.
+  ///
+  /// Returns the whole name when it is a single word, because a lone word is
+  /// far more often a forename than a surname.
+  String get firstName {
+    final n = _cleanName;
+    if (n.isEmpty) return '';
+
+    final comma = n.indexOf(',');
+    if (comma > 0) {
+      // "McStay, Marc" and "McStay, Marc J" -> Marc
+      final after = n.substring(comma + 1).trim();
+      if (after.isNotEmpty) return after.split(RegExp(r'\s+')).first;
+    }
+
+    return n.split(RegExp(r'\s+')).first;
+  }
+
+  /// The player's surname, or `null` when the name is a single word.
+  ///
+  /// Takes the LAST word rather than the second, so middle names and
+  /// initials ("Marc J McStay") do not become the surname. Keeps common
+  /// multi-word particles attached ("van der Berg", "de Silva", "Mc Kenzie"),
+  /// which a naive last-word split would truncate to "Berg".
+  String? get lastName {
+    final n = _cleanName;
+    if (n.isEmpty) return null;
+
+    final comma = n.indexOf(',');
+    if (comma > 0) {
+      final before = n.substring(0, comma).trim();
+      if (before.isNotEmpty) return before;
+    }
+
+    final parts = n.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (parts.length < 2) return null;
+
+    const particles = {
+      'van', 'von', 'de', 'del', 'della', 'di', 'da', 'du', 'der', 'den',
+      'la', 'le', 'mac', 'mc', "o'", 'st', 'ter', 'ten', 'bin', 'ibn', 'al',
+    };
+
+    var start = parts.length - 1;
+    while (start > 1 &&
+        particles.contains(parts[start - 1].toLowerCase().replaceAll('.', ''))) {
+      start--;
+    }
+    return parts.sublist(start).join(' ');
+  }
+
+  /// Name with placeholder rows and stray punctuation removed, so the
+  /// forename/surname split never operates on "Player TBC" or a trailing
+  /// comma.
+  String get _cleanName {
+    final n = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (n.isEmpty) return '';
+    final upper = n.toUpperCase();
+    if (upper == 'TBC' || upper == 'TBC TBC' || upper == 'PLAYER TBC') {
+      return '';
+    }
+    return n.replaceAll(RegExp(r'[,\s]+$'), '');
+  }
+
   /// Creates a [Player] from a JSON map.
   factory Player.fromJson(Map<String, dynamic> json) {
     return Player(

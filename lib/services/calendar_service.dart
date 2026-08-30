@@ -760,7 +760,9 @@ class CalendarService {
       existingEvent.description =
           _buildDescription(round, familyNoteLine: familyNoteLine);
       existingEvent.attendees = newAttendees;
-      existingEvent.location = round.courseName;
+      // A real address when the booking gave one; the course name is the
+      // fallback, which at least gives a maps app something to search.
+      existingEvent.location = round.location ?? round.courseName;
       if (reminderMinutes != null) {
         existingEvent.reminders = [
           for (final minutes in reminderMinutes) Reminder(minutes: minutes),
@@ -1013,7 +1015,7 @@ class CalendarService {
       title: _buildSummary(round),
       start: startDt,
       end: endDt,
-      location: round.courseName,
+      location: round.location ?? round.courseName,
       description: _buildDescription(round, familyNoteLine: familyNoteLine),
       attendees: attendees.isNotEmpty ? attendees : null,
       availability: Availability.Busy,

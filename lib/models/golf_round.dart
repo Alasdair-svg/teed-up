@@ -9,6 +9,7 @@ class GolfRound {
     required this.date,
     required this.teeTime,
     required this.players,
+    this.location,
     this.bookingRef,
     this.calendarEventId,
     this.familyNotified = false,
@@ -21,6 +22,13 @@ class GolfRound {
 
   /// Name of the golf course.
   final String courseName;
+
+  /// Where the course is — an address or city, when the booking states one.
+  ///
+  /// Distinct from [courseName]. The calendar event's location field used to
+  /// repeat the course name, which tells a maps app nothing. Null when the
+  /// booking gives no address; a wrong address is worse than none.
+  final String? location;
 
   /// Date of the round.
   final DateTime date;
@@ -73,6 +81,7 @@ class GolfRound {
       players: (json['players'] as List<dynamic>)
           .map((p) => Player.fromJson(p as Map<String, dynamic>))
           .toList(),
+      location: json['location'] as String?,
       bookingRef: json['bookingRef'] as String?,
       calendarEventId: json['calendarEventId'] as String?,
       familyNotified: json['familyNotified'] == true,
@@ -93,6 +102,7 @@ class GolfRound {
         'date': date.toIso8601String(),
         'teeTime': teeTime.toIso8601String(),
         'players': players.map((p) => p.toJson()).toList(),
+        'location': location,
         'bookingRef': bookingRef,
         'calendarEventId': calendarEventId,
         'familyNotified': familyNotified,
@@ -107,6 +117,7 @@ class GolfRound {
     DateTime? date,
     DateTime? teeTime,
     List<Player>? players,
+    String? location,
     String? bookingRef,
     String? calendarEventId,
     bool? familyNotified,
@@ -119,6 +130,7 @@ class GolfRound {
       date: date ?? this.date,
       teeTime: teeTime ?? this.teeTime,
       players: players ?? this.players,
+      location: location ?? this.location,
       bookingRef: bookingRef ?? this.bookingRef,
       calendarEventId: calendarEventId ?? this.calendarEventId,
       familyNotified: familyNotified ?? this.familyNotified,

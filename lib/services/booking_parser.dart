@@ -104,6 +104,7 @@ class BookingParser {
                 name: name,
               ))
           .toList(),
+      location: extractLocation(rawText),
       bookingRef: bookingRef,
     );
   }
@@ -829,6 +830,108 @@ class BookingParser {
     }
 
     return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Location extraction
+  // ---------------------------------------------------------------------------
+
+  /// The venue's location — an address, city or resort — as distinct from the
+  /// course name.
+  ///
+  /// A tee time is useless if you cannot find the course, and until now the
+  /// calendar event's location field was just the course name repeated, which
+  /// tells a maps app nothing it did not already have.
+  ///
+  /// Returns `null` rather than a guess. A wrong address is worse than none:
+  /// it sends someone to the wrong place with confidence.
+  static String? extractLocation(String text) {
+    // --- 1) Explicitly labelled ---
+    final labelled = RegExp(
+      r'(?:address|location|venue\s*address|where)\s*[:]\s*(.+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (labelled != null) {
+      final v = _cleanLocation(labelled.group(1)!);
+      if (v != null) return v;
+    }
+
+    // --- 2) A line carrying a recognised thoroughfare word. ---
+    //
+    // Deliberately NOT "a line starting with a number", which was the first
+    // attempt: that shape also matches "30 Aug 2026, 06:30" and
+    // "4 Player(s)", both of which it duly returned as addresses. A street
+    // word or a postcode is required. Missing a real address is a small
+    // loss; writing "4 Player(s)" into the calendar's location field is a
+    // visible defect.
+    final street = RegExp(
+      r'^\s*(.{4,80}\b(?:street|st\.?|road|rd\.?|avenue|ave\.?|drive|dr\.?|'
+      r'lane|ln\.?|boulevard|blvd\.?|way|parkway|highway|hwy\.?)\b.{0,40})$',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    for (final m in street.allMatches(text)) {
+      final v = _cleanLocation(m.group(1) ?? '');
+      if (v != null) return v;
+    }
+
+    // --- 3) A postcode-bearing line, which is an address even when the
+    // street word is missing. Covers UK, US ZIP and generic alphanumerics. ---
+    final postcode = RegExp(
+      r'^(.{4,90}?\b(?:[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|\d{5}(?:-\d{4})?)\b.{0,30})$',
+      multiLine: true,
+    );
+    for (final m in postcode.allMatches(text)) {
+      final v = _cleanLocation(m.group(1)!);
+      if (v != null) return v;
+    }
+
+    return null;
+  }
+
+  /// Trims a candidate location and rejects the ones that are really
+  /// something else — a price, a booking reference, a date, or the course
+  /// name on its own.
+  static String? _cleanLocation(String raw) {
+    var v = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    v = v.replaceAll(RegExp(r'^[\-–—:,\s]+|[\-–—:,\s]+$'), '');
+    if (v.length < 5 || v.length > 120) return null;
+
+    // Must contain letters — a bare number is a reference, not a place.
+    if (!RegExp(r'[A-Za-z]').hasMatch(v)) return null;
+
+    // Currency, times and booking refs masquerading as addresses.
+    if (RegExp(r'^(?:aed|usd|gbp|eur|sar|\$|£|€)\b', caseSensitive: false)
+        .hasMatch(v)) {
+      return null;
+    }
+    if (RegExp(r'^\d{1,2}[:.]\d{2}').hasMatch(v)) return null;
+
+    // Dates read as street addresses: "30 Aug 2026, 06:30" begins with a
+    // number followed by words, which is exactly the shape of "12 Oak
+    // Avenue". Caught by a test rather than by a tester, but it would have
+    // written the booking date into the calendar's location field.
+    const months = r'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+    if (RegExp('\\b(?:$months)', caseSensitive: false).hasMatch(v) &&
+        RegExp(r'\b\d{4}\b').hasMatch(v)) {
+      return null;
+    }
+    if (RegExp(r'^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}').hasMatch(v)) {
+      return null;
+    }
+    // Any candidate that still carries a clock time is a schedule line.
+    if (RegExp(r'\d{1,2}[:.]\d{2}\s*(?:am|pm)?\s*$', caseSensitive: false)
+        .hasMatch(v)) {
+      return null;
+    }
+    if (RegExp(
+            r'\b(?:booking|ref|reference|confirmation|player|players|golfer|'
+            r'golfers|hole|holes|slot|slots|guest|member)\b',
+            caseSensitive: false)
+        .hasMatch(v)) {
+      return null;
+    }
+    return v;
   }
 
   // ---------------------------------------------------------------------------
