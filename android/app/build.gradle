@@ -51,7 +51,10 @@ android {
     defaultConfig {
         applicationId = "com.teedup.golf"
         minSdkVersion = flutter.minSdkVersion
-        targetSdk = 35
+        // Google Play refused build 62 on 1 Sep 2026 with "Target SDK of
+        // artifact is too low" — the annual targetSdk deadline had passed.
+        // compileSdk was already 36, so this is a target bump, not an upgrade.
+        targetSdk = 36
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
         multiDexEnabled true
