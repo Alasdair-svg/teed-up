@@ -1,0 +1,9 @@
+Fixes from beta feedback:
+
+• Declines and acceptances are now detected. The app was reading RSVPs from
+your calendar every 60 seconds and discarding every one, so no alert ever
+fired. Rounds you already have repair themselves — no reinstall needed.
+
+• Rescanning an amended booking now reaches the calendar. A player who
+joined gets an invite, one who dropped out gets a cancellation, and everyone
+still playing gets an updated event saying who changed.

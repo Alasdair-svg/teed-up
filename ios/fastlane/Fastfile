@@ -25,8 +25,12 @@ platform :ios do
       xcargs: "-allowProvisioningUpdates -authenticationKeyPath '#{key_path}' -authenticationKeyID 98UDF59KU7 -authenticationKeyIssuerID 32df2f83-b463-468f-95aa-f43b10192828 ENABLE_BITCODE=NO"
     )
 
+    # "What to Test" — testers saw an empty panel on every previous build,
+    # so nobody knew what had changed or what to exercise. Kept in step with
+    # the Play changelog for the same version code.
     upload_to_testflight(
-      skip_waiting_for_build_processing: true
+      skip_waiting_for_build_processing: true,
+      changelog: File.read(File.expand_path('metadata/whats_new.txt', __dir__))
     )
   end
 
