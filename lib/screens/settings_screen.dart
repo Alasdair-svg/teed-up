@@ -68,31 +68,40 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              _SettingsCard(
-                emoji: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
-                title: 'Friends & Family',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FamilySetupSection(
-                      entries: state.familyMembers,
-                      onAdd: (name, email) =>
-                          state.addFamilyMember(name: name, email: email),
-                      onRemove: state.removeFamilyMember,
-                    ),
-                    if (state.familyMembers.isNotEmpty) ...[
-                      const Divider(height: 28),
-                      _ToggleRow(
-                        title: 'Always notify all members',
-                        subtitle: 'Auto-select on every scan',
-                        value: state.familyAlwaysNotify,
-                        onChanged: state.setFamilyAlwaysNotify,
+              // Friends & Family is hidden while
+              // [kEnableFamilyCalendarInvite] is off, which is every shipped
+              // build. The whole card was inert: notifyFamily() returns
+              // immediately behind the same flag, and "Always notify all
+              // members" was read nowhere but the row that drew it. Showing
+              // it promised a notification the build cannot send — and the
+              // label reads as though it covers players, not family.
+              if (kEnableFamilyCalendarInvite) ...[
+                const SizedBox(height: 14),
+                _SettingsCard(
+                  emoji: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
+                  title: 'Friends & Family',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FamilySetupSection(
+                        entries: state.familyMembers,
+                        onAdd: (name, email) =>
+                            state.addFamilyMember(name: name, email: email),
+                        onRemove: state.removeFamilyMember,
                       ),
+                      if (state.familyMembers.isNotEmpty) ...[
+                        const Divider(height: 28),
+                        _ToggleRow(
+                          title: 'Always notify all members',
+                          subtitle: 'Auto-select on every scan',
+                          value: state.familyAlwaysNotify,
+                          onChanged: state.setFamilyAlwaysNotify,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 14),
               _SettingsCard(
                 emoji: '\u{1F4C7}',
