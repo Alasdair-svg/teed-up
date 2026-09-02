@@ -407,9 +407,37 @@ class RsvpMonitor {
           final currentStatusStr = entry.value;
           final cachedStatusStr = cachedStatuses[email] as String?;
 
-          if (cachedStatusStr == null || currentStatusStr == cachedStatusStr) {
+          // No baseline yet — the event predates the seeding fix, or was
+          // written by a version that never called registerEvent (which was
+          // every version until 1.11.1+63). Record what we see now so the
+          // NEXT change is detectable, instead of skipping this attendee
+          // forever.
+          if (cachedStatusStr == null) {
+            cache[eventId] ??= <String, String>{};
+            (cache[eventId] as Map<String, dynamic>)[email] = currentStatusStr;
+
+            // One exception to staying quiet on a first observation: an
+            // attendee already showing as declined is news the user has
+            // never been given, because the old code could not give it.
+            // Surfacing it once is right; staying silent repeats the
+            // original failure.
+            if (_parseStatus(currentStatusStr) == RsvpStatus.declined) {
+              final change = RsvpChange(
+                eventId: eventId,
+                playerName:
+                    event['attendeeNames']?[email] as String? ?? email,
+                playerEmail: email,
+                oldStatus: RsvpStatus.pending,
+                newStatus: RsvpStatus.declined,
+                detectedAt: DateTime.now(),
+              );
+              changes.add(change);
+              await _notifyDecline(change, eventTitle, eventDate);
+            }
             continue;
           }
+
+          if (currentStatusStr == cachedStatusStr) continue;
 
           final oldStatus = _parseStatus(cachedStatusStr);
           final newStatus = _parseStatus(currentStatusStr);

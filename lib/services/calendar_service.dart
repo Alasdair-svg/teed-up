@@ -18,6 +18,7 @@ import '../models/family_member.dart';
 import '../models/golf_round.dart';
 import '../models/player.dart';
 import '../models/player_diff.dart';
+import 'rsvp_monitor.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AttendeeStatus — normalised RSVP status across platforms
@@ -408,6 +409,38 @@ class CalendarService {
   /// form retained for older call sites — merged into [notifyFamilyMembers].
   ///
   /// Returns the created event's ID, or `null` on failure.
+  /// Records the attendees' current RSVP state as the baseline the monitor
+  /// compares future polls against.
+  ///
+  /// [RsvpMonitor.checkForChanges] skips any attendee it has no cached
+  /// status for:
+  ///
+  ///     if (cachedStatusStr == null || currentStatusStr == cachedStatusStr)
+  ///       continue;
+  ///
+  /// and the cache is only written *after* a change is detected — which
+  /// cannot happen without a baseline. `registerEvent` exists to break that
+  /// circle and was documented in three places as the thing to call after
+  /// writing an event. Nothing ever called it.
+  ///
+  /// The effect was total and silent: the monitor polled every 60 seconds,
+  /// read correctly-synced statuses off the calendar, and discarded every
+  /// one of them. Reported from the field as two declines the app never
+  /// noticed while an inbox-reading bot caught both.
+  Future<void> _seedRsvpBaseline(String calendarId, String eventId) async {
+    try {
+      final statuses = await getAttendeeStatus(eventId, calendarId);
+      if (statuses.isEmpty) return;
+      await RsvpMonitor.instance.registerEvent(
+        eventId,
+        statuses.map((email, s) => MapEntry(email, s.name)),
+      );
+    } catch (e) {
+      // Never fail a write because the baseline could not be recorded.
+      debugPrint('[CalendarService] Could not seed RSVP baseline: $e');
+    }
+  }
+
   Future<String?> createGolfEvent(
     GolfRound round,
     String calendarId, {
@@ -457,6 +490,10 @@ class CalendarService {
           );
           return null;
         }
+
+        // Establish the RSVP baseline now. Without it the monitor has
+        // nothing to compare against and silently ignores every reply.
+        await _seedRsvpBaseline(calendarId, eventId);
 
         debugPrint(
           '[CalendarService] Created and verified event $eventId '
@@ -826,6 +863,10 @@ class CalendarService {
           );
           return false;
         }
+        // Re-seed after an amendment: the attendee list has changed, so the
+        // old baseline describes people who may no longer be on the round.
+        await _seedRsvpBaseline(calendarId, eventId);
+
         debugPrint(
           '[CalendarService] Updated event "$eventId" — '
           'added: ${diff.added.length}, '
