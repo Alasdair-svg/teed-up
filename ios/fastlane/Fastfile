@@ -13,6 +13,16 @@ platform :ios do
       in_house: false
     )
 
+    # Regenerate Generated.xcconfig from pubspec before archiving.
+    #
+    # gym drives xcodebuild directly, so it uses whatever version Flutter
+    # last wrote — which is not refreshed by an Android build, or by any
+    # command that doesn't touch iOS. Build 63 shipped with the marketing
+    # version from a stale config (1.11.1) while Android shipped 1.11.2 off
+    # the same commit. --config-only rewrites it from pubspec.yaml in a
+    # second, without building.
+    sh('cd ../.. && flutter build ios --config-only')
+
     # The Share Extension IS registered (com.teedup.golf.ShareExtension,
     # 9TLT7SCA57) and IS signed in Release; only Debug and Profile disable
     # signing. Both App IDs carry the APP_GROUPS capability for
