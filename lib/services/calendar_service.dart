@@ -834,8 +834,11 @@ class CalendarService {
       existingEvent.end = rebuilt.end;
 
       existingEvent.title = _buildSummary(round);
-      existingEvent.description =
-          _buildDescription(round, familyNoteLine: familyNoteLine);
+      existingEvent.description = _buildDescription(
+        round,
+        familyNoteLine: familyNoteLine,
+        changeNoteLine: buildChangeNote(diff),
+      );
       existingEvent.attendees = newAttendees;
       // A real address when the booking gave one; the course name is the
       // fallback, which at least gives a maps app something to search.
@@ -1154,8 +1157,62 @@ class CalendarService {
   /// - "Created by All Teed Up"
   ///
   /// If [familyNoteLine] is provided, it is prepended to the description.
-  String _buildDescription(GolfRound round, {String? familyNoteLine}) {
+  /// A one-line summary of what changed in an amended booking, or null
+  /// when the group is the same.
+  ///
+  /// This exists because an unchanged player gets no useful signal from a
+  /// calendar update on its own: the event simply reappears, with a title
+  /// that lists four names as it always did. They cannot tell whether the
+  /// tee time moved, someone dropped out, or nothing of consequence
+  /// happened. The note says it in words, at the top of the event body,
+  /// where every attendee sees it — not just the ones who came or went.
+  ///
+  /// [now] is injectable so the test suite can assert on a fixed date.
+  static String? buildChangeNote(PlayerDiff diff, {DateTime? now}) {
+    final joined = diff.added.map((p) => p.name).toList();
+    final left = diff.removed.map((p) => p.name).toList();
+    if (joined.isEmpty && left.isEmpty) return null;
+
+    final parts = <String>[];
+    if (joined.isNotEmpty) {
+      parts.add('${_joinNames(joined)} '
+          '${joined.length == 1 ? 'is' : 'are'} now playing');
+    }
+    if (left.isNotEmpty) {
+      parts.add('${_joinNames(left)} '
+          '${left.length == 1 ? 'is' : 'are'} no longer playing');
+    }
+
+    final d = now ?? DateTime.now();
+    return '🔄 Updated ${d.day} ${_monthAbbr(d.month)} — ${parts.join('; ')}';
+  }
+
+  static String _joinNames(List<String> names) {
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    return '${names.sublist(0, names.length - 1).join(', ')} '
+        'and ${names.last}';
+  }
+
+  static String _monthAbbr(int month) => const [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ][month - 1];
+
+  String _buildDescription(
+    GolfRound round, {
+    String? familyNoteLine,
+    String? changeNoteLine,
+  }) {
     final buffer = StringBuffer();
+
+    // Prepend the "what changed" line if provided. This goes first,
+    // above everything else, because for an unchanged player it is the
+    // only reason the event just reappeared in their calendar.
+    if (changeNoteLine != null) {
+      buffer.writeln(changeNoteLine);
+      buffer.writeln();
+    }
 
     // Prepend family notification line if provided.
     if (familyNoteLine != null) {

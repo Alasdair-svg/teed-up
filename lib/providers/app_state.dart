@@ -93,14 +93,71 @@ class AppState extends ChangeNotifier {
   /// If [selectedFamily] is provided and non-empty, those members are
   /// patched onto the round's device calendar event as informational
   /// (Optional) attendees and the round is marked [GolfRound.familyNotified].
+  /// Whether an amended [updated] round warrants rewriting its calendar
+  /// event — and with it, an update notice to everyone still playing.
+  ///
+  /// Deliberately conservative. RSVP cycling calls [updateRound] too, and
+  /// that changes only a local status flag; rewriting the event there would
+  /// send four people an update notice every time the organiser tapped a
+  /// name. A change worth telling the group about is a change to who is
+  /// playing, or to when and where.
+  static bool shouldPushCalendarUpdate({
+    required GolfRound? previous,
+    required GolfRound updated,
+    required PlayerDiff diff,
+    required bool notifyingFamily,
+  }) {
+    if (notifyingFamily) return true;
+    if (diff.hasChanges) return true;
+    if (previous == null) return false;
+    return previous.date != updated.date ||
+        previous.teeTime != updated.teeTime ||
+        previous.courseName != updated.courseName ||
+        previous.location != updated.location;
+  }
+
   Future<void> updateRound(
     GolfRound updated, {
     List<FamilyMember>? selectedFamily,
   }) async {
+    final previous = getRound(updated.id);
     final notify = selectedFamily != null && selectedFamily.isNotEmpty;
     var toSave = notify ? updated.copyWith(familyNotified: true) : updated;
 
-    if (notify && _selectedCalendarId != null) {
+    // Push an amendment out to the calendar.
+    //
+    // This used to run ONLY when family members were selected, which meant
+    // rescanning an amended booking updated the app's own list and nothing
+    // else. The new player was never invited, the departing player never
+    // got a cancellation, and everyone still playing kept an event naming
+    // the old group. Rescanning is the documented way to amend a booking,
+    // and it silently did half the job.
+    //
+    // Gated on a real change, not on every call: RSVP cycling routes
+    // through here too, and rewriting the event on each tap would spray
+    // update notices at four people for something purely local.
+    final diff = PlayerDiff.compare(
+      oldPlayers: previous?.players ?? toSave.players,
+      newPlayers: toSave.players,
+    );
+    if (_selectedCalendarId != null &&
+        toSave.calendarEventId != null &&
+        shouldPushCalendarUpdate(
+          previous: previous,
+          updated: toSave,
+          diff: diff,
+          notifyingFamily: notify,
+        )) {
+      await CalendarService().updateGolfEvent(
+        toSave.calendarEventId!,
+        toSave,
+        diff,
+        _selectedCalendarId!,
+        notifyFamilyMembers: notify ? selectedFamily : null,
+        reminderMinutes: enabledReminderMinutes,
+      );
+    } else if (notify && _selectedCalendarId != null) {
+      // No event yet — the family path creates one.
       toSave = await _pushFamilyToCalendar(toSave, selectedFamily);
     }
 
