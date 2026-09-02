@@ -66,6 +66,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Repairs [GolfRound.isCreator] on an already-stored round.
+  ///
+  /// Rounds saved before the per-event ownership check were all written as
+  /// `isCreator:false` by the growth-loop import. That is not cosmetic:
+  /// [findMatchingRound] skips non-creator rounds, so an amended booking
+  /// rescanned against one of them finds no match and is treated as a brand
+  /// new round — which is exactly what a Viya player-swap looked like in the
+  /// field. Existing installs need correcting, not just new imports.
+  ///
+  /// Returns true when the stored value actually changed.
+  bool repairIsCreator(String roundId, bool isCreator) {
+    final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
+    if (index < 0) return false;
+    if (_upcomingRounds[index].isCreator == isCreator) return false;
+    _upcomingRounds[index] =
+        _upcomingRounds[index].copyWith(isCreator: isCreator);
+    notifyListeners();
+    return true;
+  }
+
   /// Replaces a round with the same [GolfRound.id].
   ///
   /// If no matching round is found, the [updated] round is appended.

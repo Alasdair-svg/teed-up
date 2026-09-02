@@ -491,9 +491,26 @@ class RsvpMonitor {
           .toSet();
 
       var imported = 0;
+      var repaired = 0;
       for (final round in calendarRounds) {
         final eventId = round.calendarEventId;
-        if (eventId == null || knownEventIds.contains(eventId)) continue;
+        if (eventId == null) continue;
+
+        // Already known: repair ownership rather than skipping outright.
+        // Every round stored before the per-event check was written as
+        // isCreator:false, and findMatchingRound skips non-creator rounds —
+        // so an amended booking rescanned against one of them was treated as
+        // brand new. Existing installs need correcting, not just new
+        // imports.
+        if (knownEventIds.contains(eventId)) {
+          final existing = appState.upcomingRounds
+              .where((r) => r.calendarEventId == eventId);
+          if (existing.isNotEmpty &&
+              appState.repairIsCreator(existing.first.id, round.isCreator)) {
+            repaired++;
+          }
+          continue;
+        }
         // Was `copyWith(isCreator: false)` — which made EVERY discovered
         // event somebody else's, so your own rounds came back read-only
         // after a reinstall. CalendarService now decides per event.
@@ -501,9 +518,10 @@ class RsvpMonitor {
         imported++;
       }
 
-      if (imported > 0) {
+      if (imported > 0 || repaired > 0) {
         debugPrint(
-          '[RsvpMonitor] Reconciliation imported $imported round(s)',
+          '[RsvpMonitor] Reconciliation imported $imported round(s), '
+          'repaired ownership on $repaired',
         );
       }
       return imported;
