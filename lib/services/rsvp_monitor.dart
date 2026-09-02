@@ -494,7 +494,10 @@ class RsvpMonitor {
       for (final round in calendarRounds) {
         final eventId = round.calendarEventId;
         if (eventId == null || knownEventIds.contains(eventId)) continue;
-        appState.addRound(round.copyWith(isCreator: false));
+        // Was `copyWith(isCreator: false)` — which made EVERY discovered
+        // event somebody else's, so your own rounds came back read-only
+        // after a reinstall. CalendarService now decides per event.
+        appState.addRound(round);
         imported++;
       }
 

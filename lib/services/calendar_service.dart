@@ -68,6 +68,13 @@ class CalendarService {
   /// The underlying device calendar plugin instance.
   final DeviceCalendarPlugin _plugin;
 
+  /// Email addresses belonging to the calendars on this device.
+  ///
+  /// Refreshed by [getUpcomingRounds] before it converts events, so
+  /// [_looksLikeOwnEvent] can tell a round this device organised from one it
+  /// was merely invited to.
+  Set<String> _ownEmails = const {};
+
   /// Number of times this service has touched the calendar permission API.
   ///
   /// Instrumentation, not decoration: a permission prompt appearing before
@@ -826,6 +833,7 @@ class CalendarService {
       final end = now.add(Duration(days: days));
 
       final events = await _retrieveEvents(calendarId, now, end);
+      _ownEmails = await getOwnAccountEmails();
       final rounds = <GolfRound>[];
 
       for (final event in events) {
@@ -1223,6 +1231,41 @@ class CalendarService {
     );
   }
 
+  /// Whether this device organised [event], as opposed to being invited to it.
+  ///
+  /// The growth loop imports any ⛳ event it finds in the calendar and used to
+  /// mark every one of them as somebody else's. That is right for a round a
+  /// friend invited you to — the whole point of the mechanism — and wrong for
+  /// your own rounds after a reinstall, which came back permanently
+  /// read-only: no Send invite, no amend, no RSVP cycling.
+  ///
+  /// Two signals settle it:
+  ///   * No attendees at all — an invitation always carries attendees, so an
+  ///     event without them was written locally. This is the common case: a
+  ///     booking whose players had no resolved email addresses.
+  ///   * An organiser that matches one of this device's own calendar
+  ///     accounts.
+  /// Test seam for [_looksLikeOwnEvent] — the determination is worth testing
+  /// directly, and it cannot be reached through the plugin in a unit test.
+  @visibleForTesting
+  bool isOwnEventForTest(Event event) => _looksLikeOwnEvent(event);
+
+  /// Test seam for the account-email set normally read from the device.
+  @visibleForTesting
+  void setOwnEmailsForTest(Set<String> emails) => _ownEmails = emails;
+
+  bool _looksLikeOwnEvent(Event event) {
+    final attendees = (event.attendees ?? []).whereType<Attendee>().toList();
+    if (attendees.isEmpty) return true;
+
+    final organisers = attendees.where((a) => a.isOrganiser == true);
+    if (organisers.isEmpty) return true;
+
+    final email = organisers.first.emailAddress?.trim().toLowerCase();
+    if (email == null || email.isEmpty) return true;
+    return _ownEmails.contains(email);
+  }
+
   GolfRound? _eventToGolfRound(Event event) {
     try {
       final title = event.title ?? '';
@@ -1296,6 +1339,7 @@ class CalendarService {
         players: players,
         bookingRef: bookingRef,
         calendarEventId: event.eventId,
+        isCreator: _looksLikeOwnEvent(event),
       );
     } catch (e, st) {
       debugPrint('[CalendarService] _eventToGolfRound error: $e\n$st');
