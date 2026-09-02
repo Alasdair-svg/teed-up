@@ -154,6 +154,29 @@ class CalendarService {
   /// causes: permission never granted, permission granted but the plugin
   /// gate disagreeing, or the OS genuinely returning nothing. This states
   /// which, so a screenshot is evidence rather than another guess.
+  /// Whether [calendar] can actually deliver invitations to attendees, and
+  /// therefore whether an RSVP can ever come back.
+  ///
+  /// This app reads RSVPs from the calendar event's attendee records — it
+  /// has no backend and no mail access, so it can only ever see a decline
+  /// that the calendar *server* syncs back onto the event. A local,
+  /// subscribed or birthday calendar has no server behind it: attendees are
+  /// stored, no invitation is sent, and no response can ever arrive. Writing
+  /// a round there looks identical to writing it anywhere else and then
+  /// silently never reports a decline.
+  ///
+  /// Reported in the field: a player declined twice, the owner's inbox-reading
+  /// bot saw both, the app saw neither.
+  static bool canDeliverInvitations(Calendar? calendar) {
+    if (calendar == null) return false;
+    final type = (calendar.accountType ?? '').trim().toLowerCase();
+    const cannot = {'local', 'birthdays', 'subscribed', 'holiday', 'holidays'};
+    if (cannot.contains(type)) return false;
+    // A server-backed account is identified by an addressable account name —
+    // the same signal getOwnAccountEmails already relies on.
+    return (calendar.accountName ?? '').contains('@');
+  }
+
   Future<String> diagnoseCalendarAccess() async {
     final parts = <String>[];
     try {
@@ -181,6 +204,16 @@ class CalendarService {
         final f = raw.first;
         parts.add('id0:${f.id ?? "null"}');
         parts.add('nm0:${f.name ?? "null"}');
+      }
+      // Which accounts can actually send an invitation. Without this the
+      // decline report from the field cannot be diagnosed at all: a local
+      // calendar accepts attendees, sends nothing, and reports nothing.
+      for (final c in raw) {
+        parts.add(
+          'cal[${c.name ?? "?"}]:type=${c.accountType ?? "?"}'
+          ' acct=${c.accountName ?? "?"}'
+          ' delivers=${canDeliverInvitations(c) ? "y" : "N"}',
+        );
       }
       if (res.errors.isNotEmpty) {
         parts.add('e:${res.errors.first.errorMessage}');

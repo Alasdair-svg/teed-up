@@ -12,6 +12,8 @@ import 'package:intl/intl.dart';
 
 import '../models/models.dart';
 import '../theme/app_theme.dart';
+import 'package:device_calendar/device_calendar.dart' show Calendar;
+import '../services/calendar_service.dart';
 
 /// What the user chose to do from the review sheet.
 enum InviteReviewChoice {
@@ -26,6 +28,7 @@ enum InviteReviewChoice {
 Future<InviteReviewChoice?> showInviteReviewSheet(
   BuildContext context, {
   required GolfRound round,
+  Calendar? targetCalendar,
 }) {
   return showModalBottomSheet<InviteReviewChoice>(
     context: context,
@@ -34,17 +37,28 @@ Future<InviteReviewChoice?> showInviteReviewSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => InviteReviewSheet(round: round),
+    builder: (_) =>
+        InviteReviewSheet(round: round, targetCalendar: targetCalendar),
   );
 }
 
 /// Read-only summary of exactly what the invite will contain.
 class InviteReviewSheet extends StatelessWidget {
   /// Creates an [InviteReviewSheet] for [round].
-  const InviteReviewSheet({super.key, required this.round});
+  const InviteReviewSheet({
+    super.key,
+    required this.round,
+    this.targetCalendar,
+  });
 
   /// The round about to be sent.
   final GolfRound round;
+
+  /// The calendar the event will be written to, when known.
+  ///
+  /// Used only to warn when that calendar cannot deliver invitations — see
+  /// [CalendarService.canDeliverInvitations].
+  final Calendar? targetCalendar;
 
   DateTime get _start => DateTime(
         round.date.year,
@@ -120,6 +134,31 @@ class InviteReviewSheet extends StatelessWidget {
                         'email won\'t receive this.',
                         style:
                             text.bodySmall?.copyWith(color: AppColors.warning),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // A local or subscribed calendar accepts attendees, sends
+            // nothing, and can never report an RSVP — while looking exactly
+            // like a working calendar. Reported in the field: a player
+            // declined twice and the app saw neither decline. Warning here
+            // is the only place it can be caught before it matters.
+            if (targetCalendar != null &&
+                !CalendarService.canDeliverInvitations(targetCalendar))
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        size: 15, color: AppColors.error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'This calendar can\'t send invitations, so nobody '
+                        'will receive one and replies won\'t show up here. '
+                        'Pick a Google or work calendar in Settings.',
+                        style: text.bodySmall?.copyWith(color: AppColors.error),
                       ),
                     ),
                   ],

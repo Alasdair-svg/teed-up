@@ -9,6 +9,8 @@ import '../theme/app_theme.dart';
 import '../widgets/calendar_picker_sheet.dart';
 import '../widgets/invite_review_sheet.dart';
 import 'scan_screen.dart';
+import 'package:device_calendar/device_calendar.dart' show Calendar;
+import '../services/calendar_service.dart';
 
 /// Detailed view of a single golf round.
 ///
@@ -138,9 +140,29 @@ class RoundDetailScreen extends StatelessWidget {
                             // the moment it is written — and a wrong tee time
                             // is only discoverable by the recipients.
                             if (!context.mounted) return;
+                            // Resolve the target calendar so the sheet can
+                            // warn when it cannot actually deliver an
+                            // invitation — a local calendar accepts
+                            // attendees, sends nothing, and never reports a
+                            // reply.
+                            Calendar? target;
+                            try {
+                              final all = await CalendarService()
+                                  .getAvailableCalendars();
+                              for (final c in all) {
+                                if (c.id == state.selectedCalendarId) {
+                                  target = c;
+                                  break;
+                                }
+                              }
+                            } catch (_) {
+                              // Diagnostics only — never block the send.
+                            }
+                            if (!context.mounted) return;
                             final choice = await showInviteReviewSheet(
                               context,
                               round: round,
+                              targetCalendar: target,
                             );
                             if (choice != InviteReviewChoice.send) return;
 
