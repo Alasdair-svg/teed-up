@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:all_teed_up/models/player.dart';
+import 'package:all_teed_up/models/rsvp_change.dart';
 import 'package:all_teed_up/services/rsvp_monitor.dart';
 
 void main() {
@@ -152,10 +153,20 @@ void main() {
       // No timer advanced: the first poll must have run on start. A user
       // opening the app to check on a round should not wait 60 seconds for
       // the decline that made them open it.
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-
-      final alerts = await RsvpMonitor.loadPersistedAlerts();
-      expect(alerts.where((a) => a.isDecline), isNotEmpty);
+      //
+      // Wait for the CONDITION, not a guessed duration. A fixed 100ms delay
+      // passed this file in isolation and failed intermittently in the full
+      // suite — a flaky test in the decline path is worse than no test,
+      // because it trains you to re-run instead of to look.
+      var alerts = <RsvpChange>[];
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (DateTime.now().isBefore(deadline)) {
+        alerts = await RsvpMonitor.loadPersistedAlerts();
+        if (alerts.any((a) => a.isDecline)) break;
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+      expect(alerts.where((a) => a.isDecline), isNotEmpty,
+          reason: 'no decline alert within 5s of foreground polling starting');
     });
   });
 }
