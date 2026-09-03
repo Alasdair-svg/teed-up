@@ -831,6 +831,32 @@ class RsvpMonitor {
   /// connection can be problematic.
   ///
   /// The list is capped at 200 entries to prevent unbounded growth.
+  /// Replaces the persisted alert list wholesale.
+  ///
+  /// The foreground app owns read/unread state, so it saves the whole list
+  /// rather than appending — see [loadPersistedAlerts] for why this store,
+  /// and not SQLite, is the one that counts.
+  static Future<void> saveAlerts(List<RsvpChange> alerts) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const maxAlerts = 200;
+      final trimmed =
+          alerts.length > maxAlerts ? alerts.sublist(0, maxAlerts) : alerts;
+      await prefs.setString(
+        _alertsKey,
+        jsonEncode(trimmed.map((a) => a.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint('[RsvpMonitor] saveAlerts failed: $e');
+    }
+  }
+
+  /// Identity of an alert for de-duplication: the same player changing to
+  /// the same status on the same event is the same news, however many
+  /// times a foreground tick and a background pass both notice it.
+  static String alertKey(RsvpChange a) =>
+      '${a.eventId}|${a.playerName}|${a.newStatus.name}';
+
   static Future<void> _persistAlerts(
     SharedPreferences prefs,
     List<RsvpChange> changes,
@@ -844,8 +870,19 @@ class RsvpMonitor {
         existing.addAll(decoded.cast<Map<String, dynamic>>());
       }
 
+      // Don't stack duplicates. The foreground 60s tick and the 15-minute
+      // background pass can both see the same decline; without this the
+      // user's alert list shows it twice and the unread badge double-counts.
+      final seen = <String>{};
+      for (final e in existing) {
+        try {
+          seen.add(alertKey(RsvpChange.fromJson(e)));
+        } catch (_) {
+          // A malformed legacy entry must not block new alerts.
+        }
+      }
       for (final change in changes) {
-        existing.add(change.toJson());
+        if (seen.add(alertKey(change))) existing.add(change.toJson());
       }
 
       // Cap at 200 most recent.

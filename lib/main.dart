@@ -7,10 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'db/database_helper.dart';
 import 'models/golf_round.dart';
-import 'models/player.dart';
-import 'models/rsvp_change.dart';
 import 'providers/app_state.dart';
 import 'services/timezone_service.dart';
 import 'screens/home_screen.dart';
@@ -138,20 +135,20 @@ Future<void> _loadPersistedState(AppState state) async {
       state.setRounds(rounds);
     }
 
-    // -- Alerts (from SQLite) --
-    final db = DatabaseHelper.instance;
-    final alertRows = await db.queryAllAlerts();
-    final alerts = alertRows.map((row) {
-      return RsvpChange(
-        eventId: row['event_id'] as String,
-        playerName: row['player_name'] as String,
-        playerEmail: row['player_email'] as String?,
-        oldStatus: _parseStatus(row['old_status'] as String?),
-        newStatus: _parseStatus(row['new_status'] as String?),
-        detectedAt: DateTime.parse(row['detected_at'] as String),
-        isRead: row['is_read'] == 1,
-      );
-    }).toList();
+    // -- Alerts --
+    //
+    // Read from SharedPreferences, which is the ONLY store anything writes
+    // to. This used to read SQLite via queryAllAlerts(), and nothing has
+    // ever called insertAlert() — so the query always came back empty and
+    // setAlerts([]) wiped, on every single launch, whatever the app had
+    // detected while running. Meanwhile RsvpMonitor was faithfully writing
+    // every background-detected decline to SharedPreferences, where nothing
+    // read it: loadPersistedAlerts() had no callers either.
+    //
+    // Net effect for the user: a decline found in the background was never
+    // shown at all, and one found in the foreground survived only until the
+    // next cold start. Two stores, neither connected end to end.
+    final alerts = await RsvpMonitor.loadPersistedAlerts();
     state.setAlerts(alerts);
   } catch (e, st) {
     debugPrint('[main] Failed to load persisted state: $e\n$st');
@@ -177,6 +174,10 @@ Future<void> _saveRounds(AppState state) async {
       await prefs.setString(_kCalendarIdKey, state.selectedCalendarId!);
     }
     await prefs.setBool(_kDeclineAlertsKey, state.declineAlertsEnabled);
+
+    // Alerts ride the same listener as rounds so read/unread state, and any
+    // alert raised in the foreground, survive a cold start.
+    await RsvpMonitor.saveAlerts(state.alerts);
   } catch (e) {
     debugPrint('[main] Failed to save rounds: $e');
   }
@@ -237,17 +238,6 @@ Future<void> _initializeServices(AppState appState) async {
   }
 }
 
-/// Parses a status string into an [RsvpStatus].
-RsvpStatus _parseStatus(String? status) {
-  switch (status?.toLowerCase()) {
-    case 'accepted':
-      return RsvpStatus.accepted;
-    case 'declined':
-      return RsvpStatus.declined;
-    default:
-      return RsvpStatus.pending;
-  }
-}
 
 /// Root widget for the All Teed Up application.
 ///
