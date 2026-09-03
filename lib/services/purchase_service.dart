@@ -34,6 +34,21 @@ import '../providers/app_state.dart';
 /// and Google Play Console.
 const String kProductId = 'teed_up_full_access';
 
+/// The lifetime, non-expiring product — a NON-CONSUMABLE on Apple and a
+/// one-time product on Play, never a subscription.
+///
+/// This is what tester promo codes are issued against. Store promo codes
+/// for a subscription can only grant a free *period*; issued against a
+/// non-consumable they grant it permanently, single-use is enforced by
+/// Apple and Google rather than by us, and because it is tied to the
+/// redeemer's store account it comes back via Restore Purchases on a new
+/// phone — which a locally-stored code never could.
+///
+/// It is a separate product from [kProductId] on purpose: the app grants
+/// lifetime access for THIS id only, so a paying subscriber can never be
+/// mistaken for a tester.
+const String kLifetimeProductId = 'teed_up_lifetime_access';
+
 /// SharedPreferences key for the local purchase cache.
 const String _kPurchasedKey = 'teed_up_purchased';
 
@@ -43,6 +58,36 @@ const String _kPurchasedKey = 'teed_up_purchased';
 /// is `true` but the token is absent or mismatched, it indicates tampering
 /// (e.g. ADB SharedPreferences manipulation on a rooted device).
 const String _kPurchaseTokenKey = 'teed_up_purchase_token';
+
+/// SharedPreferences key for the lifetime grant.
+const String _kLifetimeKey = 'teed_up_lifetime';
+
+/// Integrity token for the lifetime grant, same purpose as
+/// [_kPurchaseTokenKey] — a flipped boolean alone must not buy access.
+const String _kLifetimeTokenKey = 'teed_up_lifetime_token';
+
+/// Tamper-detection token for the lifetime grant.
+///
+/// Unlike the purchase token this carries no year, because the grant does
+/// not expire — a yearly rotation would silently drop every tester's access
+/// on 1 January. Not a secret: it raises the bar against flipping the
+/// boolean over adb on a rooted device, nothing more.
+String computeLifetimeToken() {
+  const raw = '$kLifetimeProductId:teedup:golf:lifetime';
+  var hash = 0;
+  for (final unit in raw.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return hash.toRadixString(16);
+}
+
+/// Whether a cached lifetime grant should be trusted.
+///
+/// The flag alone is never enough — a grant with a missing or wrong token is
+/// treated as tampered and ignored, and Restore Purchases brings back the
+/// real thing if there is one.
+bool isLifetimeGrantValid({required bool flag, required String? token}) =>
+    flag && token == computeLifetimeToken();
 
 /// Manages the in-app purchase lifecycle for All Teed Up.
 ///
@@ -95,6 +140,11 @@ class PurchaseService {
   /// Checks both the local [SharedPreferences] cache and [AppState].
   bool get isPurchased => _isPurchased;
 
+  bool _hasLifetime = false;
+
+  /// Whether a lifetime (non-consumable) grant is held on this device.
+  bool get hasLifetime => _hasLifetime;
+
   /// The store-provided product details, available after [initialize].
   ///
   /// Returns `null` if the store is unavailable or the product ID
@@ -123,11 +173,13 @@ class PurchaseService {
       debugPrint('PurchaseService: Store is not available on this device.');
       // Still load cached state so the app works offline after purchase.
       await _loadCachedPurchaseState();
+      await _loadCachedLifetimeState();
       return;
     }
 
     // Load cached purchase state.
     await _loadCachedPurchaseState();
+    await _loadCachedLifetimeState();
 
     // Listen to the purchase stream.
     _subscription = _iap.purchaseStream.listen(
@@ -210,6 +262,14 @@ class PurchaseService {
     // confirm.
     if (!kEnforceSubscription && !_isPurchased) {
       return false;
+    }
+
+    // A lifetime grant is not a subscription and has nothing to revalidate.
+    // Skipping here also means the revoke branch below can never reach it.
+    if (_hasLifetime) {
+      debugPrint('PurchaseService: lifetime grant held — nothing to '
+          'revalidate.');
+      return true;
     }
 
     _sawActiveEntitlement = false;
@@ -367,7 +427,11 @@ class PurchaseService {
     final isValid = await _verifyPurchase(purchase);
 
     if (isValid) {
-      await _deliverProduct();
+      if (purchase.productID == kLifetimeProductId) {
+        await _deliverLifetime();
+      } else {
+        await _deliverProduct();
+      }
       onPurchaseComplete?.call();
       debugPrint(
         'PurchaseService: Purchase verified and delivered '
@@ -452,6 +516,41 @@ class PurchaseService {
     _sawActiveEntitlement = true;
     _appState.setPurchased(true);
   }
+
+  /// Records the permanent grant from a redeemed tester code.
+  ///
+  /// Deliberately one-way. A non-consumable cannot be un-bought, so nothing
+  /// in the subscription path — including [revalidateEntitlement], which
+  /// revokes on an inconclusive store answer — may clear this.
+  Future<void> _deliverLifetime() async {
+    _hasLifetime = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kLifetimeKey, true);
+    await prefs.setString(_kLifetimeTokenKey, _computeLifetimeToken());
+    _appState.setLifetimeAccess(true);
+    debugPrint('PurchaseService: lifetime access granted.');
+  }
+
+  /// Loads the lifetime grant, validating its integrity token the same way
+  /// the purchase flag is validated.
+  Future<void> _loadCachedLifetimeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final flag = prefs.getBool(_kLifetimeKey) ?? false;
+    if (!isLifetimeGrantValid(
+      flag: flag,
+      token: prefs.getString(_kLifetimeTokenKey),
+    )) {
+      if (flag) {
+        debugPrint('PurchaseService: lifetime token mismatch — ignoring the '
+            'cached grant. Restore Purchases will bring it back if real.');
+      }
+      return;
+    }
+    _hasLifetime = true;
+    _appState.setLifetimeAccess(true);
+  }
+
+  String _computeLifetimeToken() => computeLifetimeToken();
 
   // ---------------------------------------------------------------------------
   // Integrity

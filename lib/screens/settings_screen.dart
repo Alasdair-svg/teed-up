@@ -112,7 +112,10 @@ class SettingsScreen extends StatelessWidget {
               _SettingsCard(
                 emoji: '\u{1F4B3}',
                 title: 'App License & About',
-                child: LicenseAboutSection(isPurchased: state.isPurchased),
+                child: LicenseAboutSection(
+                  isPurchased: state.isPurchased,
+                  hasLifetimeAccess: state.hasLifetimeAccess,
+                ),
               ),
               const SizedBox(height: 24),
               const _AppFooter(),
@@ -312,8 +315,16 @@ class _ContactsPrivacySectionState extends State<_ContactsPrivacySection> {
 // =============================================================================
 
 class LicenseAboutSection extends StatelessWidget {
-  const LicenseAboutSection({super.key, required this.isPurchased});
+  const LicenseAboutSection({
+    super.key,
+    required this.isPurchased,
+    this.hasLifetimeAccess = false,
+  });
   final bool isPurchased;
+
+  /// A permanent grant from a redeemed tester code. Outranks the
+  /// subscription state, and stays true after a subscription would lapse.
+  final bool hasLifetimeAccess;
 
   /// What the licence badge says.
   ///
@@ -323,6 +334,9 @@ class LicenseAboutSection extends StatelessWidget {
   /// word is Beta; once the product is live the badge reports whether this
   /// person is subscribed.
   String get _badgeLabel {
+    // Lifetime outranks everything, including the beta wording — a tester
+    // who has redeemed their code should see that it landed.
+    if (hasLifetimeAccess) return 'Lifetime';
     if (!kEnforceSubscription) return 'Beta';
     return isPurchased ? 'Subscribed' : 'Not subscribed';
   }
@@ -335,7 +349,7 @@ class LicenseAboutSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: isPurchased
+            color: (isPurchased || hasLifetimeAccess)
                 ? AppColors.success.withValues(alpha: 0.12)
                 : AppColors.primaryPale,
             borderRadius: BorderRadius.circular(100),
@@ -346,7 +360,9 @@ class LicenseAboutSection extends StatelessWidget {
               fontFamily: 'Inter',
               fontWeight: FontWeight.w600,
               fontSize: 12,
-              color: isPurchased ? AppColors.success : AppColors.primary,
+              color: (isPurchased || hasLifetimeAccess)
+                  ? AppColors.success
+                  : AppColors.primary,
             ),
           ),
         ),

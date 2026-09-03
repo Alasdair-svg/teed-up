@@ -419,7 +419,7 @@ class _ScanScreenState extends State<ScanScreen> {
     // of rounds they already organised would punish their playing partners
     // too. Off unless kEnforceSubscription is set — see feature_flags.dart for
     // why that matters before the product exists in the stores.
-    if (kEnforceSubscription && !appState.isPurchased) {
+    if (kEnforceSubscription && !appState.hasFullAccess) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

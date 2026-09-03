@@ -676,6 +676,29 @@ class AppState extends ChangeNotifier {
   /// Whether the user has an active subscription (AED 99 a year).
   bool get isPurchased => _isPurchased;
 
+  bool _hasLifetimeAccess = false;
+
+  /// Whether this device holds a permanent, non-expiring entitlement —
+  /// granted by redeeming a store promo code against the lifetime
+  /// non-consumable, not by subscribing.
+  ///
+  /// Kept separate from [isPurchased] on purpose. A subscription lapses and
+  /// [setPurchased] is driven false when the store says so; a lifetime grant
+  /// must survive that, so nothing in the subscription path may clear it.
+  bool get hasLifetimeAccess => _hasLifetimeAccess;
+
+  /// True when the app should be fully usable — by subscription OR by a
+  /// lifetime grant. Every enforcement site reads this, never [isPurchased].
+  bool get hasFullAccess => _hasLifetimeAccess || _isPurchased;
+
+  /// Records the lifetime grant. One-way by design: a non-consumable cannot
+  /// be un-bought, so nothing revokes it except an explicit reset.
+  void setLifetimeAccess(bool value) {
+    if (_hasLifetimeAccess == value) return;
+    _hasLifetimeAccess = value;
+    notifyListeners();
+  }
+
   /// Records a successful purchase.
   void setPurchased(bool value) {
     if (_isPurchased == value) return;
@@ -933,6 +956,7 @@ class AppState extends ChangeNotifier {
     _declineAlertsEnabled = true;
     _isOnboarded = false;
     _isPurchased = false;
+    _hasLifetimeAccess = false;
     _scannedImagePath = null;
     _scannedCourseName = null;
     _scannedDate = null;
