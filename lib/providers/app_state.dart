@@ -285,6 +285,52 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  /// Finds a stored round that has LOST its calendar link and matches
+  /// [course]/[date]/[teeTime].
+  ///
+  /// Builds before 1.11.3+64 dropped [GolfRound.calendarEventId] when a
+  /// booking was amended, orphaning the calendar event. Such a round is
+  /// invisible to [RsvpMonitor] — it has no handle on any event — and,
+  /// worse, its own event looks brand new to the reconciliation pass, so
+  /// it would be imported alongside the round it belongs to. Matching it
+  /// back up is the repair.
+  ///
+  /// Unlike [findMatchingRound] this does not require [GolfRound.isCreator]:
+  /// the orphaned round may itself be mis-flagged, which is one of the
+  /// things reconciliation exists to fix.
+  GolfRound? findUnlinkedRound({
+    required String course,
+    required DateTime date,
+    required DateTime teeTime,
+  }) {
+    final courseNorm = course.trim().toLowerCase();
+    for (final r in _upcomingRounds) {
+      if (r.calendarEventId != null) continue;
+      final sameCourse = r.courseName.trim().toLowerCase() == courseNorm;
+      final sameDay = r.date.year == date.year &&
+          r.date.month == date.month &&
+          r.date.day == date.day;
+      final sameTime =
+          r.teeTime.hour == teeTime.hour && r.teeTime.minute == teeTime.minute;
+      if (sameCourse && sameDay && sameTime) return r;
+    }
+    return null;
+  }
+
+  /// Re-attaches [eventId] to the stored round [roundId], restoring the
+  /// monitor's handle on it. Returns true when a round was actually
+  /// relinked.
+  bool linkCalendarEvent(String roundId, String eventId, {bool? isCreator}) {
+    final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
+    if (index < 0) return false;
+    _upcomingRounds[index] = _upcomingRounds[index].copyWith(
+      calendarEventId: eventId,
+      isCreator: isCreator ?? _upcomingRounds[index].isCreator,
+    );
+    notifyListeners();
+    return true;
+  }
+
   /// Updates a single player's RSVP status within a round (spec A10 —
   /// 4-state cycle: tbc → confirmed → pending → declined).
   ///

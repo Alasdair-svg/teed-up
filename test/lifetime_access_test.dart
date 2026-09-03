@@ -82,7 +82,8 @@ void main() {
       // The purchase token deliberately embeds the year to force an annual
       // re-verify. A lifetime grant must not, or every tester silently loses
       // access at new year with no way to notice.
-      expect(computeLifetimeToken(), isNot(contains(DateTime.now().year.toString())));
+      expect(computeLifetimeToken(),
+          isNot(contains(DateTime.now().year.toString())));
       expect(computeLifetimeToken(), computeLifetimeToken());
     });
   });

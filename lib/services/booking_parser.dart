@@ -967,9 +967,9 @@ class BookingParser {
         r'(?:booking\s*(?:ref(?:erence)?|id|no|number|#)|'
         r'ref(?:erence)?\s*(?:no|number|#|:)|'
         r'confirmation\s*(?:no|number|#|code|id|:)|'
-      // foreUP puts a "Tee Time Identification number" in every
-      // confirmation email; TeeOff and GolfNow say "Confirmation ID".
-      r'tee\s*time\s*(?:id|identification\s*(?:no|number)?)|'
+        // foreUP puts a "Tee Time Identification number" in every
+        // confirmation email; TeeOff and GolfNow say "Confirmation ID".
+        r'tee\s*time\s*(?:id|identification\s*(?:no|number)?)|'
         r'reservation\s*(?:no|number|#|id|:)|'
         r'order\s*(?:no|number|#|:))'
         r'\s*[:#]?\s*([A-Za-z0-9][\w\-]{2,20})',

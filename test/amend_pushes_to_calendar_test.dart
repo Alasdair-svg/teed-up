@@ -17,8 +17,8 @@ import 'package:all_teed_up/models/player_diff.dart';
 import 'package:all_teed_up/providers/app_state.dart';
 
 void main() {
-  Player p(String name, {RsvpStatus status = RsvpStatus.pending}) =>
-      Player(id: name, name: name, email: '$name@example.com', rsvpStatus: status);
+  Player p(String name, {RsvpStatus status = RsvpStatus.pending}) => Player(
+      id: name, name: name, email: '$name@example.com', rsvpStatus: status);
 
   GolfRound round({
     List<Player>? players,
@@ -51,7 +51,8 @@ void main() {
   group('shouldPushCalendarUpdate', () {
     test('pushes when a player joins', () {
       expect(
-        decide(round(), round(players: [p('Marc'), p('Alasdair'), p('Hamish')])),
+        decide(
+            round(), round(players: [p('Marc'), p('Alasdair'), p('Hamish')])),
         isTrue,
       );
     });

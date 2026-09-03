@@ -41,16 +41,19 @@ void main() {
       expect(state.upcomingRounds.map((r) => r.id), ['future']);
     });
 
-    test('a round that teed off two hours ago is still upcoming — '
+    test(
+        'a round that teed off two hours ago is still upcoming — '
         'people are on the course, and late declines still matter', () {
-      final teeingOff = roundAt('today', now.subtract(const Duration(hours: 2)));
+      final teeingOff =
+          roundAt('today', now.subtract(const Duration(hours: 2)));
       final state = AppState()..setRounds([teeingOff]);
       expect(state.upcomingRounds.map((r) => r.id), ['today']);
     });
   });
 
   group('the home screen', () {
-    testWidgets('lists a played round under "Past rounds", not under '
+    testWidgets(
+        'lists a played round under "Past rounds", not under '
         '"Your upcoming rounds"', (tester) async {
       final state = AppState()..setRounds([lastWeek, nextWeek]);
       await tester.pumpWidget(

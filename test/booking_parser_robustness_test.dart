@@ -71,7 +71,8 @@ void main() {
 
     test('a marker loses its digit', () {
       // Exactly what lost Alasdair Kilgour.
-      expect(BookingParser.extractPlayers(_base.replaceAll('Player 1', 'Player')),
+      expect(
+          BookingParser.extractPlayers(_base.replaceAll('Player 1', 'Player')),
           containsAll(_four));
     });
 
@@ -90,8 +91,8 @@ void main() {
     });
 
     test('a marker and its name are merged onto one line', () {
-      final t = _base.replaceAll(
-          'Player 4\nGuy Parsonage', 'Player 4 Guy Parsonage');
+      final t =
+          _base.replaceAll('Player 4\nGuy Parsonage', 'Player 4 Guy Parsonage');
       expect(BookingParser.extractPlayers(t), containsAll(_four));
     });
 
@@ -117,8 +118,8 @@ void main() {
 
   group('label vocabulary found by researching other booking systems', () {
     test('label-first player count, as CPS Golf writes it', () {
-      expect(BookingParser.extractDeclaredPlayerCount('Number of players: 3'),
-          3);
+      expect(
+          BookingParser.extractDeclaredPlayerCount('Number of players: 3'), 3);
       expect(BookingParser.extractDeclaredPlayerCount('Players: 2'), 2);
     });
 
@@ -128,8 +129,8 @@ void main() {
     });
 
     test('Confirmation ID, as TeeOff and GolfNow write it', () {
-      expect(BookingParser.extractBookingRef('Confirmation ID: A7X92B'),
-          'A7X92B');
+      expect(
+          BookingParser.extractBookingRef('Confirmation ID: A7X92B'), 'A7X92B');
     });
 
     test('Tee Time Identification number, as foreUP writes it', () {

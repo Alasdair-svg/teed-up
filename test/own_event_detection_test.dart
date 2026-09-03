@@ -60,7 +60,9 @@ void main() {
 
     test('organiser matching is case- and whitespace-insensitive', () {
       final e = Event('cal', eventId: 'e5', title: '⛳ Earth Course')
-        ..attendees = [_att('  Alasdair@TheArtesianGroup.com  ', organiser: true)];
+        ..attendees = [
+          _att('  Alasdair@TheArtesianGroup.com  ', organiser: true)
+        ];
       final svc = CalendarService()
         ..setOwnEmailsForTest({'alasdair@theartesiangroup.com'});
       expect(svc.isOwnEventForTest(e), isTrue);

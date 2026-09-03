@@ -47,6 +47,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:workmanager/workmanager.dart';
 
+import '../models/golf_round.dart';
 import '../models/player.dart';
 import '../models/rsvp_change.dart';
 import '../providers/app_state.dart';
@@ -85,6 +86,15 @@ void teedUpBackgroundDispatcher() {
 // =============================================================================
 // RsvpMonitor
 // =============================================================================
+
+/// Signature of the calendar read [RsvpMonitor] depends on: every event in
+/// one calendar between [start] and [end], in the map shape documented on
+/// [RsvpMonitor.debugEventFetcher]'s production implementation.
+typedef RsvpEventFetcher = Future<List<Map<String, dynamic>>> Function(
+  String calendarId,
+  DateTime start,
+  DateTime end,
+);
 
 /// Monitors calendar event attendees for RSVP status changes.
 ///
@@ -188,6 +198,13 @@ class RsvpMonitor {
         await checkForChanges();
       },
     );
+
+    // Poll once NOW, not only after the first 60-second tick. This is
+    // called on cold start and on every resume — the two moments a user is
+    // most likely to be opening the app *because* something changed. A
+    // decline that arrived overnight should be on screen when they look,
+    // not a minute after they look.
+    unawaited(checkForChanges());
   }
 
   /// Stops the foreground polling timer.
@@ -424,8 +441,7 @@ class RsvpMonitor {
             if (_parseStatus(currentStatusStr) == RsvpStatus.declined) {
               final change = RsvpChange(
                 eventId: eventId,
-                playerName:
-                    event['attendeeNames']?[email] as String? ?? email,
+                playerName: event['attendeeNames']?[email] as String? ?? email,
                 playerEmail: email,
                 oldStatus: RsvpStatus.pending,
                 newStatus: RsvpStatus.declined,
@@ -510,8 +526,8 @@ class RsvpMonitor {
       final calendarIds = appState.calendarsToMonitor;
       if (calendarIds.isEmpty) return 0;
 
-      final calendarRounds =
-          await CalendarService().getUpcomingRoundsForCalendars(calendarIds);
+      final calendarRounds = await (debugRoundFetcher ??
+          CalendarService().getUpcomingRoundsForCalendars)(calendarIds);
 
       final knownEventIds = appState.allRounds
           .map((r) => r.calendarEventId)
@@ -520,6 +536,7 @@ class RsvpMonitor {
 
       var imported = 0;
       var repaired = 0;
+      var relinked = 0;
       for (final round in calendarRounds) {
         final eventId = round.calendarEventId;
         if (eventId == null) continue;
@@ -531,14 +548,37 @@ class RsvpMonitor {
         // brand new. Existing installs need correcting, not just new
         // imports.
         if (knownEventIds.contains(eventId)) {
-          final existing = appState.allRounds
-              .where((r) => r.calendarEventId == eventId);
+          final existing =
+              appState.allRounds.where((r) => r.calendarEventId == eventId);
           if (existing.isNotEmpty &&
               appState.repairIsCreator(existing.first.id, round.isCreator)) {
             repaired++;
           }
           continue;
         }
+
+        // Not known by event id — but it may still be a round we already
+        // have, which lost its calendar link. Builds before 1.11.3+64
+        // dropped calendarEventId when a booking was amended, orphaning
+        // the event: the monitor had no handle on the round, so declines
+        // on it were undetectable, and importing the event here would have
+        // added a second copy of a round the user already has. Re-attach
+        // instead of importing.
+        final orphan = appState.findUnlinkedRound(
+          course: round.courseName,
+          date: round.date,
+          teeTime: round.teeTime,
+        );
+        if (orphan != null) {
+          appState.linkCalendarEvent(
+            orphan.id,
+            eventId,
+            isCreator: round.isCreator,
+          );
+          relinked++;
+          continue;
+        }
+
         // Was `copyWith(isCreator: false)` — which made EVERY discovered
         // event somebody else's, so your own rounds came back read-only
         // after a reinstall. CalendarService now decides per event.
@@ -546,10 +586,10 @@ class RsvpMonitor {
         imported++;
       }
 
-      if (imported > 0 || repaired > 0) {
+      if (imported > 0 || repaired > 0 || relinked > 0) {
         debugPrint(
           '[RsvpMonitor] Reconciliation imported $imported round(s), '
-          'repaired ownership on $repaired',
+          'repaired ownership on $repaired, relinked $relinked orphan(s)',
         );
       }
       return imported;
@@ -687,18 +727,18 @@ class RsvpMonitor {
   ///   "attendeeNames": { "john@x.com": "John Smith", "jane@x.com": "Jane Doe" }
   /// }
   /// ```
-  static Future<List<Map<String, dynamic>>> _fetchUpcomingEvents(
+  static Future<List<Map<String, dynamic>>> _fetchEventsFromDevice(
     String calendarId,
+    DateTime start,
+    DateTime end,
   ) async {
     try {
       final plugin = DeviceCalendarPlugin();
-      final now = DateTime.now();
-      final end = now.add(const Duration(days: 30));
 
       final result = await plugin.retrieveEvents(
         calendarId,
         RetrieveEventsParams(
-          startDate: TZDateTime.from(now, local),
+          startDate: TZDateTime.from(start, local),
           endDate: TZDateTime.from(end, local),
         ),
       );
@@ -729,7 +769,7 @@ class RsvpMonitor {
           .where((e) => (e['eventId'] as String).isNotEmpty)
           .toList();
     } catch (e) {
-      debugPrint('[RsvpMonitor] _fetchUpcomingEvents error: $e');
+      debugPrint('[RsvpMonitor] _fetchEventsFromDevice error: $e');
       return [];
     }
   }
@@ -746,17 +786,50 @@ class RsvpMonitor {
     return {primary, ...linked}.toList();
   }
 
-  /// Like [_fetchUpcomingEvents], but aggregates across every calendar in
+  /// How far ahead the monitor polls for events to watch.
+  static const int _lookAheadDays = 30;
+
+  /// How far BACK the monitor polls.
+  ///
+  /// This was 0 — the window started at "now", so a round was dropped from
+  /// monitoring the instant its tee time passed. That is precisely when
+  /// people drop out: a decline that arrives on the morning of a round, or
+  /// after the group has teed off, could never be seen, because the event
+  /// carrying it was no longer being read. It also meant a played round's
+  /// calendar event vanished from every reconciliation pass, so ownership
+  /// on it could never be repaired.
+  static const int _lookBackDays = 14;
+
+  /// The calendar window the monitor reads on each poll.
+  @visibleForTesting
+  static ({DateTime start, DateTime end}) pollWindow(DateTime now) => (
+        start: now.subtract(const Duration(days: _lookBackDays)),
+        end: now.add(const Duration(days: _lookAheadDays)),
+      );
+
+  /// Test seam: replaces the device-calendar read. Null in production.
+  @visibleForTesting
+  static RsvpEventFetcher? debugEventFetcher;
+
+  /// Test seam for [reconcileWithCalendar]'s calendar read. Null in
+  /// production, where it reads [CalendarService].
+  @visibleForTesting
+  static Future<List<GolfRound>> Function(List<String>)? debugRoundFetcher;
+
+  /// Reads every event in [pollWindow] across every calendar in
   /// [calendarIds] (spec: multi-calendar account linking), de-duplicated
   /// by event id.
   static Future<List<Map<String, dynamic>>> _fetchUpcomingEventsForCalendars(
     List<String> calendarIds,
   ) async {
+    final window = pollWindow(DateTime.now());
+    final fetch = debugEventFetcher ?? _fetchEventsFromDevice;
+
     final seen = <String>{};
     final events = <Map<String, dynamic>>[];
 
     for (final calendarId in calendarIds) {
-      final calendarEvents = await _fetchUpcomingEvents(calendarId);
+      final calendarEvents = await fetch(calendarId, window.start, window.end);
       for (final event in calendarEvents) {
         if (seen.add(event['eventId'] as String)) events.add(event);
       }

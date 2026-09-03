@@ -73,8 +73,8 @@ void main() {
     });
 
     test('keeps the old booking ref when the rescan read none', () {
-      expect(amend(matched: existing, bookingRef: null).bookingRef,
-          'VG-884213');
+      expect(
+          amend(matched: existing, bookingRef: null).bookingRef, 'VG-884213');
     });
   });
 

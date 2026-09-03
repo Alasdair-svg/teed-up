@@ -902,14 +902,23 @@ class CalendarService {
   Future<List<GolfRound>> getUpcomingRounds(
     String calendarId, {
     int days = 60,
+    int lookBackDays = 14,
   }) async {
     try {
       if (!await _ensurePermissions()) return [];
 
       final now = DateTime.now();
+      // The window starts BEHIND now. It used to start at now, which meant
+      // a round dropped out of every calendar read the instant its tee time
+      // passed — so reconciliation could never repair ownership on it (the
+      // 30 Aug round on the Simulator still read isCreator:false on 3 Sep),
+      // and RsvpMonitor lost sight of it at exactly the point where late
+      // drop-outs happen. Callers that genuinely want future-only can pass
+      // lookBackDays: 0.
+      final start = now.subtract(Duration(days: lookBackDays));
       final end = now.add(Duration(days: days));
 
-      final events = await _retrieveEvents(calendarId, now, end);
+      final events = await _retrieveEvents(calendarId, start, end);
       _ownEmails = await getOwnAccountEmails();
       final rounds = <GolfRound>[];
 
@@ -939,12 +948,17 @@ class CalendarService {
   Future<List<GolfRound>> getUpcomingRoundsForCalendars(
     List<String> calendarIds, {
     int days = 60,
+    int lookBackDays = 14,
   }) async {
     final seen = <String>{};
     final rounds = <GolfRound>[];
 
     for (final calendarId in calendarIds) {
-      final calendarRounds = await getUpcomingRounds(calendarId, days: days);
+      final calendarRounds = await getUpcomingRounds(
+        calendarId,
+        days: days,
+        lookBackDays: lookBackDays,
+      );
       for (final round in calendarRounds) {
         if (seen.add(round.id)) rounds.add(round);
       }
@@ -1195,8 +1209,18 @@ class CalendarService {
   }
 
   static String _monthAbbr(int month) => const [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ][month - 1];
 
   String _buildDescription(

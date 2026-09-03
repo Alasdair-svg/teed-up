@@ -116,13 +116,33 @@ class Player {
     if (parts.length < 2) return null;
 
     const particles = {
-      'van', 'von', 'de', 'del', 'della', 'di', 'da', 'du', 'der', 'den',
-      'la', 'le', 'mac', 'mc', "o'", 'st', 'ter', 'ten', 'bin', 'ibn', 'al',
+      'van',
+      'von',
+      'de',
+      'del',
+      'della',
+      'di',
+      'da',
+      'du',
+      'der',
+      'den',
+      'la',
+      'le',
+      'mac',
+      'mc',
+      "o'",
+      'st',
+      'ter',
+      'ten',
+      'bin',
+      'ibn',
+      'al',
     };
 
     var start = parts.length - 1;
     while (start > 1 &&
-        particles.contains(parts[start - 1].toLowerCase().replaceAll('.', ''))) {
+        particles
+            .contains(parts[start - 1].toLowerCase().replaceAll('.', ''))) {
       start--;
     }
     return parts.sublist(start).join(' ');

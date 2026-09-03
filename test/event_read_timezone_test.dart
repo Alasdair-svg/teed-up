@@ -89,8 +89,10 @@ void main() {
       final wall = CalendarService.localWallClock(stored);
       expect(wall.second, 0);
       expect(wall.millisecond, 0);
-      expect(wall.minute,
-          DateTime.fromMillisecondsSinceEpoch(stored.millisecondsSinceEpoch).minute);
+      expect(
+          wall.minute,
+          DateTime.fromMillisecondsSinceEpoch(stored.millisecondsSinceEpoch)
+              .minute);
     });
   });
 }

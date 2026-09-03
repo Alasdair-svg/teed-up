@@ -40,15 +40,16 @@ void main() {
 
   group('a tee time survives the calendar round trip unchanged', () {
     final times = <List<int>>[
-      [6, 30],   // the real booking
-      [0, 0],    // midnight — rolls the date if anything shifts
-      [23, 45],  // late evening — rolls the date the other way
+      [6, 30], // the real booking
+      [0, 0], // midnight — rolls the date if anything shifts
+      [23, 45], // late evening — rolls the date the other way
       [12, 0],
       [7, 15],
     ];
 
     for (final t in times) {
-      test('${t[0].toString().padLeft(2, '0')}:'
+      test(
+          '${t[0].toString().padLeft(2, '0')}:'
           '${t[1].toString().padLeft(2, '0')} on this machine', () {
         final wall = DateTime(2026, 8, 30, t[0], t[1]);
 
@@ -67,7 +68,8 @@ void main() {
       tz.setLocalLocation(tz.getLocation('America/New_York'));
       final wall = DateTime(2026, 8, 30, 6, 30);
 
-      final back = CalendarService.localWallClock(writeToInstant(wall, tz.local));
+      final back =
+          CalendarService.localWallClock(writeToInstant(wall, tz.local));
 
       expect(back.hour, 6);
       expect(back.minute, 30);
