@@ -398,18 +398,15 @@ class _ScanScreenState extends State<ScanScreen> {
     final now = DateTime.now();
 
     // Build the new round
-    final round = GolfRound(
-      id: _matchedRound?.id ?? 'round_${now.millisecondsSinceEpoch}',
+    final round = buildReviewedRound(
+      matched: _matchedRound,
       courseName: _courseReview,
       date: _dateReview ?? now,
       teeTime: _timeReview ?? now,
       players: _reviewPlayers,
       bookingRef: _bookingRefReview,
-      familyNotified: _selectedFamilyIndices.isNotEmpty,
-      // findMatchingRound only ever matches Creator-owned rounds, so this
-      // is always true in practice — set explicitly rather than relying
-      // on that invariant holding at a distance.
-      isCreator: _matchedRound?.isCreator ?? true,
+      notifyingFamily: _selectedFamilyIndices.isNotEmpty,
+      now: now,
     );
 
     // Selected family members for notify
@@ -1683,4 +1680,45 @@ class _SectionHeader extends StatelessWidget {
           ?.copyWith(fontWeight: FontWeight.w700),
     );
   }
+}
+
+/// Builds the round to save from the review screen's state.
+///
+/// Extracted so the amendment invariants can be tested: everything below
+/// was previously inline in `_confirm`, where nothing could reach it.
+///
+/// When [matched] is non-null this is an AMENDMENT of an existing round,
+/// and the fields that identify that round must survive — above all
+/// [GolfRound.calendarEventId]. Rebuilding the round without it orphaned
+/// the calendar event: it was never updated and never deleted, so every
+/// player kept an invite naming the old group, the app showed the new
+/// line-up while the calendar showed the old one, and the RSVP monitor
+/// lost the only handle it had on the round.
+GolfRound buildReviewedRound({
+  required GolfRound? matched,
+  required String courseName,
+  required DateTime date,
+  required DateTime teeTime,
+  required List<Player> players,
+  required String? bookingRef,
+  required bool notifyingFamily,
+  required DateTime now,
+}) {
+  return GolfRound(
+    id: matched?.id ?? 'round_${now.millisecondsSinceEpoch}',
+    courseName: courseName,
+    date: date,
+    teeTime: teeTime,
+    players: players,
+    // Keep the old booking reference when a rescan didn't read one, rather
+    // than blanking a detail the user already had.
+    bookingRef: bookingRef ?? matched?.bookingRef,
+    location: matched?.location,
+    familyNotified: notifyingFamily || (matched?.familyNotified ?? false),
+    // findMatchingRound only ever matches Creator-owned rounds, so this is
+    // always true in practice — set explicitly rather than relying on that
+    // invariant holding at a distance.
+    isCreator: matched?.isCreator ?? true,
+    calendarEventId: matched?.calendarEventId,
+  );
 }
