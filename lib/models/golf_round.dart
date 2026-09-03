@@ -12,6 +12,7 @@ class GolfRound {
     this.location,
     this.bookingRef,
     this.calendarEventId,
+    this.calendarId,
     this.familyNotified = false,
     this.isCreator = true,
     DateTime? createdAt,
@@ -44,6 +45,23 @@ class GolfRound {
 
   /// Linked device calendar event ID (if created).
   final String? calendarEventId;
+
+  /// The device calendar the event in [calendarEventId] actually lives in.
+  ///
+  /// Without this the RSVP monitor could only poll the calendars it knew
+  /// about from settings — the primary plus any explicitly linked ones. On
+  /// the reporting user's device the linked calendars were Birthdays and
+  /// UAE Holidays, neither of which can carry an invitation, so in practice
+  /// only the primary calendar was ever read. A round whose event lived
+  /// anywhere else — a second account's default calendar, or the calendar
+  /// that was selected before the user switched — was invisible to the
+  /// monitor, and a decline on it could never be detected.
+  ///
+  /// Null on every round stored before this field existed, and on rounds
+  /// with no calendar event at all. Callers must treat null as "unknown",
+  /// never as "the primary calendar": the ⛳-title discovery sweep in
+  /// [RsvpMonitor] is what recovers those.
+  final String? calendarId;
 
   /// Whether friends & family have been informed about this round.
   final bool familyNotified;
@@ -106,6 +124,10 @@ class GolfRound {
       location: json['location'] as String?,
       bookingRef: json['bookingRef'] as String?,
       calendarEventId: json['calendarEventId'] as String?,
+      // Absent on every round persisted before this field existed. Left
+      // null deliberately — guessing the primary calendar here would be a
+      // lie the monitor would then act on.
+      calendarId: json['calendarId'] as String?,
       familyNotified: json['familyNotified'] == true,
       // Absent on any round persisted before this field existed — those are
       // all self-created rounds from the pre-auto-import app, so default
@@ -127,6 +149,7 @@ class GolfRound {
         'location': location,
         'bookingRef': bookingRef,
         'calendarEventId': calendarEventId,
+        'calendarId': calendarId,
         'familyNotified': familyNotified,
         'isCreator': isCreator,
         'createdAt': createdAt.toIso8601String(),
@@ -142,6 +165,7 @@ class GolfRound {
     String? location,
     String? bookingRef,
     String? calendarEventId,
+    String? calendarId,
     bool? familyNotified,
     bool? isCreator,
     DateTime? createdAt,
@@ -155,6 +179,7 @@ class GolfRound {
       location: location ?? this.location,
       bookingRef: bookingRef ?? this.bookingRef,
       calendarEventId: calendarEventId ?? this.calendarEventId,
+      calendarId: calendarId ?? this.calendarId,
       familyNotified: familyNotified ?? this.familyNotified,
       isCreator: isCreator ?? this.isCreator,
       createdAt: createdAt ?? this.createdAt,

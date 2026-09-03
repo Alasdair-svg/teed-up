@@ -162,7 +162,12 @@ class AppState extends ChangeNotifier {
       oldPlayers: previous?.players ?? toSave.players,
       newPlayers: toSave.players,
     );
-    if (_selectedCalendarId != null &&
+    // The round's OWN calendar wins over the currently-selected one. The
+    // event does not move when the user changes their selection in
+    // Settings, so writing an amendment to the selected calendar would
+    // patch the wrong calendar — or nothing at all.
+    final eventCalendarId = toSave.calendarId ?? _selectedCalendarId;
+    if (eventCalendarId != null &&
         toSave.calendarEventId != null &&
         shouldPushCalendarUpdate(
           previous: previous,
@@ -174,7 +179,7 @@ class AppState extends ChangeNotifier {
         toSave.calendarEventId!,
         toSave,
         diff,
-        _selectedCalendarId!,
+        eventCalendarId,
         notifyFamilyMembers: notify ? selectedFamily : null,
         reminderMinutes: enabledReminderMinutes,
       );
@@ -212,7 +217,14 @@ class AppState extends ChangeNotifier {
         reminderMinutes: enabledReminderMinutes,
       );
       if (eventId != null) {
-        toSave = toSave.copyWith(calendarEventId: eventId);
+        // Record WHICH calendar it landed in, not just the event id. The
+        // monitor polls a fixed set of calendars; a round whose event is
+        // in none of them is unmonitorable, and the user is free to switch
+        // their selected calendar at any time afterwards.
+        toSave = toSave.copyWith(
+          calendarEventId: eventId,
+          calendarId: _selectedCalendarId,
+        );
       }
     }
 
@@ -238,9 +250,10 @@ class AppState extends ChangeNotifier {
   /// deleting it themselves; a round the app refuses to let go of is not.
   Future<void> cancelRound(String id) async {
     final round = getRound(id);
-    if (round?.calendarEventId != null && _selectedCalendarId != null) {
+    final calendarId = round?.calendarId ?? _selectedCalendarId;
+    if (round?.calendarEventId != null && calendarId != null) {
       await CalendarService().deleteEvent(
-        _selectedCalendarId!,
+        calendarId,
         round!.calendarEventId!,
       );
     }
@@ -320,11 +333,19 @@ class AppState extends ChangeNotifier {
   /// Re-attaches [eventId] to the stored round [roundId], restoring the
   /// monitor's handle on it. Returns true when a round was actually
   /// relinked.
-  bool linkCalendarEvent(String roundId, String eventId, {bool? isCreator}) {
+  bool linkCalendarEvent(
+    String roundId,
+    String eventId, {
+    bool? isCreator,
+    String? calendarId,
+  }) {
     final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
     if (index < 0) return false;
     _upcomingRounds[index] = _upcomingRounds[index].copyWith(
       calendarEventId: eventId,
+      // Where the event actually is, as discovered by the sweep — which
+      // need not be the primary calendar, and is the point of relinking.
+      calendarId: calendarId,
       isCreator: isCreator ?? _upcomingRounds[index].isCreator,
     );
     notifyListeners();
@@ -451,7 +472,7 @@ class AppState extends ChangeNotifier {
         round.calendarEventId!,
         round,
         diff,
-        _selectedCalendarId!,
+        round.calendarId ?? _selectedCalendarId!,
         reminderMinutes: enabledReminderMinutes,
       );
       return ok ? null : "Couldn't update the calendar event.";
@@ -466,7 +487,10 @@ class AppState extends ChangeNotifier {
       return "Couldn't create the calendar event. Check that the selected "
           'calendar is writable and calendar permission is granted.';
     }
-    await updateRound(round.copyWith(calendarEventId: eventId));
+    await updateRound(round.copyWith(
+      calendarEventId: eventId,
+      calendarId: _selectedCalendarId,
+    ));
     return null;
   }
 
@@ -499,7 +523,12 @@ class AppState extends ChangeNotifier {
       notifyFamilyMembers: members,
       reminderMinutes: enabledReminderMinutes,
     );
-    return eventId != null ? round.copyWith(calendarEventId: eventId) : round;
+    return eventId != null
+        ? round.copyWith(
+            calendarEventId: eventId,
+            calendarId: _selectedCalendarId,
+          )
+        : round;
   }
 
   // ---------------------------------------------------------------------------

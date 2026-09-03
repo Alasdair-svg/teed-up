@@ -8,7 +8,6 @@
 /// reliable identification when scanning upcoming events.
 library;
 
-import 'dart:io' show Platform;
 
 import 'package:device_calendar/device_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -605,7 +604,7 @@ class CalendarService {
         if (diff > const Duration(minutes: 1)) continue;
 
         // Match found — parse into GolfRound.
-        return _eventToGolfRound(event);
+        return _eventToGolfRound(event, calendarId);
       }
 
       return null;
@@ -926,7 +925,7 @@ class CalendarService {
         final title = event.title ?? '';
         if (!title.contains(eventPrefix)) continue;
 
-        final round = _eventToGolfRound(event);
+        final round = _eventToGolfRound(event, calendarId);
         if (round != null) {
           rounds.add(round);
         }
@@ -1421,7 +1420,13 @@ class CalendarService {
     return _ownEmails.contains(email);
   }
 
-  GolfRound? _eventToGolfRound(Event event) {
+  /// Parses [event], read from [calendarId], into a [GolfRound].
+  ///
+  /// [calendarId] is threaded through rather than inferred: it becomes
+  /// [GolfRound.calendarId], the handle [RsvpMonitor] needs to keep polling
+  /// this round's event even when the calendar it lives in is neither the
+  /// primary nor one the user has linked.
+  GolfRound? _eventToGolfRound(Event event, String calendarId) {
     try {
       final title = event.title ?? '';
       final start = event.start;
@@ -1494,6 +1499,7 @@ class CalendarService {
         players: players,
         bookingRef: bookingRef,
         calendarEventId: event.eventId,
+        calendarId: calendarId,
         isCreator: _looksLikeOwnEvent(event),
       );
     } catch (e, st) {
@@ -1519,15 +1525,34 @@ class CalendarService {
 
   // ── Status normalisation ───────────────────────────────────────────────
 
-  /// Normalises platform-specific attendance status into [AttendeeStatus].
+  /// Normalises a platform-specific attendance status into [AttendeeStatus].
   ///
-  /// On iOS, reads [IosAttendeeDetails.attendanceStatus].
-  /// On Android, reads [AndroidAttendeeDetails.attendanceStatus].
-  AttendeeStatus _normaliseAttendanceStatus(Attendee attendee) {
-    if (Platform.isIOS) {
-      final iosStatus = attendee.iosAttendeeDetails?.attendanceStatus;
-      if (iosStatus == null) return AttendeeStatus.unknown;
-
+  /// **The single source of truth for reading an RSVP off a calendar
+  /// attendee.** [RsvpMonitor] used to carry its own copy of this logic
+  /// with a different mapping, and a divergence between the two is exactly
+  /// how a decline goes unnoticed: the baseline is written by this class
+  /// (`_seedRsvpBaseline`) and every later poll is read by the monitor. If
+  /// the two disagree about what a given attendee's status *is*, the
+  /// comparison between them is meaningless — either a change is invented
+  /// where none happened, or a real decline reads as "no change".
+  ///
+  /// Two deliberate choices:
+  ///
+  /// * **No `Platform` gate.** This was `if (Platform.isIOS) ... else if
+  ///   (Platform.isAndroid)`, which returns [AttendeeStatus.unknown] for a
+  ///   perfectly readable declined attendee whenever the gate is wrong —
+  ///   in a unit test, or on any host that is neither. The details field
+  ///   that is populated already tells us which platform we are on; read
+  ///   whichever is present.
+  /// * **`tentative` stays distinct** from `pending`. The monitor
+  ///   collapsed the two. Collapsing loses the difference between "replied,
+  ///   maybe" and "never replied" in the cached baseline, and the two
+  ///   implementations then wrote different strings for the same attendee.
+  ///   Mapping tentative onto a non-attending [RsvpStatus] is a separate
+  ///   decision, made once, in [_attendeeStatusToRsvp].
+  static AttendeeStatus attendeeStatusOf(Attendee attendee) {
+    final iosStatus = attendee.iosAttendeeDetails?.attendanceStatus;
+    if (iosStatus != null) {
       switch (iosStatus) {
         case IosAttendanceStatus.Accepted:
           return AttendeeStatus.accepted;
@@ -1540,10 +1565,10 @@ class CalendarService {
         default:
           return AttendeeStatus.unknown;
       }
-    } else if (Platform.isAndroid) {
-      final androidStatus = attendee.androidAttendeeDetails?.attendanceStatus;
-      if (androidStatus == null) return AttendeeStatus.unknown;
+    }
 
+    final androidStatus = attendee.androidAttendeeDetails?.attendanceStatus;
+    if (androidStatus != null) {
       switch (androidStatus) {
         case AndroidAttendanceStatus.Accepted:
           return AttendeeStatus.accepted;
@@ -1560,6 +1585,15 @@ class CalendarService {
 
     return AttendeeStatus.unknown;
   }
+
+  /// The cache-facing string form of [attendeeStatusOf] — the exact value
+  /// written to, and compared against, the RSVP baseline.
+  static String attendeeStatusString(Attendee attendee) =>
+      attendeeStatusOf(attendee).name;
+
+  /// Instance-side alias kept for the existing call sites.
+  AttendeeStatus _normaliseAttendanceStatus(Attendee attendee) =>
+      attendeeStatusOf(attendee);
 
   /// Maps [AttendeeStatus] to the app's [RsvpStatus].
   RsvpStatus _attendeeStatusToRsvp(AttendeeStatus status) {
