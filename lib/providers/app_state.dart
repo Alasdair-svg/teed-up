@@ -405,6 +405,8 @@ class AppState extends ChangeNotifier {
     if (newStatus == RsvpStatus.declined) {
       addAlert(RsvpChange(
         eventId: round.id,
+        courseName: round.courseName,
+        teeTime: round.teeDateTime,
         playerName: changedPlayer!.name,
         playerEmail: changedPlayer!.email,
         oldStatus: changedPlayer!.rsvpStatus,

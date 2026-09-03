@@ -334,6 +334,8 @@ class RsvpMonitor {
             oldStatus: oldStatus,
             newStatus: newStatus,
             detectedAt: DateTime.now(),
+            courseName: courseFromEventTitle(eventTitle),
+            teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
           );
 
           changes.add(change);
@@ -499,6 +501,8 @@ class RsvpMonitor {
                 oldStatus: RsvpStatus.pending,
                 newStatus: RsvpStatus.declined,
                 detectedAt: DateTime.now(),
+                courseName: courseFromEventTitle(eventTitle),
+                teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
               );
               changes.add(change);
               await _notifyDecline(change, eventTitle, eventDate);
@@ -518,6 +522,8 @@ class RsvpMonitor {
             oldStatus: oldStatus,
             newStatus: newStatus,
             detectedAt: DateTime.now(),
+            courseName: courseFromEventTitle(eventTitle),
+            teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
           );
 
           changes.add(change);
@@ -972,6 +978,9 @@ class RsvpMonitor {
               'eventId': event.eventId ?? '',
               'title': event.title ?? '',
               'date': event.start?.toIso8601String().split('T').first ?? '',
+              // Full start, not just the day: the alert needs the tee time,
+              // and 'date' above deliberately drops it.
+              'start': event.start?.toIso8601String() ?? '',
               'attendees': attendees,
               'attendeeNames': attendeeNames,
             };
@@ -1184,6 +1193,21 @@ class RsvpMonitor {
 
   /// Converts an [Attendee]'s status to the cache string.
   ///
+
+  /// The course name out of an event title this app wrote.
+  ///
+  /// Titles are built as "⛳ {course} | {tee time} | {players} | All Teed Up"
+  /// (CalendarService._buildSummary). The whole string was being handed to
+  /// the decline notification as the "course name", so a push read
+  /// "⛳ Emirates Golf Club | 07:20 | ... | All Teed Up".
+  static String courseFromEventTitle(String title) {
+    var t = title.trim();
+    if (t.startsWith('⛳')) t = t.substring('⛳'.length).trim();
+    final bar = t.indexOf('|');
+    if (bar > 0) t = t.substring(0, bar).trim();
+    return t.isEmpty ? 'Golf Round' : t;
+  }
+
   /// Delegates to [CalendarService.attendeeStatusString] — the single
   /// implementation. This file used to carry its own copy with a DIFFERENT
   /// mapping (`tentative` collapsed to `pending`, and a `pending` fallback
@@ -1262,7 +1286,7 @@ class RsvpMonitor {
       await notificationService.initialize();
       await notificationService.showDeclineNotification(
         change,
-        courseName: eventTitle,
+        courseName: courseFromEventTitle(eventTitle),
         date: eventDate,
       );
     } catch (e) {

@@ -152,7 +152,10 @@ class _AlertCard extends StatelessWidget {
           Icons.help_outline_rounded
         ),
     };
-    final dateFormat = DateFormat('d MMM');
+    // The ROUND's date and tee time — what the user needs to know when
+    // someone drops out. This line used to print detectedAt, so every alert
+    // read as today's date whatever day the golf was on.
+    final roundFormat = DateFormat('EEE d MMM, HH:mm');
     final timeAgo = _formatTimeAgo(alert.detectedAt);
 
     return Padding(
@@ -212,15 +215,25 @@ class _AlertCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
 
-                      // Round details
-                      Text(
-                        '${dateFormat.format(alert.detectedAt)}',
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          color: AppColors.textMuted,
+                      // Which round, and when it tees off.
+                      //
+                      // Both are null on alerts stored before these fields
+                      // existed; showing nothing beats showing a wrong date,
+                      // and the relative "time ago" on the right still says
+                      // when the drop-out was spotted.
+                      if (alert.courseName != null || alert.teeTime != null)
+                        Text(
+                          [
+                            if (alert.courseName != null) alert.courseName!,
+                            if (alert.teeTime != null)
+                              roundFormat.format(alert.teeTime!),
+                          ].join('  ·  '),
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            color: AppColors.textMuted,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),

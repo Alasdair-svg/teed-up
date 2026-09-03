@@ -31,6 +31,8 @@ class RsvpChange {
     required this.oldStatus,
     required this.newStatus,
     required this.detectedAt,
+    this.courseName,
+    this.teeTime,
     this.isRead = false,
   });
 
@@ -50,7 +52,21 @@ class RsvpChange {
   final RsvpStatus newStatus;
 
   /// When this change was detected by the sync engine.
+  ///
+  /// This is NOT the date of the round — it is when the app noticed. The
+  /// alert list used to show this as the round's date, which read as
+  /// "today" for every alert no matter when the golf actually is.
   final DateTime detectedAt;
+
+  /// The course the round is at, for display in the alert.
+  ///
+  /// Null on alerts saved before this field existed; the UI falls back
+  /// rather than showing an empty line.
+  final String? courseName;
+
+  /// When the round tees off — the date the user actually cares about when
+  /// someone drops out.
+  final DateTime? teeTime;
 
   /// Whether the user has seen/dismissed this alert.
   final bool isRead;
@@ -81,6 +97,10 @@ class RsvpChange {
       oldStatus: _parseRsvpStatus(json['oldStatus'] as String?),
       newStatus: _parseRsvpStatus(json['newStatus'] as String?),
       detectedAt: DateTime.parse(json['detectedAt'] as String),
+      courseName: json['courseName'] as String?,
+      teeTime: json['teeTime'] == null
+          ? null
+          : DateTime.tryParse(json['teeTime'] as String),
       isRead: json['isRead'] == true || json['isRead'] == 1,
     );
   }
@@ -107,6 +127,8 @@ class RsvpChange {
       'eventId': eventId,
       'playerName': playerName,
       'playerEmail': playerEmail,
+      'courseName': courseName,
+      'teeTime': teeTime?.toIso8601String(),
       'oldStatus': oldStatus.name,
       'newStatus': newStatus.name,
       'detectedAt': detectedAt.toIso8601String(),
@@ -126,6 +148,8 @@ class RsvpChange {
     RsvpStatus? oldStatus,
     RsvpStatus? newStatus,
     DateTime? detectedAt,
+    String? courseName,
+    DateTime? teeTime,
     bool? isRead,
   }) {
     return RsvpChange(
@@ -135,6 +159,8 @@ class RsvpChange {
       oldStatus: oldStatus ?? this.oldStatus,
       newStatus: newStatus ?? this.newStatus,
       detectedAt: detectedAt ?? this.detectedAt,
+      courseName: courseName ?? this.courseName,
+      teeTime: teeTime ?? this.teeTime,
       isRead: isRead ?? this.isRead,
     );
   }
