@@ -23,8 +23,11 @@ library;
 
 import 'dart:async';
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/feature_flags.dart';
@@ -589,6 +592,30 @@ class PurchaseService {
   ///
   /// Call this when the service is no longer needed (e.g. when the
   /// root widget disposes).
+  /// Opens Apple's native "Redeem Code" sheet so a tester can enter their
+  /// promo code without leaving the app.
+  ///
+  /// iOS only — Android has no equivalent API, and doesn't need one: a Play
+  /// promo code is redeemed in the Play Store app or at
+  /// play.google.com/redeem, and the entitlement then arrives on the purchase
+  /// stream exactly as it does here.
+  ///
+  /// Returns false when the sheet could not be shown, so the caller can fall
+  /// back to telling the user where to redeem manually rather than leaving a
+  /// button that silently does nothing.
+  Future<bool> presentRedemptionSheet() async {
+    if (!Platform.isIOS) return false;
+    try {
+      final addition = InAppPurchase.instance
+          .getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
+      await addition.presentCodeRedemptionSheet();
+      return true;
+    } catch (e) {
+      debugPrint('PurchaseService: redemption sheet failed — $e');
+      return false;
+    }
+  }
+
   void dispose() {
     _subscription?.cancel();
     _subscription = null;

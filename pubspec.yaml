@@ -42,6 +42,8 @@ dependencies:
 
   # === In-App Purchase ===
   in_app_purchase: ^3.2.0
+  # Needed for presentCodeRedemptionSheet — the native "Redeem Code" sheet.
+  in_app_purchase_storekit: ^0.4.11
 
   # === UI & Branding ===
   cupertino_icons: ^1.0.8
