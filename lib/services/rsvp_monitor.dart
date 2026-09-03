@@ -513,7 +513,7 @@ class RsvpMonitor {
       final calendarRounds =
           await CalendarService().getUpcomingRoundsForCalendars(calendarIds);
 
-      final knownEventIds = appState.upcomingRounds
+      final knownEventIds = appState.allRounds
           .map((r) => r.calendarEventId)
           .whereType<String>()
           .toSet();
@@ -531,7 +531,7 @@ class RsvpMonitor {
         // brand new. Existing installs need correcting, not just new
         // imports.
         if (knownEventIds.contains(eventId)) {
-          final existing = appState.upcomingRounds
+          final existing = appState.allRounds
               .where((r) => r.calendarEventId == eventId);
           if (existing.isNotEmpty &&
               appState.repairIsCreator(existing.first.id, round.isCreator)) {

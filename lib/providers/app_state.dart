@@ -50,8 +50,30 @@ class AppState extends ChangeNotifier {
 
   List<GolfRound> _upcomingRounds = [];
 
-  /// All upcoming golf rounds, sorted by date (nearest first).
-  List<GolfRound> get upcomingRounds => List.unmodifiable(_upcomingRounds);
+  /// Every round the app knows about, past and future, sorted by date
+  /// (oldest first).
+  ///
+  /// This is the storage view — persistence, calendar reconciliation and
+  /// rescan matching all work from it. [upcomingRounds] is the home
+  /// screen's view and deliberately excludes rounds already played; using
+  /// it to persist would quietly drop a played round from the device the
+  /// next time state was saved.
+  List<GolfRound> get allRounds => List.unmodifiable(_upcomingRounds);
+
+  /// Rounds still to be played (or being played right now), soonest first.
+  ///
+  /// A round stays here until [GolfRound.inPlayWindow] after its tee time,
+  /// so a group on the course still sees today's round at the top of the
+  /// home screen — and late declines still land against a live round.
+  List<GolfRound> get upcomingRounds =>
+      List.unmodifiable(_upcomingRounds.where((r) => !r.isPast));
+
+  /// Rounds already played, most recent first. Kept, never deleted — they
+  /// are the user's history, and a round they can no longer see is lost to
+  /// them.
+  List<GolfRound> get pastRounds => List.unmodifiable(
+        _upcomingRounds.where((r) => r.isPast).toList().reversed,
+      );
 
   /// Replaces the entire rounds list (e.g. after initial DB load).
   void setRounds(List<GolfRound> rounds) {

@@ -64,8 +64,30 @@ class GolfRound {
   /// Timeline of events for this round.
   final List<RoundEvent> timeline = [];
 
-  /// Whether the round is in the future.
-  bool get isUpcoming => date.isAfter(DateTime.now());
+  /// How long after the tee time a round stays "in play".
+  ///
+  /// Four hours and change is a round of golf; the app should not move a
+  /// booking into the past while the group is still on the 14th. It also
+  /// keeps late RSVP changes — people drop out on the morning, and
+  /// sometimes after the first tee — inside the window the monitor polls.
+  static const Duration inPlayWindow = Duration(hours: 6);
+
+  /// The actual instant this round tees off: the calendar day from [date]
+  /// with the hour and minute from [teeTime].
+  ///
+  /// [date] alone is midnight, so comparing it against "now" makes every
+  /// round on today's date look as though it has already been played.
+  DateTime get teeDateTime =>
+      DateTime(date.year, date.month, date.day, teeTime.hour, teeTime.minute);
+
+  /// Whether the round had already been played by [now].
+  bool isPastAt(DateTime now) => now.isAfter(teeDateTime.add(inPlayWindow));
+
+  /// Whether the round has already been played.
+  bool get isPast => isPastAt(DateTime.now());
+
+  /// Whether the round is still to be played (or is being played now).
+  bool get isUpcoming => !isPast;
 
   /// Formatted tee time string (HH:mm).
   String get formattedTeeTime =>

@@ -163,7 +163,10 @@ Future<void> _saveRounds(AppState state) async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final roundsJson = jsonEncode(
-      state.upcomingRounds.map((r) => r.toJson()).toList(),
+      // allRounds, not upcomingRounds: the latter now hides rounds already
+      // played, and persisting from it would delete the user's history
+      // from the device on the next save.
+      state.allRounds.map((r) => r.toJson()).toList(),
     );
     await prefs.setString(_kRoundsKey, roundsJson);
 

@@ -226,6 +226,7 @@ class _HomeTab extends StatelessWidget {
     return Consumer<AppState>(
       builder: (context, state, _) {
         final rounds = state.upcomingRounds;
+        final past = state.pastRounds;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,7 +259,9 @@ class _HomeTab extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           rounds.isEmpty
-                              ? 'Snap your first booking below'
+                              ? (past.isEmpty
+                                  ? 'Snap your first booking below'
+                                  : 'No rounds coming up')
                               : 'Your upcoming rounds',
                           style: Theme.of(context)
                               .textTheme
@@ -296,12 +299,25 @@ class _HomeTab extends StatelessWidget {
 
             // ── Rounds list ────────────────────────────────────────────────
             Expanded(
-              child: rounds.isEmpty
+              child: rounds.isEmpty && past.isEmpty
                   ? const _EmptyState()
+                  // Played rounds keep their place in the app, below a
+                  // heading that says what they are. They are not deleted
+                  // and not silently mixed in with what is still to come.
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: rounds.length,
-                      itemBuilder: (context, i) => _RoundCard(round: rounds[i]),
+                      itemCount:
+                          rounds.length + (past.isEmpty ? 0 : past.length + 1),
+                      itemBuilder: (context, i) {
+                        if (i < rounds.length) {
+                          return _RoundCard(round: rounds[i]);
+                        }
+                        if (i == rounds.length) return const _PastHeader();
+                        return _RoundCard(
+                          round: past[i - rounds.length - 1],
+                          isPast: true,
+                        );
+                      },
                     ),
             ),
 
@@ -399,9 +415,32 @@ class _EmptyState extends StatelessWidget {
 // Round Card — matches Claude design exactly
 // =============================================================================
 
+/// Heading that separates played rounds from the ones still to come.
+class _PastHeader extends StatelessWidget {
+  const _PastHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+      child: Text(
+        'Past rounds',
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontFamily: 'Outfit',
+              fontWeight: FontWeight.w700,
+              color: AppColors.textMuted,
+            ),
+      ),
+    );
+  }
+}
+
 class _RoundCard extends StatelessWidget {
-  const _RoundCard({required this.round});
+  const _RoundCard({required this.round, this.isPast = false});
   final GolfRound round;
+
+  /// Played rounds are dimmed so the list reads at a glance.
+  final bool isPast;
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -424,88 +463,91 @@ class _RoundCard extends StatelessWidget {
           builder: (_) => RoundDetailScreen(roundId: round.id),
         ),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.grey),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Course name + date pill
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Hero(
-                    tag: 'round_hero_${round.id}',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Text(
-                        round.courseName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+      child: Opacity(
+        opacity: isPast ? 0.55 : 1,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.grey),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Course name + date pill
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Hero(
+                      tag: 'round_hero_${round.id}',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          round.courseName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Date pill
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPale,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _formatDate(round.date),
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: AppColors.primary,
+                  const SizedBox(width: 12),
+                  // Date pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPale,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _formatDate(round.date),
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
-            const SizedBox(height: 6),
+              const SizedBox(height: 6),
 
-            // Tee time
-            Text(
-              '${round.formattedTeeTime} tee time',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textMuted),
-            ),
+              // Tee time
+              Text(
+                '${round.formattedTeeTime} tee time',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppColors.textMuted),
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            // Player avatar circles
-            Row(
-              children: round.players
-                  .take(5)
-                  .map((p) => _PlayerAvatar(player: p))
-                  .toList(),
-            ),
-          ],
+              // Player avatar circles
+              Row(
+                children: round.players
+                    .take(5)
+                    .map((p) => _PlayerAvatar(player: p))
+                    .toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
