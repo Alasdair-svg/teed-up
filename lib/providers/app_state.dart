@@ -631,6 +631,27 @@ class AppState extends ChangeNotifier {
   }
 
   /// Adds a new alert and sorts newest-first.
+  /// Adds alerts detected by a poll, skipping any already held.
+  ///
+  /// Returns the number actually added. Identity is event + player + new
+  /// status — the same person declining the same round is the same news
+  /// however many polls notice it.
+  int addAlerts(Iterable<RsvpChange> incoming) {
+    final have = _alerts
+        .map((a) => '${a.eventId}|${a.playerName}|${a.newStatus.name}')
+        .toSet();
+    var added = 0;
+    for (final a in incoming) {
+      final key = '${a.eventId}|${a.playerName}|${a.newStatus.name}';
+      if (have.add(key)) {
+        _alerts.insert(0, a);
+        added++;
+      }
+    }
+    if (added > 0) notifyListeners();
+    return added;
+  }
+
   void addAlert(RsvpChange alert) {
     _alerts.insert(0, alert);
     notifyListeners();

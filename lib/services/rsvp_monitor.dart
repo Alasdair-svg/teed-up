@@ -211,7 +211,7 @@ class RsvpMonitor {
       const Duration(seconds: _foregroundIntervalSeconds),
       (_) async {
         debugPrint('[RsvpMonitor] Foreground poll tick');
-        await checkForChanges();
+        await _pollAndPublish();
       },
     );
 
@@ -227,7 +227,31 @@ class RsvpMonitor {
     // calendar reads are affordable and the user is waiting for fresh
     // information anyway. Doing the same work 60 times an hour on a phone
     // with a dozen subscribed calendars is not.
-    unawaited(checkForChanges(discoverAllCalendars: true));
+    unawaited(_pollAndPublish(discoverAllCalendars: true));
+  }
+
+  /// The live [AppState], when the app is in the foreground.
+  ///
+  /// checkForChanges is static and writes alerts straight to
+  /// SharedPreferences so it can run in a background isolate. That meant a
+  /// decline found by the 60-second foreground poll was persisted and never
+  /// shown: nothing told the running app it had happened. Worse, the app
+  /// then saved its own (stale) alert list back over the store on the next
+  /// notifyListeners, deleting the alert that had just been written.
+  AppState? _appState;
+
+  /// Binds the live app state. Called once at startup.
+  void bindAppState(AppState appState) => _appState = appState;
+
+  /// Runs a poll and pushes anything it finds into the live app.
+  Future<void> _pollAndPublish({bool discoverAllCalendars = false}) async {
+    final changes =
+        await checkForChanges(discoverAllCalendars: discoverAllCalendars);
+    if (changes.isEmpty) return;
+    final state = _appState;
+    if (state == null) return;
+    final added = state.addAlerts(changes);
+    debugPrint('[RsvpMonitor] Published $added new alert(s) to the app');
   }
 
   /// Stops the foreground polling timer.
@@ -856,9 +880,21 @@ class RsvpMonitor {
   static Future<void> saveAlerts(List<RsvpChange> alerts) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // MERGE, never blind-replace. A background isolate can append an alert
+      // to this store at any moment; saving the foreground list wholesale
+      // would delete it. The in-memory copy wins for alerts both sides know
+      // about, because it carries the read/unread state the user set.
+      final known = alerts.map(alertKey).toSet();
+      final stored = await loadPersistedAlerts();
+      final merged = <RsvpChange>[
+        ...alerts,
+        ...stored.where((a) => !known.contains(alertKey(a))),
+      ];
+
       const maxAlerts = 200;
       final trimmed =
-          alerts.length > maxAlerts ? alerts.sublist(0, maxAlerts) : alerts;
+          merged.length > maxAlerts ? merged.sublist(0, maxAlerts) : merged;
       await prefs.setString(
         _alertsKey,
         jsonEncode(trimmed.map((a) => a.toJson()).toList()),

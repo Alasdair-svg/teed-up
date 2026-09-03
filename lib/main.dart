@@ -218,6 +218,7 @@ Future<void> _initializeServices(AppState appState) async {
 
     try {
       await RsvpMonitor.instance.initialize();
+      RsvpMonitor.instance.bindAppState(appState);
     } catch (e, st) {
       debugPrint('[main] RsvpMonitor init failed: $e\n$st');
     }
