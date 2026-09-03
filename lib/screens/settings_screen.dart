@@ -374,6 +374,72 @@ class LicenseAboutSection extends StatelessWidget {
         // back empty, and a button whose only possible outcome is "no
         // purchase found" is worse than no button.
         if (kEnforceSubscription) ...[
+          // Subscribe is hidden from anyone who already has access — a
+          // subscribed user offered a Subscribe button assumes their payment
+          // failed, and a lifetime tester offered one assumes their code
+          // did not take.
+          if (!isPurchased && !hasLifetimeAccess) ...[
+            // Apple Guideline 3.1.2 requires price, period and renewal terms
+            // to be legible at the point of purchase — not buried in a link.
+            // Stating them here is also the honest thing: an annual charge
+            // that arrives unannounced is the top cause of refund requests.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.primaryPale,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AED 99 per year',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Renews automatically each year until cancelled. '
+                    'Cancel any time in your store account settings.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => _subscribe(context),
+                child: const Text('Subscribe — AED 99/year'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Testers redeem here. On iOS this opens Apple's own sheet; on
+            // Android the code is redeemed in the Play Store, so we say so
+            // rather than showing a field that cannot work.
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: () => _redeemCode(context),
+                icon: const Icon(Icons.card_giftcard_rounded, size: 18),
+                label: const Text('Redeem a code'),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           SizedBox(
             width: double.infinity,
             height: 44,
@@ -414,6 +480,50 @@ class LicenseAboutSection extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Starts the store purchase flow for the annual subscription.
+  void _subscribe(BuildContext context) async {
+    final state = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final service = PurchaseService(appState: state);
+      await service.initialize();
+      if (!service.isAvailable) {
+        messenger.showSnackBar(const SnackBar(
+          content: Text('The store is unavailable right now. Try again later.'),
+          backgroundColor: AppColors.error,
+        ));
+        return;
+      }
+      await service.buyApp();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text("Couldn't start the purchase: $e"),
+        backgroundColor: AppColors.error,
+      ));
+    }
+  }
+
+  /// Opens code redemption.
+  ///
+  /// iOS has a native redemption sheet; Android does not, so rather than
+  /// leave a dead button we tell the user exactly where to go.
+  void _redeemCode(BuildContext context) async {
+    final state = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final service = PurchaseService(appState: state);
+    await service.initialize();
+    final shown = await service.presentRedemptionSheet();
+    if (shown) return;
+    messenger.showSnackBar(const SnackBar(
+      content: Text(
+        'Redeem your code in the Play Store app, under Payments and '
+        'subscriptions → Redeem code.',
+      ),
+      duration: Duration(seconds: 6),
+      backgroundColor: AppColors.primary,
+    ));
   }
 
   void _restorePurchase(BuildContext context) async {

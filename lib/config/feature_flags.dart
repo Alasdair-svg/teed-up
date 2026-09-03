@@ -23,14 +23,21 @@ const bool kEnableFamilyCalendarInvite = bool.fromEnvironment(
 
 /// Whether a lapsed or absent subscription blocks scanning a new booking.
 ///
-/// OFF during beta, deliberately. The AED 99/year subscription does not exist
-/// in either store yet, so a store check returns "no active purchase" for
-/// EVERYONE — turning enforcement on before the product exists would lock out
-/// every tester on their next launch.
+/// The reason this was off no longer holds: teed_up_full_access (AED 99/year)
+/// and teed_up_lifetime_access now exist in BOTH stores — Active on Play,
+/// created and priced on Apple — so a store check can return a real answer
+/// instead of "no active purchase" for everyone.
 ///
-/// Turn this on with --dart-define=ENFORCE_SUBSCRIPTION=true once the
-/// subscription is live in App Store Connect and Play Console, and confirmed
-/// purchasable on a real device.
+/// It still ships OFF and is turned on per-build with
+/// --dart-define=ENFORCE_SUBSCRIPTION=true, because flipping the default
+/// would lock every current tester out of scanning the moment they updated,
+/// before any of them has a code to redeem. Apple cannot mint promo codes
+/// until the app has an approved App Store version, so the codes do not yet
+/// exist to hand out.
+///
+/// Enforcement blocks CREATING a round only. It never locks anyone out of
+/// rounds they already organised — doing so would punish their playing
+/// partners for someone else's lapsed card.
 const bool kEnforceSubscription = bool.fromEnvironment(
   'ENFORCE_SUBSCRIPTION',
 );
