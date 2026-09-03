@@ -87,3 +87,8 @@ void main() {
     });
   });
 }
+
+// Appended: the new-phone path. A tester reinstalling has no cached grant,
+// so restorePurchases() is what brings their lifetime access back — and the
+// pass that calls it must recognise the result as an entitlement rather than
+// falling through to its revoke branch.

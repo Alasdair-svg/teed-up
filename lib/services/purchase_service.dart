@@ -524,6 +524,16 @@ class PurchaseService {
   /// revokes on an inconclusive store answer — may clear this.
   Future<void> _deliverLifetime() async {
     _hasLifetime = true;
+    // Counts as an entitlement for this revalidation pass.
+    //
+    // Without this, a tester restoring onto a NEW PHONE hits the worst
+    // possible path: restorePurchases() returns their lifetime
+    // non-consumable, but the pass sees no *subscription*, logs "revoking
+    // access" and returns false to its caller. Access still worked through
+    // hasFullAccess, but the function was reporting the opposite of what
+    // had just happened — and a new device is precisely when a tester is
+    // most likely to think their free-for-life promise has evaporated.
+    _sawActiveEntitlement = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kLifetimeKey, true);
     await prefs.setString(_kLifetimeTokenKey, _computeLifetimeToken());
