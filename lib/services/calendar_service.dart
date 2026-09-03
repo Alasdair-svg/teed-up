@@ -1408,6 +1408,12 @@ class CalendarService {
   @visibleForTesting
   void setOwnEmailsForTest(Set<String> emails) => _ownEmails = emails;
 
+  /// Test seam for [_eventToGolfRound] — who counts as a player when an
+  /// event is read back is not reachable through the plugin in a unit test.
+  @visibleForTesting
+  GolfRound? eventToRoundForTest(Event event, String calendarId) =>
+      _eventToGolfRound(event, calendarId);
+
   bool _looksLikeOwnEvent(Event event) {
     final attendees = (event.attendees ?? []).whereType<Attendee>().toList();
     if (attendees.isEmpty) return true;
@@ -1449,6 +1455,14 @@ class CalendarService {
         for (final attendee in event.attendees!) {
           if (attendee == null) continue;
           if (attendee.isOrganiser) continue; // Skip the organiser.
+          // Skip informational attendees. Friends & family are added to the
+          // event as Optional (see _pushFamilyToCalendar and the "ℹ️ …
+          // notified — information only" line in the description); players
+          // are Required. Reading every attendee as a player meant a family
+          // member came back as a fifth player the next time the event was
+          // imported or reconciled — a name that was never in the booking
+          // screenshot at all, which is exactly how it presents.
+          if (attendee.role == AttendeeRole.Optional) continue;
 
           players.add(Player(
             id: (attendee.emailAddress ?? attendee.name ?? 'unknown')
