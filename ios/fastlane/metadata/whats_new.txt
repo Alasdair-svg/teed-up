@@ -4,10 +4,9 @@ Declines now reach you. Three faults were stopping them:
 when people drop out. It now watches 14 days either side.
 
 • Rounds were only watched if their calendar was the one picked in Settings.
-The app now finds a round by the calendar it was saved to, or by its golf
-marker in any calendar on your phone.
+Any calendar now works.
 
-• Alerts were written to one store and read from another, so a decline found
+• Alerts were saved to one place and read from another, so a decline found
 in the background was never shown.
 
-Rounds already played now move to their own section.
+Played rounds now move to their own section.
