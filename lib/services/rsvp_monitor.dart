@@ -335,7 +335,7 @@ class RsvpMonitor {
             newStatus: newStatus,
             detectedAt: DateTime.now(),
             courseName: courseFromEventTitle(eventTitle),
-            teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
+            teeTime: _startOf(event),
           );
 
           changes.add(change);
@@ -502,7 +502,7 @@ class RsvpMonitor {
                 newStatus: RsvpStatus.declined,
                 detectedAt: DateTime.now(),
                 courseName: courseFromEventTitle(eventTitle),
-                teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
+                teeTime: _startOf(event),
               );
               changes.add(change);
               await _notifyDecline(change, eventTitle, eventDate);
@@ -523,7 +523,7 @@ class RsvpMonitor {
             newStatus: newStatus,
             detectedAt: DateTime.now(),
             courseName: courseFromEventTitle(eventTitle),
-            teeTime: DateTime.tryParse(event['start'] as String? ?? ''),
+            teeTime: _startOf(event),
           );
 
           changes.add(change);
@@ -613,6 +613,7 @@ class RsvpMonitor {
 
       var imported = 0;
       var repaired = 0;
+      var synced = 0;
       var relinked = 0;
       for (final round in calendarRounds) {
         final eventId = round.calendarEventId;
@@ -643,6 +644,16 @@ class RsvpMonitor {
               eventId,
               calendarId: round.calendarId,
             );
+          }
+          // Bring the stored round's RSVP statuses up to date with the
+          // calendar. Without this an acceptance showed on the calendar and
+          // in the alert, while the round detail screen said "Pending"
+          // indefinitely — nothing else in the app ever wrote a status the
+          // user had not tapped in by hand.
+          if (existing.isNotEmpty &&
+              appState.applyCalendarStatuses(
+                  existing.first.id, round.players)) {
+            synced++;
           }
           continue;
         }
@@ -1193,6 +1204,21 @@ class RsvpMonitor {
 
   /// Converts an [Attendee]'s status to the cache string.
   ///
+
+
+  /// The event's start as a [DateTime], however the fetcher supplied it.
+  ///
+  /// The real fetcher writes an ISO string; test fetchers hand back a
+  /// DateTime. A bare `as String?` cast threw on the latter and, because
+  /// checkForChanges catches broadly, turned every detected decline into a
+  /// silently swallowed "Manual check failed" — the exact failure mode this
+  /// whole area keeps producing.
+  static DateTime? _startOf(Map<String, dynamic> event) {
+    final raw = event['start'];
+    if (raw is DateTime) return raw;
+    if (raw is String && raw.isNotEmpty) return DateTime.tryParse(raw);
+    return null;
+  }
 
   /// The course name out of an event title this app wrote.
   ///

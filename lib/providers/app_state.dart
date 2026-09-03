@@ -115,6 +115,54 @@ class AppState extends ChangeNotifier {
   /// If [selectedFamily] is provided and non-empty, those members are
   /// patched onto the round's device calendar event as informational
   /// (Optional) attendees and the round is marked [GolfRound.familyNotified].
+  /// Copies RSVP statuses read from the calendar onto a stored round.
+  ///
+  /// Nothing did this. The ONLY place a player's rsvpStatus was ever set was
+  /// [updateRsvp] — the user tapping a name in the app. So a player could
+  /// accept the invite, the acceptance could sync to the calendar, the
+  /// monitor could read it and raise an alert about it, and the round detail
+  /// screen would still say "Pending" forever.
+  ///
+  /// Matching is by email first (the only stable identifier — a calendar
+  /// attendee's display name is whatever their account says), then by
+  /// case-insensitive name for players added without one.
+  ///
+  /// Returns true if anything actually changed, so callers can avoid
+  /// notifying listeners on every poll.
+  bool applyCalendarStatuses(String roundId, List<Player> fromCalendar) {
+    final index = _upcomingRounds.indexWhere((r) => r.id == roundId);
+    if (index < 0) return false;
+    final round = _upcomingRounds[index];
+
+    final byEmail = <String, RsvpStatus>{};
+    final byName = <String, RsvpStatus>{};
+    for (final p in fromCalendar) {
+      if (p.email != null && p.email!.isNotEmpty) {
+        byEmail[p.email!.toLowerCase()] = p.rsvpStatus;
+      }
+      byName[p.name.toLowerCase().trim()] = p.rsvpStatus;
+    }
+
+    var changed = false;
+    final updated = round.players.map((p) {
+      final status = (p.email != null && p.email!.isNotEmpty)
+              ? byEmail[p.email!.toLowerCase()]
+              : null
+          ?? byName[p.name.toLowerCase().trim()];
+      // Never overwrite a known status with an absence: an attendee missing
+      // from one calendar read (a sync blip, a fetch that raced) must not
+      // silently reset someone who had already accepted back to pending.
+      if (status == null || status == p.rsvpStatus) return p;
+      changed = true;
+      return p.copyWith(rsvpStatus: status);
+    }).toList();
+
+    if (!changed) return false;
+    _upcomingRounds[index] = round.copyWith(players: updated);
+    notifyListeners();
+    return true;
+  }
+
   /// Whether an amended [updated] round warrants rewriting its calendar
   /// event — and with it, an update notice to everyone still playing.
   ///
