@@ -712,10 +712,11 @@ class RsvpMonitor {
         imported++;
       }
 
-      if (imported > 0 || repaired > 0 || relinked > 0) {
+      if (imported > 0 || repaired > 0 || relinked > 0 || synced > 0) {
         debugPrint(
           '[RsvpMonitor] Reconciliation imported $imported round(s), '
-          'repaired ownership on $repaired, relinked $relinked orphan(s)',
+          'repaired ownership on $repaired, relinked $relinked orphan(s), '
+          'synced statuses on $synced',
         );
       }
       return imported;

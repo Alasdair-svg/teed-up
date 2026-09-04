@@ -10,7 +10,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/feature_flags.dart';
 import '../models/family_member.dart';
 import '../models/golf_round.dart';
 import '../models/player.dart';
@@ -467,31 +466,15 @@ class AppState extends ChangeNotifier {
   /// Informs friends & family about [roundId] (spec A10 — "Let friends and
   /// family know").
   ///
-  /// Gated behind [kEnableFamilyCalendarInvite] — off in the shipped
-  /// build. Adds every configured [familyMembers] entry as an
+  /// Restricted by ROLE, not by build flag: the only entry point is the
+  /// notify button on the round detail screen, which sits inside
+  /// `if (round.isCreator)`. A player who was invited to someone else's
+  /// round cannot add anyone to it.
+  ///
+  /// Adds every configured [familyMembers] entry as an
   /// informational (Optional) calendar attendee on the round's event —
   /// creating the event first if it doesn't exist yet — then marks the
-  /// round notified. No-ops if already notified.
-  Future<void> notifyFamily({required String roundId}) async {
-    if (!kEnableFamilyCalendarInvite) return;
-
-    final round = getRound(roundId);
-    if (round == null || round.familyNotified) return;
-
-    var toSave = round.copyWith(familyNotified: true);
-    if (_familyMembers.isNotEmpty && _selectedCalendarId != null) {
-      toSave = await _pushFamilyToCalendar(toSave, _familyMembers);
-    }
-
-    final index = _upcomingRounds.indexWhere((r) => r.id == toSave.id);
-    if (index >= 0) {
-      _upcomingRounds[index] = toSave;
-    } else {
-      _upcomingRounds.add(toSave);
-    }
-    notifyListeners();
-  }
-
+ 
   /// Sends (creates or refreshes) the calendar invite for a round's
   /// players — the always-shown "Send invite" action. Does not touch
   /// family attendees.

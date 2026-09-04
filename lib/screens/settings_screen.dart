@@ -68,40 +68,59 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // Friends & Family is hidden while
-              // [kEnableFamilyCalendarInvite] is off, which is every shipped
-              // build. The whole card was inert: notifyFamily() returns
-              // immediately behind the same flag, and "Always notify all
-              // members" was read nowhere but the row that drew it. Showing
-              // it promised a notification the build cannot send — and the
-              // label reads as though it covers players, not family.
-              if (kEnableFamilyCalendarInvite) ...[
-                const SizedBox(height: 14),
-                _SettingsCard(
-                  emoji: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
-                  title: 'Friends & Family',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FamilySetupSection(
-                        entries: state.familyMembers,
-                        onAdd: (name, email) =>
-                            state.addFamilyMember(name: name, email: email),
-                        onRemove: state.removeFamilyMember,
+              // Friends & family ships to everyone, and is restricted by
+              // WORKFLOW rather than by a build flag or a role check: the
+              // only place it can be used is while creating a booking. A
+              // player invited to someone else's round never enters that
+              // workflow, so there is no path to guard.
+              //
+              // This card must stay visible. It was briefly hidden while the
+              // notify action was believed to be dead — but the scan screen
+              // was adding these people to every event all along, so hiding
+              // it meant configuration that still acted and could not be
+              // seen or edited.
+              const SizedBox(height: 14),
+              _SettingsCard(
+                emoji: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
+                title: 'Friends & Family',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FamilySetupSection(
+                      entries: state.familyMembers,
+                      onAdd: (name, email) =>
+                          state.addFamilyMember(name: name, email: email),
+                      onRemove: state.removeFamilyMember,
+                    ),
+                    const Divider(height: 28),
+                    Text(
+                      'These people are told about a round — they are not '
+                      'playing in it. You choose who to include when you '
+                      'scan a booking.',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: AppColors.textMuted,
                       ),
-                      if (state.familyMembers.isNotEmpty) ...[
-                        const Divider(height: 28),
-                        _ToggleRow(
-                          title: 'Always notify all members',
-                          subtitle: 'Auto-select on every scan',
-                          value: state.familyAlwaysNotify,
-                          onChanged: state.setFamilyAlwaysNotify,
-                        ),
-                      ],
+                    ),
+                    if (state.familyMembers.isNotEmpty) ...[
+                      const Divider(height: 28),
+                      _ToggleRow(
+                        // Renamed. "Always notify all members" read as though
+                        // it covered playing partners, and it drove nothing —
+                        // every scan pre-selected everyone regardless, which
+                        // is how a family member ended up on a booking the
+                        // user had not chosen to include them in.
+                        title: 'Include everyone by default',
+                        subtitle: 'Pre-tick all of the above on a new booking',
+                        value: state.familyAlwaysNotify,
+                        onChanged: state.setFamilyAlwaysNotify,
+                      ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
               const SizedBox(height: 14),
               _SettingsCard(
                 emoji: '\u{1F4C7}',

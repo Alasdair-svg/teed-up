@@ -286,7 +286,14 @@ class _ScanScreenState extends State<ScanScreen> {
         _dateReview = parsed.date;
         _timeReview = parsed.teeTime;
         _bookingRefReview = parsed.bookingRef;
-        _selectedFamilyIndices = Set.from(List.generate(familyCount, (i) => i));
+        // Pre-tick everyone ONLY if the user asked for that in Settings.
+        // This used to be unconditional, so every scan silently added every
+        // stored family member to the booking as an Optional attendee — the
+        // route by which someone who was never in the screenshot ended up
+        // attached to a round.
+        _selectedFamilyIndices = appState.familyAlwaysNotify
+            ? Set.from(List.generate(familyCount, (i) => i))
+            : <int>{};
         _phase = _Phase.review;
       });
     } catch (e, st) {
@@ -332,7 +339,10 @@ class _ScanScreenState extends State<ScanScreen> {
       _dateReview = date;
       _timeReview = teeTime;
       _bookingRefReview = null;
-      _selectedFamilyIndices = Set.from(List.generate(familyCount, (i) => i));
+      // Same rule as the scan path: only pre-tick when asked to.
+      _selectedFamilyIndices = appState.familyAlwaysNotify
+          ? Set.from(List.generate(familyCount, (i) => i))
+          : <int>{};
       _phase = _Phase.review;
     });
   }

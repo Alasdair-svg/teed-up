@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../config/feature_flags.dart';
 import '../models/models.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
@@ -104,20 +103,16 @@ class RoundDetailScreen extends StatelessWidget {
                     const SizedBox(height: 28),
 
                     if (round.isCreator) ...[
-                      // ── Let friends and family know (A10) ──────────
-                      // Pulled from the general product for now — see
-                      // kEnableFamilyCalendarInvite. Adding family as
-                      // calendar attendees only makes sense for the round's
-                      // own organizer in the first place.
-                      if (kEnableFamilyCalendarInvite) ...[
-                        _FamilyNotifyButton(
-                          round: round,
-                          onNotify: () async {
-                            await state.notifyFamily(roundId: round.id);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      // "Let friends and family know" is deliberately NOT
+                      // here — it lives only in the booking-creation
+                      // workflow.
+                      //
+                      // That makes creator-only structural rather than a
+                      // check: someone invited to another person's round
+                      // never enters that workflow, so there is no button to
+                      // guard and no isCreator test a later UI change could
+                      // get wrong. The trade is that family cannot be added
+                      // after the fact; rescanning the booking is the way.
 
                       // ── Send Invite (organizer action) ─────────────
                       SizedBox(
@@ -553,72 +548,6 @@ class _PlayerTile extends StatelessWidget {
     );
   }
 }
-
-/// "Let friends and family know" action (spec A10).
-///
-/// Adds the round's configured family members as Optional calendar
-/// attendees — a real calendar write, so unlike a share-sheet message
-/// this is a one-shot: once [GolfRound.familyNotified] is set, the button
-/// becomes an inert "✓ Family notified" pill so it can't fire twice.
-/// Gated behind [kEnableFamilyCalendarInvite] at the call site.
-class _FamilyNotifyButton extends StatelessWidget {
-  const _FamilyNotifyButton({required this.round, required this.onNotify});
-
-  final GolfRound round;
-  final Future<void> Function() onNotify;
-
-  @override
-  Widget build(BuildContext context) {
-    final notified = round.familyNotified;
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: notified ? null : AppColors.primaryGradient,
-              color: notified ? AppColors.palePurple : null,
-              borderRadius: AppRadius.buttonBorder,
-            ),
-            child: ElevatedButton(
-              onPressed: notified ? null : onNotify,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.buttonBorder),
-              ),
-              child: Text(
-                notified ? '✓ Family notified' : 'Let friends and family know',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: notified ? AppColors.primary : AppColors.white,
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (notified)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              "They know. They might even show up at the 19th hole.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Vertical event timeline for the round.
 class _EventTimeline extends StatelessWidget {
   const _EventTimeline({required this.round});
 

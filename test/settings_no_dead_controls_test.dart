@@ -1,54 +1,52 @@
-// Settings must not offer a control the build cannot honour.
+// Settings must not offer a control the app cannot honour — and must not
+// hide one it IS acting on.
 //
-// "Always notify all members" sat in the Friends & Family card and did
-// nothing at all: familyAlwaysNotify was read nowhere but the row that drew
-// it, and notifyFamily() returns immediately behind
-// kEnableFamilyCalendarInvite, which is off in every shipped build. The
-// label made it worse — nothing on screen said "members" meant family
-// rather than playing partners, so it read as a control over who gets the
-// invite. The whole card is hidden while the flag is off.
-
+// This file previously asserted the opposite: that the Friends & Family card
+// was hidden. That was written on the belief the feature was dead, because
+// notifyFamily() sat behind a build flag that ships off.
+//
+// The belief was wrong. Only the round-detail button was flagged. The scan
+// screen had been adding family members to every event created, unflagged,
+// all along — and pre-ticking every one of them automatically. So hiding the
+// card removed the user's ability to see or edit a list the app was still
+// acting on, which is worse than the dead control it was meant to remove.
+//
+// The card is back, the list is visible, and nobody is pre-ticked unless the
+// user asks. The inversion is kept here rather than deleted, because "we
+// hid it, then found it was live" is the useful part.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:all_teed_up/config/feature_flags.dart';
 import 'package:all_teed_up/providers/app_state.dart';
 import 'package:all_teed_up/screens/settings_screen.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('the inert Friends & Family card is not shown', (tester) async {
-    // Guard the guard: if the flag is ever switched on for a personal
-    // build, this test is asserting nothing and should say so.
-    expect(
-      kEnableFamilyCalendarInvite,
-      isFalse,
-      reason: 'shipped builds leave family calendar invites off',
-    );
-
-    // Wide surface: widget tests have no real font metrics, so the card
-    // header Row reports a false overflow at phone widths. Verified as a
-    // test artifact, not a layout bug.
-    tester.view.physicalSize = const Size(900, 2400);
+  testWidgets('a list the app acts on is visible to the user', (tester) async {
+    tester.view.physicalSize = const Size(900, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => AppState(),
-        child: const MaterialApp(home: SettingsScreen()),
-      ),
-    );
-    // pump past PurchaseService's one-shot 2s restore retry, which fires
-    // in tests because no store is reachable. pumpAndSettle never returns
-    // here, and leaving the timer pending fails the test on teardown.
+    await tester.pumpWidget(ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: const MaterialApp(home: SettingsScreen()),
+    ));
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 3)); // purchase retry timer
 
-    expect(find.text('Always notify all members'), findsNothing);
-    expect(find.text('Friends & Family'), findsNothing);
+    expect(find.text('Friends & Family'), findsOneWidget);
+  });
+
+  test('the pre-tick control now drives something', () {
+    // "Always notify all members" was read by nothing but the row that drew
+    // it, while every scan pre-ticked everyone regardless. It is now the
+    // switch that decides, and it defaults to off.
+    final state = AppState();
+    expect(state.familyAlwaysNotify, isFalse);
+    state.setFamilyAlwaysNotify(true);
+    expect(state.familyAlwaysNotify, isTrue);
   });
 }
