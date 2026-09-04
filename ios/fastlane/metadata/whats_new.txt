@@ -1,14 +1,13 @@
 Fixes for problems you reported:
 
 • Declines and acceptances now show up. A decline found while the app was
-open was saved but never displayed. Acceptances on your calendar stayed
-"Pending" in the app forever.
+open was saved but never displayed, and acceptances on your calendar stayed
+"Pending" in the app.
 
-• Alerts now say which round and when it tees off, instead of today's date
-and nothing else.
+• Alerts now say which round and when it tees off, instead of today's date.
 
-• Friends & family could end up listed as players. They are informational
-only and are no longer imported into the group.
+• Friends & family could end up listed as players. They are no longer
+imported into the group.
 
-• Friends & family are now chosen while scanning a booking, and nobody is
+• Friends & family are chosen while scanning a booking, and nobody is
 included unless you tick them.
